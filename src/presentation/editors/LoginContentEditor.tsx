@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useDebouncedValue } from "../../application/hooks/useDebouncedValue";
-import type { LoginContent, PasswordStrength } from "../../domain/vaultTypes";
+import { isSealedSecret, type LoginContent, type PasswordStrength } from "../../domain/vaultTypes";
 import { vaultApiClient } from "../../infrastructure/vaultApiClient";
 import { PasswordGeneratorPanel } from "../components/PasswordGeneratorPanel";
 import { PasswordStrengthMeter } from "../components/PasswordStrengthMeter";
@@ -11,8 +11,8 @@ import { Button } from "../components/primitives/Button";
 import { FormField } from "../components/primitives/FormField";
 import { IconButton } from "../components/primitives/IconButton";
 import { ModalDialog } from "../components/primitives/ModalDialog";
-import { PasswordInput } from "../components/primitives/PasswordInput";
 import { TextInput } from "../components/primitives/TextInput";
+import { SealedSecretInput } from "./SealedSecretInput";
 
 interface LoginContentEditorProps {
   itemContent: LoginContent;
@@ -26,7 +26,7 @@ export function LoginContentEditor({ itemContent, onContentChange }: LoginConten
   const debouncedPassword = useDebouncedValue(itemContent.password, 200);
 
   useEffect(() => {
-    if (!debouncedPassword) {
+    if (!debouncedPassword || isSealedSecret(debouncedPassword)) {
       setPasswordStrength(null);
       return;
     }
@@ -59,10 +59,11 @@ export function LoginContentEditor({ itemContent, onContentChange }: LoginConten
           <div className="flex flex-col gap-2">
             <div className="flex gap-2">
               <div className="flex-1">
-                <PasswordInput
+                <SealedSecretInput
                   id={fieldControlId}
                   value={itemContent.password}
-                  onChange={(changeEvent) => onContentChange({ ...itemContent, password: changeEvent.target.value })}
+                  revealableField={{ fieldKind: "password" }}
+                  onValueChange={(password) => onContentChange({ ...itemContent, password })}
                 />
               </div>
               <Button leadingIcon={<Wand2 className="size-4" />} onClick={() => setIsGeneratorOpen(true)}>
@@ -104,11 +105,12 @@ export function LoginContentEditor({ itemContent, onContentChange }: LoginConten
 
       <FormField fieldLabel={translate("fields.totpSecret")} hintText={translate("editor.totpHint")}>
         {(fieldControlId) => (
-          <PasswordInput
+          <SealedSecretInput
             id={fieldControlId}
             placeholder="otpauth://… / JBSWY3DPEHPK3PXP"
             value={itemContent.totpSecret ?? ""}
-            onChange={(changeEvent) => onContentChange({ ...itemContent, totpSecret: changeEvent.target.value || null })}
+            revealableField={{ fieldKind: "totpSecret" }}
+            onValueChange={(totpSecret) => onContentChange({ ...itemContent, totpSecret: totpSecret || null })}
           />
         )}
       </FormField>

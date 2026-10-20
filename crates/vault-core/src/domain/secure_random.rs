@@ -1,6 +1,6 @@
 //! Aleatoriedad criptográfica del sistema operativo (`getrandom`).
 
-use crate::domain::encryption_key::{ENCRYPTION_KEY_LENGTH_BYTES, EncryptionKey};
+use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::vault_error::{VaultError, VaultResult};
 
 pub fn random_bytes<const BYTE_COUNT: usize>() -> VaultResult<[u8; BYTE_COUNT]> {
@@ -10,7 +10,7 @@ pub fn random_bytes<const BYTE_COUNT: usize>() -> VaultResult<[u8; BYTE_COUNT]> 
 }
 
 pub fn random_encryption_key() -> VaultResult<EncryptionKey> {
-    random_bytes::<ENCRYPTION_KEY_LENGTH_BYTES>().map(EncryptionKey::from_bytes)
+    EncryptionKey::fill_in_place(|key_slot| getrandom::fill(key_slot).map_err(|_| VaultError::Cryptography))
 }
 
 /// Índice uniforme en `0..exclusive_upper_bound` sin sesgo de módulo (muestreo por rechazo).

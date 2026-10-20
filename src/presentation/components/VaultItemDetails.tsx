@@ -164,8 +164,8 @@ function ItemDetailsHeader({ vaultItem }: { vaultItem: VaultItem }) {
 
   const toggleFavorite = () =>
     runItemAction(async () => {
-      const editableItem = await vaultApiClient.getVaultItemForEditing(vaultItem.itemId);
-      await vaultApiClient.saveVaultItem({ ...editableItem, isFavorite: !editableItem.isFavorite });
+      const editableDraft = await vaultApiClient.getVaultItemForEditing(vaultItem.itemId);
+      await vaultApiClient.saveVaultItem({ ...editableDraft, isFavorite: !editableDraft.isFavorite });
     });
 
   const moveToTrash = () =>

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::domain::ports::attachment_storage::AttachmentStorage;
 use crate::domain::vault_error::{VaultError, VaultResult};
-use crate::infrastructure::storage::atomic_file_vault_repository::write_and_sync_owner_only_file;
+use crate::infrastructure::storage::owner_only_files::{create_owner_only_directory, write_owner_only_file};
 
 /// Un archivo `<uuid>.bin` por adjunto cifrado; el nombre no revela nada del contenido.
 pub struct DirectoryAttachmentStorage {
@@ -25,8 +25,8 @@ impl DirectoryAttachmentStorage {
 
 impl AttachmentStorage for DirectoryAttachmentStorage {
     fn write_encrypted_attachment(&self, attachment_id: Uuid, encrypted_bytes: &[u8]) -> VaultResult<()> {
-        fs::create_dir_all(&self.attachments_directory).map_err(VaultError::storage)?;
-        write_and_sync_owner_only_file(&self.attachment_file_path(attachment_id), encrypted_bytes)
+        create_owner_only_directory(&self.attachments_directory)?;
+        write_owner_only_file(&self.attachment_file_path(attachment_id), encrypted_bytes)
     }
 
     fn read_encrypted_attachment(&self, attachment_id: Uuid) -> VaultResult<Vec<u8>> {

@@ -12,7 +12,7 @@ use crate::application::import_export_vault::{self, ExportedFile, ImportSummary}
 use crate::application::manage_attachments::{self, DecryptedAttachment};
 use crate::application::save_vault_item::{self, SaveVaultItemRequest};
 use crate::application::search_vault_items::{self, VaultItemFilter, VaultItemSummary, VaultOverview};
-use crate::application::unlock_attempt_throttle::UnlockAttemptThrottle;
+use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_session::{UnlockedVault, VaultSessionState};
 use crate::application::{
@@ -46,11 +46,14 @@ pub struct VaultService {
 
 impl VaultService {
     pub fn new(vault_dependencies: VaultDependencies) -> Self {
-        Self {
-            vault_dependencies,
-            session_state: VaultSessionState::Locked,
-            unlock_attempt_throttle: UnlockAttemptThrottle::default(),
-        }
+        let unlock_attempt_throttle = vault_dependencies.unlock_throttle_store.load_throttle().unwrap_or_default();
+        Self { vault_dependencies, session_state: VaultSessionState::Locked, unlock_attempt_throttle }
+    }
+
+    /// Descarta claves y secretos de memoria y vacía el portapapeles si aún tiene un secreto nuestro.
+    fn lock_session(&mut self) {
+        self.session_state.lock();
+        self.vault_dependencies.secret_clipboard.clear_copied_secret();
     }
 
     /// Acceso de escritura: además cuenta como actividad del usuario (retrasa el auto-bloqueo).
@@ -91,7 +94,7 @@ impl VaultService {
     }
 
     pub fn lock_vault(&mut self) {
-        self.session_state.lock();
+        self.lock_session();
     }
 
     pub fn register_user_activity(&mut self) -> VaultResult<()> {
@@ -108,7 +111,7 @@ impl VaultService {
         let auto_lock_after_seconds = unlocked_vault.vault_contents.preferences.auto_lock_after_idle_seconds;
         let is_idle_too_long = u64::try_from(idle_seconds).is_ok_and(|idle_seconds| idle_seconds >= auto_lock_after_seconds);
         if is_idle_too_long {
-            self.session_state.lock();
+            self.lock_session();
         }
         is_idle_too_long
     }
@@ -140,13 +143,9 @@ impl VaultService {
         Ok(search_vault_items::search_items(&unlocked_vault.vault_contents, item_filter))
     }
 
-    /// Elemento completo (con secretos) para el editor.
-    pub fn get_item(&self, item_id: Uuid) -> VaultResult<VaultItem> {
-        let unlocked_vault = self.session_state.require_unlocked()?;
-        unlocked_vault.vault_contents.find_item(item_id).cloned()
-    }
-
-    /// Elemento con los secretos enmascarados para la vista de detalle.
+    /// Elemento con los secretos enmascarados, tanto para la vista de detalle como para el editor.
+    /// Los secretos solo cruzan a la UI con `reveal_item_field`, y al guardar los marcadores
+    /// sin tocar recuperan su valor (ver `save_vault_item`).
     pub fn get_item_details(&self, item_id: Uuid) -> VaultResult<VaultItem> {
         let unlocked_vault = self.session_state.require_unlocked()?;
         Ok(unlocked_vault.vault_contents.find_item(item_id)?.redacted_copy())

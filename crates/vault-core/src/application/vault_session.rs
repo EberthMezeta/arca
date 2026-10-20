@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
-use zeroize::Zeroizing;
 
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::key_hierarchy::VaultSubkeys;
+use crate::domain::secret_serialization::serialize_secret_json;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_file::vault_file_format::{VaultFileHeader, encode_vault_file};
@@ -78,7 +78,7 @@ pub fn persist_vault_contents(
     vault_contents_key: &EncryptionKey,
     vault_contents: &VaultContents,
 ) -> VaultResult<()> {
-    let serialized_contents = Zeroizing::new(serde_json::to_vec(vault_contents).map_err(|_| VaultError::Cryptography)?);
+    let serialized_contents = serialize_secret_json(vault_contents)?;
     let encrypted_contents =
         vault_dependencies.authenticated_cipher.seal(vault_contents_key, &serialized_contents, encoded_header_bytes)?;
     let vault_file_bytes = encode_vault_file(encoded_header_bytes, &encrypted_contents)?;

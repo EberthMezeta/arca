@@ -3,6 +3,7 @@ use std::fs;
 use tauri::{AppHandle, State};
 use uuid::Uuid;
 use vault_core::domain::vault_item::AttachmentReference;
+use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
 use zeroize::Zeroizing;
 
 use crate::app_state::AppState;
@@ -40,7 +41,7 @@ pub async fn save_attachment_to_file(
     let Some(destination_path) = ask_file_to_save(&app_handle, &dialog_title, &decrypted_attachment.file_name) else {
         return Ok(false);
     };
-    fs::write(destination_path, decrypted_attachment.file_bytes.as_slice()).map_err(CommandError::file_access)?;
+    write_owner_only_file(&destination_path, decrypted_attachment.file_bytes.as_slice()).map_err(CommandError::file_write)?;
     Ok(true)
 }
 

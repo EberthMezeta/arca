@@ -23,15 +23,10 @@ pub fn get_vault_overview(app_state: State<'_, AppState>) -> CommandResult<Vault
     Ok(app_state.lock_vault_service()?.vault_overview()?)
 }
 
+/// Secretos enmascarados: sirve para la vista de detalle y para el editor.
 #[tauri::command]
 pub fn get_vault_item_details(app_state: State<'_, AppState>, item_id: Uuid) -> CommandResult<VaultItem> {
     Ok(app_state.lock_vault_service()?.get_item_details(item_id)?)
-}
-
-/// Elemento completo, solo para el editor.
-#[tauri::command]
-pub fn get_vault_item(app_state: State<'_, AppState>, item_id: Uuid) -> CommandResult<VaultItem> {
-    Ok(app_state.lock_vault_service()?.get_item(item_id)?)
 }
 
 #[tauri::command]

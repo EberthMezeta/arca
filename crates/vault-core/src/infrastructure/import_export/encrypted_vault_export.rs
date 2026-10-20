@@ -4,7 +4,6 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroizing;
 
 use crate::domain::key_derivation_parameters::KeyDerivationParameters;
 use crate::domain::master_password_policy::MasterPasswordPolicy;
@@ -12,6 +11,7 @@ use crate::domain::ports::authenticated_cipher::{AuthenticatedCipher, SealedBox}
 use crate::domain::ports::key_derivation_function::KeyDerivationFunction;
 use crate::domain::ports::vault_exporter::{ExportFormat, VaultExporter};
 use crate::domain::ports::vault_importer::{ImportFormat, ImportedVaultData, VaultImporter};
+use crate::domain::secret_serialization::serialize_secret_json;
 use crate::domain::secret_text::SecretText;
 use crate::domain::secure_random::random_bytes;
 use crate::domain::vault_contents::VaultContents;
@@ -91,7 +91,7 @@ impl VaultExporter for EncryptedVaultExportExporter {
             &export_salt,
             &export_envelope.key_derivation_parameters,
         )?;
-        let serialized_contents = Zeroizing::new(serde_json::to_vec(vault_contents).map_err(VaultError::storage)?);
+        let serialized_contents = serialize_secret_json(vault_contents)?;
         let sealed_contents =
             XChaCha20Poly1305Cipher.seal(&export_key, &serialized_contents, &export_envelope.associated_data())?;
 

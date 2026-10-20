@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 
 import { FormField } from "../components/primitives/FormField";
-import { PasswordInput } from "../components/primitives/PasswordInput";
 import { TextInput } from "../components/primitives/TextInput";
 import type { ContentFieldDescriptor } from "./contentFieldDescriptors";
+import { SealedSecretInput } from "./SealedSecretInput";
 
 interface DescriptorDrivenEditorProps<Content> {
   itemContent: Content;
@@ -17,18 +17,29 @@ export function DescriptorDrivenEditor<Content>({ itemContent, fieldDescriptors,
   return (
     <div className="grid grid-cols-2 gap-4">
       {fieldDescriptors.map((fieldDescriptor) => {
-        const InputComponent = fieldDescriptor.revealableField ? PasswordInput : TextInput;
+        const fieldValue = String(itemContent[fieldDescriptor.fieldKey] ?? "");
+        const updateFieldValue = (newFieldValue: string) => onContentChange({ ...itemContent, [fieldDescriptor.fieldKey]: newFieldValue });
         return (
           <div key={fieldDescriptor.fieldKey} className={fieldDescriptor.gridColumnSpan === 2 ? "col-span-2" : ""}>
             <FormField fieldLabel={translate(fieldDescriptor.labelKey)}>
-              {(fieldControlId) => (
-                <InputComponent
-                  id={fieldControlId}
-                  inputMode={fieldDescriptor.inputMode}
-                  value={String(itemContent[fieldDescriptor.fieldKey] ?? "")}
-                  onChange={(changeEvent) => onContentChange({ ...itemContent, [fieldDescriptor.fieldKey]: changeEvent.target.value })}
-                />
-              )}
+              {(fieldControlId) =>
+                fieldDescriptor.revealableField ? (
+                  <SealedSecretInput
+                    id={fieldControlId}
+                    inputMode={fieldDescriptor.inputMode}
+                    value={fieldValue}
+                    revealableField={fieldDescriptor.revealableField}
+                    onValueChange={updateFieldValue}
+                  />
+                ) : (
+                  <TextInput
+                    id={fieldControlId}
+                    inputMode={fieldDescriptor.inputMode}
+                    value={fieldValue}
+                    onChange={(changeEvent) => updateFieldValue(changeEvent.target.value)}
+                  />
+                )
+              }
             </FormField>
           </div>
         );

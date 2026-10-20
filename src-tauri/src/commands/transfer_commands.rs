@@ -5,6 +5,7 @@ use vault_core::application::import_export_vault::ImportSummary;
 use vault_core::domain::ports::vault_exporter::ExportFormat;
 use vault_core::domain::ports::vault_importer::ImportFormat;
 use vault_core::domain::secret_text::SecretText;
+use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
 use zeroize::Zeroizing;
 
 use crate::app_state::AppState;
@@ -55,6 +56,7 @@ pub async fn export_vault_to_file(
     let Some(destination_path) = ask_file_to_save(&app_handle, &dialog_title, &suggested_file_name) else {
         return Ok(false);
     };
-    fs::write(destination_path, exported_bytes.as_slice()).map_err(CommandError::file_access)?;
+    // Puede ir en texto plano (CSV / JSON de Bitwarden): solo el usuario debe poder leerlo.
+    write_owner_only_file(&destination_path, exported_bytes.as_slice()).map_err(CommandError::file_write)?;
     Ok(true)
 }

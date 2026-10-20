@@ -37,6 +37,16 @@ impl AppState {
         should_lock
     }
 
+    /// Bloquea ya (suspensión, bloqueo de pantalla, cierre). Devuelve `true` si estaba desbloqueada.
+    pub fn lock_if_unlocked(&self) -> bool {
+        let Ok(mut vault_service) = self.vault_service.lock() else {
+            return false;
+        };
+        let was_unlocked = vault_service.vault_status().is_unlocked;
+        vault_service.lock_vault();
+        was_unlocked
+    }
+
     pub fn lock_if_idle(&self) -> bool {
         self.vault_service.lock().is_ok_and(|mut vault_service| vault_service.lock_if_idle())
     }

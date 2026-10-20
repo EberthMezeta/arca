@@ -10,7 +10,7 @@ use crate::infrastructure::crypto::argon2id_key_derivation::Argon2idKeyDerivatio
 use crate::infrastructure::crypto::xchacha20_poly1305_cipher::XChaCha20Poly1305Cipher;
 use crate::infrastructure::import_export::build_default_transfer_format_registry;
 use crate::infrastructure::storage::in_memory_storage::{
-    FakeSecretClipboard, InMemoryAttachmentStorage, InMemoryVaultRepository,
+    FakeSecretClipboard, InMemoryAttachmentStorage, InMemoryUnlockThrottleStore, InMemoryVaultRepository,
 };
 
 pub const STRONG_MASTER_PASSWORD: &str = "glacier-mantis-orbit-velvet-27";
@@ -46,19 +46,33 @@ pub struct TestVaultHarness {
     pub fake_clock: FakeClock,
     pub fake_clipboard: Arc<FakeSecretClipboard>,
     pub vault_repository: Arc<InMemoryVaultRepository>,
+    pub attachment_storage: Arc<InMemoryAttachmentStorage>,
+    pub unlock_throttle_store: Arc<InMemoryUnlockThrottleStore>,
+}
+
+/// Adaptadores compartidos para poder "reiniciar la app" con el mismo disco simulado.
+#[derive(Clone, Default)]
+pub struct SharedTestStorage {
+    pub vault_repository: Arc<InMemoryVaultRepository>,
+    pub attachment_storage: Arc<InMemoryAttachmentStorage>,
+    pub unlock_throttle_store: Arc<InMemoryUnlockThrottleStore>,
 }
 
 pub fn build_test_vault_service() -> TestVaultHarness {
-    let fake_clock = FakeClock::starting_now();
+    build_test_vault_service_on(SharedTestStorage::default(), FakeClock::starting_now())
+}
+
+pub fn build_test_vault_service_on(shared_storage: SharedTestStorage, fake_clock: FakeClock) -> TestVaultHarness {
     let fake_clipboard = Arc::new(FakeSecretClipboard::default());
-    let vault_repository = Arc::new(InMemoryVaultRepository::default());
+    let SharedTestStorage { vault_repository, attachment_storage, unlock_throttle_store } = shared_storage;
 
     let vault_dependencies = VaultDependencies {
         vault_repository: Box::new(Arc::clone(&vault_repository)),
-        attachment_storage: Box::new(InMemoryAttachmentStorage::default()),
+        attachment_storage: Box::new(Arc::clone(&attachment_storage)),
         key_derivation_function: Box::new(Argon2idKeyDerivation),
         authenticated_cipher: Box::new(XChaCha20Poly1305Cipher),
         secret_clipboard: Box::new(Arc::clone(&fake_clipboard)),
+        unlock_throttle_store: Box::new(Arc::clone(&unlock_throttle_store)),
         clock: Box::new(fake_clock.clone()),
         transfer_format_registry: build_default_transfer_format_registry(),
         key_derivation_policy: KeyDerivationPolicy {
@@ -68,5 +82,12 @@ pub fn build_test_vault_service() -> TestVaultHarness {
         maximum_attachment_size_bytes: 1024,
     };
 
-    TestVaultHarness { vault_service: VaultService::new(vault_dependencies), fake_clock, fake_clipboard, vault_repository }
+    TestVaultHarness {
+        vault_service: VaultService::new(vault_dependencies),
+        fake_clock,
+        fake_clipboard,
+        vault_repository,
+        attachment_storage,
+        unlock_throttle_store,
+    }
 }

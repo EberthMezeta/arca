@@ -120,7 +120,8 @@
     "customFieldValue": "Value",
     "hiddenField": "Hidden",
     "addCustomField": "Add field",
-    "saved": "“{{itemTitle}}” saved"
+    "saved": "“{{itemTitle}}” saved",
+    "sealedSecretHint": "Hidden value. Click the eye to view it or type to replace it."
   },
   "attachments": {
     "title": "Attachments",
@@ -231,7 +232,9 @@
     "lockedByMinimize": "Locked when the window was minimized.",
     "placeholder": "Master password",
     "submit": "Unlock",
-    "unlocking": "Checking…"
+    "unlocking": "Checking…",
+    "lockedByScreenLock": "Locked when the screen was locked.",
+    "lockedBySuspend": "Locked when the computer went to sleep."
   },
   "settings": {
     "saved": "Settings saved",

@@ -6,6 +6,7 @@ pub mod authenticated_cipher;
 pub mod clock;
 pub mod key_derivation_function;
 pub mod secret_clipboard;
+pub mod unlock_throttle_store;
 pub mod vault_exporter;
 pub mod vault_importer;
 pub mod vault_repository;

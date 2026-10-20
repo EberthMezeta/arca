@@ -28,6 +28,7 @@ import type {
   VaultPreferences,
   VaultStatus,
 } from "../domain/vaultTypes";
+import { toEditableDraft } from "../domain/vaultTypes";
 
 export function isCommandError(unknownError: unknown): unknownError is CommandError {
   return typeof unknownError === "object" && unknownError !== null && "errorCode" in unknownError;
@@ -62,7 +63,9 @@ export const vaultApiClient = {
     callBackend<VaultItemSummary[]>("search_vault_items", { itemFilter }),
   getVaultOverview: () => callBackend<VaultOverview>("get_vault_overview"),
   getVaultItemDetails: (itemId: ItemId) => callBackend<VaultItem>("get_vault_item_details", { itemId }),
-  getVaultItemForEditing: (itemId: ItemId) => callBackend<VaultItem>("get_vault_item", { itemId }),
+  /** Los secretos llegan enmascarados también al editor; se revelan uno a uno con `revealItemField`. */
+  getVaultItemForEditing: async (itemId: ItemId): Promise<SaveVaultItemRequest> =>
+    toEditableDraft(await callBackend<VaultItem>("get_vault_item_details", { itemId })),
   saveVaultItem: (saveRequest: SaveVaultItemRequest) => callBackend<VaultItem>("save_vault_item", { saveRequest }),
   moveItemToTrash: (itemId: ItemId) => callBackend<void>("move_item_to_trash", { itemId }),
   restoreItemFromTrash: (itemId: ItemId) => callBackend<void>("restore_item_from_trash", { itemId }),

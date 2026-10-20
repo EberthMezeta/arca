@@ -61,6 +61,12 @@ export interface CustomField {
   isHidden: boolean;
 }
 
+/** Campo personalizado en el editor. `sourceFieldIndex` es su posición en el elemento guardado
+ *  (null si es nuevo): así el backend recupera un valor oculto enmascarado aunque se borren otros campos. */
+export interface CustomFieldDraft extends CustomField {
+  sourceFieldIndex: number | null;
+}
+
 export interface PasswordHistoryEntry {
   previousPassword: string;
   replacedAt: IsoDateTime;
@@ -97,7 +103,7 @@ export interface SaveVaultItemRequest {
   tagNames: string[];
   isFavorite: boolean;
   notes: string;
-  customFields: CustomField[];
+  customFields: CustomFieldDraft[];
   itemContent: ItemContent;
 }
 
@@ -157,6 +163,7 @@ export type RevealableField =
   | { fieldKind: "cardNumber" }
   | { fieldKind: "cardSecurityCode" }
   | { fieldKind: "identityDocumentNumber" }
+  | { fieldKind: "totpSecret" }
   | { fieldKind: "customField"; fieldIndex: number };
 
 export interface TotpCode {
@@ -237,7 +244,29 @@ export interface CommandError {
   technicalDetail?: string;
 }
 
-export type VaultLockReason = "idleTimeout" | "windowMinimized";
+export type VaultLockReason = "idleTimeout" | "windowMinimized" | "screenLocked" | "systemSuspended";
 
 /** Mismo valor que `REDACTED_SECRET_PLACEHOLDER` en Rust. */
 export const REDACTED_SECRET_PLACEHOLDER = "••••••••";
+
+/** Un secreto que la UI recibió enmascarado y aún no se ha revelado ni editado. */
+export function isSealedSecret(secretValue: string | null | undefined): boolean {
+  return secretValue === REDACTED_SECRET_PLACEHOLDER;
+}
+
+/**
+ * Convierte un elemento (con secretos enmascarados) en el borrador que se envía al guardar.
+ * Los secretos se quedan enmascarados: el backend conserva el valor guardado si vuelven sin tocar.
+ */
+export function toEditableDraft(vaultItem: VaultItem): SaveVaultItemRequest {
+  return {
+    itemId: vaultItem.itemId,
+    title: vaultItem.title,
+    folderId: vaultItem.folderId,
+    tagNames: vaultItem.tagNames,
+    isFavorite: vaultItem.isFavorite,
+    notes: vaultItem.notes,
+    customFields: vaultItem.customFields.map((customField, fieldPosition) => ({ ...customField, sourceFieldIndex: fieldPosition })),
+    itemContent: vaultItem.itemContent,
+  };
+}

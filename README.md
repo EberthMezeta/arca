@@ -34,21 +34,26 @@ pnpm typecheck
 | Pieza | Elección |
 |---|---|
 | Derivación de clave | Argon2id · 256 MiB · 3 iteraciones · 4 hilos · salt aleatoria de 32 B |
-| Clave de bóveda | 256 bits aleatorios, envuelta con la clave derivada (cambiar la maestra no re-cifra nada) |
+| Clave de bóveda | 256 bits aleatorios, envuelta con la clave derivada. Cambiar la maestra **rota la clave** y vuelve a cifrar todo (adjuntos incluidos): una copia vieja del archivo + la contraseña antigua no abre las versiones nuevas |
 | Cifrado | XChaCha20-Poly1305 con nonce aleatorio de 192 bits en cada guardado |
 | Integridad | La cabecera (parámetros KDF, salt) va como AAD: cualquier byte alterado impide abrir la bóveda |
 | Subclaves | HKDF-SHA256 por propósito (contenido, adjuntos); una clave distinta por adjunto |
-| Memoria | `zeroize` en claves y secretos; al bloquear se descarta todo el estado descifrado |
-| Disco | Escritura atómica (`.tmp` + fsync + rename), copia `.bak`, permisos `0600` |
-| Fuerza bruta | Retardo exponencial tras 3 intentos fallidos (además del coste de Argon2id) |
-| Frontend | La clave nunca sale de Rust; la UI recibe secretos enmascarados y solo pide el valor real al pulsar «Mostrar» / «Copiar» |
+| Memoria | `zeroize` en claves y secretos (también la memoria interna de Argon2id y ChaCha20); las claves se rellenan en su sitio y el JSON descifrado se serializa en un buffer de tamaño exacto para no dejar copias al realocar. Al bloquear se descarta todo el estado descifrado |
+| Disco | Escritura atómica (`.tmp` + fsync + rename), copia `.bak` (se borra al cambiar la contraseña maestra). Archivos `0600` y directorio de datos `0700`, también para exportaciones y adjuntos descifrados |
+| Fuerza bruta | Retardo exponencial tras 3 intentos fallidos, guardado en disco para que reiniciar la app no lo borre (además del coste de Argon2id, que es lo que protege frente a un ataque con el archivo copiado) |
+| Frontend | La clave nunca sale de Rust; la UI (también el editor) recibe secretos enmascarados y solo pide el valor real al pulsar «Mostrar» / «Copiar». Al guardar, un secreto enmascarado sin tocar conserva su valor |
 | Tauri | CSP estricta, sin plugins `shell`/`fs`/`http`; los diálogos de archivo se abren desde Rust (la UI no envía rutas) |
-| Portapapeles | Se vacía automáticamente (30 s por defecto) si sigue conteniendo el secreto |
+| Portapapeles | Se marca como sensible para que los gestores de historial no lo guarden, y se vacía a los 30 s (por defecto), al bloquear la bóveda y al cerrar la app, si sigue conteniendo el secreto |
+| Bloqueo | Por inactividad, al minimizar (opcional), al suspender el equipo y, en Linux, al bloquear la pantalla (señales de D-Bus del salvapantallas y de logind) |
+| Exportación | Las celdas de CSV que empiezan por `=`, `+`, `-` o `@` se exportan como texto (evita la *CSV injection*); contraseña y TOTP se exportan intactos |
 
-Archivos: `~/.local/share/dev.rustvault.desktop/personal.vault` y los adjuntos cifrados en `personal.vault.d/`.
+Archivos: `~/.local/share/dev.rustvault.desktop/personal.vault`, los adjuntos cifrados en `personal.vault.d/` y el contador de intentos fallidos en `unlock-throttle.json`.
 
 > **Limitaciones honestas:** no hay auditoría externa; un equipo con malware/keylogger puede capturar la contraseña maestra;
-> algunos gestores de portapapeles del escritorio guardan historial por su cuenta.
+> no todos los gestores de portapapeles respetan la marca de contenido sensible; borrar `zeroize` es *best-effort*
+> (el compilador o el sistema pueden haber copiado memoria antes); los strings que ya llegaron a JavaScript al pulsar
+> «Mostrar» no se pueden borrar de memoria; borrar el `.bak` en un SSD no garantiza que los bloques se sobrescriban;
+> las exportaciones antiguas siguen cifradas con la contraseña con la que se crearon.
 
 ## Arquitectura
 

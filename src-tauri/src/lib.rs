@@ -7,21 +7,30 @@ mod command_error;
 mod commands;
 mod composition_root;
 mod file_dialogs;
+mod system_lock_watcher;
 mod vault_events;
 
-use tauri::{Manager, WindowEvent};
+use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 
 use crate::app_state::AppState;
 use crate::vault_events::{VaultLockReason, emit_vault_locked};
 
+/// Al cerrar la app se bloquea la bóveda: borra las claves y vacía el portapapeles si aún tiene un secreto.
+fn lock_on_exit(app_handle: &AppHandle, run_event: RunEvent) {
+    if !matches!(run_event, RunEvent::Exit) {
+        return;
+    }
+    app_handle.state::<AppState>().lock_if_unlocked();
+}
+
 pub fn run() {
-    let run_result = tauri::Builder::default()
-        .plugin(tauri_plugin_clipboard_manager::init())
+    let build_result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|tauri_app| {
             let app_handle = tauri_app.handle().clone();
             let composed_application = composition_root::compose_application(&app_handle)?;
             tauri_app.manage(AppState::new(composed_application));
+            system_lock_watcher::start(&app_handle);
             auto_lock_scheduler::start(app_handle);
             Ok(())
         })
@@ -36,10 +45,13 @@ pub fn run() {
             }
         })
         .invoke_handler(commands::all_command_handlers())
-        .run(tauri::generate_context!());
+        .build(tauri::generate_context!());
 
-    if let Err(startup_error) = run_result {
-        eprintln!("No se pudo iniciar la aplicación: {startup_error}");
-        std::process::exit(1);
+    match build_result {
+        Ok(tauri_app) => tauri_app.run(lock_on_exit),
+        Err(startup_error) => {
+            eprintln!("No se pudo iniciar la aplicación: {startup_error}");
+            std::process::exit(1);
+        }
     }
 }

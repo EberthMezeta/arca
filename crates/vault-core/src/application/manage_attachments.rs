@@ -6,7 +6,9 @@ use zeroize::Zeroizing;
 
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_session::UnlockedVault;
+use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::key_hierarchy::derive_single_attachment_key;
+use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_file::vault_file_format::{decode_standalone_sealed_box, encode_standalone_sealed_box};
 use crate::domain::vault_item::{AttachmentReference, VaultItem};
@@ -45,16 +47,11 @@ pub fn add_attachment(
         size_bytes,
         added_at: vault_dependencies.clock.now(),
     };
-    let attachment_key =
-        derive_single_attachment_key(&unlocked_vault.vault_subkeys.attachments_root_key, attachment_reference.attachment_id)?;
-    let encrypted_attachment = vault_dependencies.authenticated_cipher.seal(
-        &attachment_key,
-        file_bytes,
-        attachment_reference.attachment_id.as_bytes(),
-    )?;
-    vault_dependencies.attachment_storage.write_encrypted_attachment(
+    seal_and_store_attachment(
+        vault_dependencies,
+        &unlocked_vault.vault_subkeys.attachments_root_key,
         attachment_reference.attachment_id,
-        &encode_standalone_sealed_box(&encrypted_attachment)?,
+        file_bytes,
     )?;
 
     let persist_result = unlocked_vault.modify_and_persist(vault_dependencies, |vault_contents| {
@@ -74,15 +71,108 @@ pub fn read_attachment(
     attachment_id: Uuid,
 ) -> VaultResult<DecryptedAttachment> {
     let attachment_reference = find_attachment_reference(unlocked_vault.vault_contents.find_item(item_id)?, attachment_id)?;
+    let file_bytes =
+        load_and_open_attachment(vault_dependencies, &unlocked_vault.vault_subkeys.attachments_root_key, attachment_id)?;
+    Ok(DecryptedAttachment { file_name: attachment_reference.file_name.clone(), file_bytes })
+}
+
+/// Resultado de volver a cifrar los adjuntos con una clave nueva: cada adjunto se copia
+/// con un identificador nuevo, así los originales siguen intactos hasta que la bóveda
+/// nueva esté guardada (un corte a mitad no pierde nada).
+pub struct AttachmentKeyRotation {
+    previous_attachment_ids: Vec<Uuid>,
+    reencrypted_attachment_ids: Vec<Uuid>,
+}
+
+impl AttachmentKeyRotation {
+    /// La bóveda nueva ya está en disco: los originales (clave antigua) sobran.
+    pub fn discard_previous_copies(&self, vault_dependencies: &VaultDependencies) {
+        delete_attachment_blobs(vault_dependencies, &self.previous_attachment_ids);
+    }
+
+    /// No se pudo guardar la bóveda nueva: se descartan las copias recién creadas.
+    pub fn discard_reencrypted_copies(&self, vault_dependencies: &VaultDependencies) {
+        delete_attachment_blobs(vault_dependencies, &self.reencrypted_attachment_ids);
+    }
+}
+
+/// Vuelve a cifrar todos los adjuntos (incluidos los de la papelera) con `new_attachments_root_key`
+/// y actualiza sus referencias en `vault_contents`.
+pub fn reencrypt_attachments_with_new_key(
+    vault_dependencies: &VaultDependencies,
+    previous_attachments_root_key: &EncryptionKey,
+    new_attachments_root_key: &EncryptionKey,
+    vault_contents: &mut VaultContents,
+) -> VaultResult<AttachmentKeyRotation> {
+    let mut attachment_key_rotation =
+        AttachmentKeyRotation { previous_attachment_ids: Vec::new(), reencrypted_attachment_ids: Vec::new() };
+    let all_attachment_references = vault_contents.vault_items.iter_mut().flat_map(|vault_item| vault_item.attachments.iter_mut());
+
+    for attachment_reference in all_attachment_references {
+        let reencryption_result = reencrypt_single_attachment(
+            vault_dependencies,
+            previous_attachments_root_key,
+            new_attachments_root_key,
+            attachment_reference.attachment_id,
+        );
+        let reencrypted_attachment_id = match reencryption_result {
+            Ok(reencrypted_attachment_id) => reencrypted_attachment_id,
+            Err(reencryption_error) => {
+                attachment_key_rotation.discard_reencrypted_copies(vault_dependencies);
+                return Err(reencryption_error);
+            }
+        };
+        attachment_key_rotation.previous_attachment_ids.push(attachment_reference.attachment_id);
+        attachment_key_rotation.reencrypted_attachment_ids.push(reencrypted_attachment_id);
+        attachment_reference.attachment_id = reencrypted_attachment_id;
+    }
+    Ok(attachment_key_rotation)
+}
+
+fn reencrypt_single_attachment(
+    vault_dependencies: &VaultDependencies,
+    previous_attachments_root_key: &EncryptionKey,
+    new_attachments_root_key: &EncryptionKey,
+    previous_attachment_id: Uuid,
+) -> VaultResult<Uuid> {
+    let file_bytes = load_and_open_attachment(vault_dependencies, previous_attachments_root_key, previous_attachment_id)?;
+    let reencrypted_attachment_id = Uuid::new_v4();
+    seal_and_store_attachment(vault_dependencies, new_attachments_root_key, reencrypted_attachment_id, &file_bytes)?;
+    Ok(reencrypted_attachment_id)
+}
+
+fn seal_and_store_attachment(
+    vault_dependencies: &VaultDependencies,
+    attachments_root_key: &EncryptionKey,
+    attachment_id: Uuid,
+    file_bytes: &[u8],
+) -> VaultResult<()> {
+    let attachment_key = derive_single_attachment_key(attachments_root_key, attachment_id)?;
+    let encrypted_attachment =
+        vault_dependencies.authenticated_cipher.seal(&attachment_key, file_bytes, attachment_id.as_bytes())?;
+    vault_dependencies
+        .attachment_storage
+        .write_encrypted_attachment(attachment_id, &encode_standalone_sealed_box(&encrypted_attachment)?)
+}
+
+fn load_and_open_attachment(
+    vault_dependencies: &VaultDependencies,
+    attachments_root_key: &EncryptionKey,
+    attachment_id: Uuid,
+) -> VaultResult<Zeroizing<Vec<u8>>> {
     let encoded_attachment = vault_dependencies.attachment_storage.read_encrypted_attachment(attachment_id)?;
     let encrypted_attachment = decode_standalone_sealed_box(&encoded_attachment)?;
-    let attachment_key = derive_single_attachment_key(&unlocked_vault.vault_subkeys.attachments_root_key, attachment_id)?;
-
-    let file_bytes = vault_dependencies
+    let attachment_key = derive_single_attachment_key(attachments_root_key, attachment_id)?;
+    vault_dependencies
         .authenticated_cipher
         .open(&attachment_key, &encrypted_attachment, attachment_id.as_bytes())
-        .map_err(|_| VaultError::corrupted_file("adjunto dañado"))?;
-    Ok(DecryptedAttachment { file_name: attachment_reference.file_name.clone(), file_bytes })
+        .map_err(|_| VaultError::corrupted_file("adjunto dañado"))
+}
+
+fn delete_attachment_blobs(vault_dependencies: &VaultDependencies, attachment_ids: &[Uuid]) {
+    for attachment_id in attachment_ids {
+        let _ = vault_dependencies.attachment_storage.delete_encrypted_attachment(*attachment_id);
+    }
 }
 
 pub fn delete_attachment(
@@ -102,12 +192,12 @@ pub fn delete_attachment(
 
 /// Borra los blobs cifrados de elementos eliminados definitivamente (best-effort).
 pub fn delete_attachments_of_items(vault_dependencies: &VaultDependencies, removed_items: &[VaultItem]) {
-    removed_items
+    let removed_attachment_ids: Vec<Uuid> = removed_items
         .iter()
         .flat_map(|removed_item| &removed_item.attachments)
-        .for_each(|attachment| {
-            let _ = vault_dependencies.attachment_storage.delete_encrypted_attachment(attachment.attachment_id);
-        });
+        .map(|attachment| attachment.attachment_id)
+        .collect();
+    delete_attachment_blobs(vault_dependencies, &removed_attachment_ids);
 }
 
 fn find_attachment_reference(vault_item: &VaultItem, attachment_id: Uuid) -> VaultResult<&AttachmentReference> {

@@ -1,4 +1,4 @@
-use crate::application::unlock_attempt_throttle::UnlockAttemptThrottle;
+use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::unwrap_vault_key;
 use crate::application::vault_session::UnlockedVault;
@@ -22,8 +22,10 @@ pub fn execute(
     match &unlock_result {
         Ok(_) => unlock_attempt_throttle.register_successful_attempt(),
         Err(VaultError::InvalidMasterPasswordOrCorruptedVault) => unlock_attempt_throttle.register_failed_attempt(now),
-        Err(_) => {}
+        Err(_) => return unlock_result,
     }
+    // Best-effort: si no se puede guardar, el retardo sigue vigente en memoria.
+    let _ = vault_dependencies.unlock_throttle_store.save_throttle(unlock_attempt_throttle);
     unlock_result
 }
 

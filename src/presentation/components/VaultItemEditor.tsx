@@ -6,13 +6,13 @@ import { useErrorMessage } from "../../application/hooks/useErrorMessage";
 import { useKeyboardShortcuts } from "../../application/hooks/useKeyboardShortcuts";
 import { useToastStore } from "../../application/stores/toastStore";
 import { type ItemEditorState, useVaultWorkspaceStore } from "../../application/stores/vaultWorkspaceStore";
-import type { CommandError, CustomField, Folder, ItemContent, ItemContentType, SaveVaultItemRequest } from "../../domain/vaultTypes";
+import type { CommandError, CustomFieldDraft, Folder, ItemContent, ItemContentType, SaveVaultItemRequest } from "../../domain/vaultTypes";
 import { vaultApiClient } from "../../infrastructure/vaultApiClient";
+import { SealedSecretInput, SealedSecretRevealProvider } from "../editors/SealedSecretInput";
 import { type ContentEditorProps, definitionForContentType, ItemTypeBadge } from "../registries/itemContentTypeRegistry";
 import { Button } from "./primitives/Button";
 import { FormField } from "./primitives/FormField";
 import { IconButton } from "./primitives/IconButton";
-import { PasswordInput } from "./primitives/PasswordInput";
 import { SelectInput } from "./primitives/SelectInput";
 import { Spinner } from "./primitives/Spinner";
 import { TextArea, TextInput } from "./primitives/TextInput";
@@ -139,84 +139,86 @@ export function VaultItemEditor({ editorState }: { editorState: OpenEditorState 
         </Button>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-          {saveErrorText && (
-            <p role="alert" className="rounded-lg bg-danger-soft px-4 py-3 text-sm text-danger">
-              {saveErrorText}
-            </p>
-          )}
-
-          <FormField fieldLabel={translate("fields.title")}>
-            {(fieldControlId) => (
-              <TextInput
-                id={fieldControlId}
-                autoFocus
-                required
-                maxLength={200}
-                placeholder={translate("editor.titlePlaceholder")}
-                value={itemDraft.title}
-                onChange={(changeEvent) => updateDraft({ title: changeEvent.target.value })}
-              />
+      <SealedSecretRevealProvider itemId={itemDraft.itemId}>
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+            {saveErrorText && (
+              <p role="alert" className="rounded-lg bg-danger-soft px-4 py-3 text-sm text-danger">
+                {saveErrorText}
+              </p>
             )}
-          </FormField>
 
-          {ContentEditor && (
-            <ContentEditor
-              itemContent={itemDraft.itemContent}
-              onContentChange={(itemContent: ItemContent) => updateDraft({ itemContent })}
-            />
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField fieldLabel={translate("fields.folder")}>
-              {(fieldControlId) => (
-                <SelectInput
-                  id={fieldControlId}
-                  selectedValue={itemDraft.folderId ?? ""}
-                  selectOptions={folderOptions}
-                  onValueChange={(selectedFolderId) => updateDraft({ folderId: selectedFolderId || null })}
-                />
-              )}
-            </FormField>
-            <FormField fieldLabel={translate("fields.tags")} hintText={translate("editor.tagsHint")}>
+            <FormField fieldLabel={translate("fields.title")}>
               {(fieldControlId) => (
                 <TextInput
                   id={fieldControlId}
-                  placeholder={translate("editor.tagsPlaceholder")}
-                  value={tagText}
-                  onChange={(changeEvent) => setTagText(changeEvent.target.value)}
+                  autoFocus
+                  required
+                  maxLength={200}
+                  placeholder={translate("editor.titlePlaceholder")}
+                  value={itemDraft.title}
+                  onChange={(changeEvent) => updateDraft({ title: changeEvent.target.value })}
                 />
               )}
             </FormField>
-          </div>
 
-          <FormField fieldLabel={translate("fields.notes")}>
-            {(fieldControlId) => (
-              <TextArea
-                id={fieldControlId}
-                rows={contentType === "secureNote" ? 10 : 4}
-                value={itemDraft.notes}
-                onChange={(changeEvent) => updateDraft({ notes: changeEvent.target.value })}
+            {ContentEditor && (
+              <ContentEditor
+                itemContent={itemDraft.itemContent}
+                onContentChange={(itemContent: ItemContent) => updateDraft({ itemContent })}
               />
             )}
-          </FormField>
 
-          <CustomFieldsEditor customFields={itemDraft.customFields} onCustomFieldsChange={(customFields) => updateDraft({ customFields })} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField fieldLabel={translate("fields.folder")}>
+                {(fieldControlId) => (
+                  <SelectInput
+                    id={fieldControlId}
+                    selectedValue={itemDraft.folderId ?? ""}
+                    selectOptions={folderOptions}
+                    onValueChange={(selectedFolderId) => updateDraft({ folderId: selectedFolderId || null })}
+                  />
+                )}
+              </FormField>
+              <FormField fieldLabel={translate("fields.tags")} hintText={translate("editor.tagsHint")}>
+                {(fieldControlId) => (
+                  <TextInput
+                    id={fieldControlId}
+                    placeholder={translate("editor.tagsPlaceholder")}
+                    value={tagText}
+                    onChange={(changeEvent) => setTagText(changeEvent.target.value)}
+                  />
+                )}
+              </FormField>
+            </div>
+
+            <FormField fieldLabel={translate("fields.notes")}>
+              {(fieldControlId) => (
+                <TextArea
+                  id={fieldControlId}
+                  rows={contentType === "secureNote" ? 10 : 4}
+                  value={itemDraft.notes}
+                  onChange={(changeEvent) => updateDraft({ notes: changeEvent.target.value })}
+                />
+              )}
+            </FormField>
+
+            <CustomFieldsEditor customFields={itemDraft.customFields} onCustomFieldsChange={(customFields) => updateDraft({ customFields })} />
+          </div>
         </div>
-      </div>
+      </SealedSecretRevealProvider>
     </form>
   );
 }
 
 interface CustomFieldsEditorProps {
-  customFields: CustomField[];
-  onCustomFieldsChange: (customFields: CustomField[]) => void;
+  customFields: CustomFieldDraft[];
+  onCustomFieldsChange: (customFields: CustomFieldDraft[]) => void;
 }
 
 function CustomFieldsEditor({ customFields, onCustomFieldsChange }: CustomFieldsEditorProps) {
   const { t: translate } = useTranslation();
-  const updateCustomField = (fieldPosition: number, fieldChanges: Partial<CustomField>) =>
+  const updateCustomField = (fieldPosition: number, fieldChanges: Partial<CustomFieldDraft>) =>
     onCustomFieldsChange(
       customFields.map((customField, existingPosition) => (existingPosition === fieldPosition ? { ...customField, ...fieldChanges } : customField)),
     );
@@ -225,7 +227,7 @@ function CustomFieldsEditor({ customFields, onCustomFieldsChange }: CustomFields
     <section className="flex flex-col gap-3">
       <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">{translate("editor.customFields")}</h3>
       {customFields.map((customField, fieldPosition) => {
-        const ValueInput = customField.isHidden ? PasswordInput : TextInput;
+        const updateFieldValue = (fieldValue: string) => updateCustomField(fieldPosition, { fieldValue });
         return (
           <div key={fieldPosition} className="flex items-center gap-2">
             <TextInput
@@ -236,12 +238,24 @@ function CustomFieldsEditor({ customFields, onCustomFieldsChange }: CustomFields
               onChange={(changeEvent) => updateCustomField(fieldPosition, { fieldLabel: changeEvent.target.value })}
             />
             <div className="flex-1">
-              <ValueInput
-                aria-label={translate("editor.customFieldValue")}
-                placeholder={translate("editor.customFieldValue")}
-                value={customField.fieldValue}
-                onChange={(changeEvent) => updateCustomField(fieldPosition, { fieldValue: changeEvent.target.value })}
-              />
+              {customField.isHidden ? (
+                <SealedSecretInput
+                  aria-label={translate("editor.customFieldValue")}
+                  placeholder={translate("editor.customFieldValue")}
+                  value={customField.fieldValue}
+                  revealableField={
+                    customField.sourceFieldIndex === null ? undefined : { fieldKind: "customField", fieldIndex: customField.sourceFieldIndex }
+                  }
+                  onValueChange={updateFieldValue}
+                />
+              ) : (
+                <TextInput
+                  aria-label={translate("editor.customFieldValue")}
+                  placeholder={translate("editor.customFieldValue")}
+                  value={customField.fieldValue}
+                  onChange={(changeEvent) => updateFieldValue(changeEvent.target.value)}
+                />
+              )}
             </div>
             <label className="flex items-center gap-1.5 text-xs text-muted">
               <input
@@ -263,7 +277,7 @@ function CustomFieldsEditor({ customFields, onCustomFieldsChange }: CustomFields
       <button
         type="button"
         className="flex items-center gap-1 self-start text-xs font-semibold text-accent hover:underline"
-        onClick={() => onCustomFieldsChange([...customFields, { fieldLabel: "", fieldValue: "", isHidden: false }])}
+        onClick={() => onCustomFieldsChange([...customFields, { fieldLabel: "", fieldValue: "", isHidden: false, sourceFieldIndex: null }])}
       >
         <Plus className="size-3.5" /> {translate("editor.addCustomField")}
       </button>

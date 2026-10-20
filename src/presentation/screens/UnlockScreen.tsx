@@ -12,6 +12,8 @@ import { PasswordInput } from "../components/primitives/PasswordInput";
 const LOCK_REASON_MESSAGE_KEYS: Record<VaultLockReason, string> = {
   idleTimeout: "unlock.lockedByInactivity",
   windowMinimized: "unlock.lockedByMinimize",
+  screenLocked: "unlock.lockedByScreenLock",
+  systemSuspended: "unlock.lockedBySuspend",
 };
 
 export function UnlockScreen() {

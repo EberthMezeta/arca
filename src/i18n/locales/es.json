@@ -120,7 +120,8 @@
     "customFieldValue": "Valor",
     "hiddenField": "Oculto",
     "addCustomField": "Añadir campo",
-    "saved": "«{{itemTitle}}» guardado"
+    "saved": "«{{itemTitle}}» guardado",
+    "sealedSecretHint": "Valor oculto. Pulsa el ojo para verlo o escribe para reemplazarlo."
   },
   "attachments": {
     "title": "Adjuntos",
@@ -231,7 +232,9 @@
     "lockedByMinimize": "Se bloqueó al minimizar la ventana.",
     "placeholder": "Contraseña maestra",
     "submit": "Desbloquear",
-    "unlocking": "Comprobando…"
+    "unlocking": "Comprobando…",
+    "lockedByScreenLock": "Se bloqueó al bloquear la pantalla.",
+    "lockedBySuspend": "Se bloqueó al suspender el equipo."
   },
   "settings": {
     "saved": "Ajustes guardados",

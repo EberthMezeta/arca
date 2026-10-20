@@ -9,6 +9,8 @@ pub const CLIPBOARD_CLEARED_EVENT: &str = "clipboard-cleared";
 pub enum VaultLockReason {
     IdleTimeout,
     WindowMinimized,
+    ScreenLocked,
+    SystemSuspended,
 }
 
 #[derive(Clone, Serialize)]

@@ -1,9 +1,10 @@
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::fs::{self, File};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use crate::domain::ports::vault_repository::VaultRepository;
 use crate::domain::vault_error::{VaultError, VaultResult};
+use crate::infrastructure::storage::owner_only_files::{create_owner_only_directory, write_owner_only_file};
 
 /// Guarda la bóveda en disco de forma atómica:
 /// copia de seguridad `.bak` → escribe `.tmp` + fsync → `rename` sobre el original.
@@ -42,32 +43,27 @@ impl VaultRepository for AtomicFileVaultRepository {
 
     fn write_vault_bytes(&self, encrypted_vault_bytes: &[u8]) -> VaultResult<()> {
         if let Some(parent_directory) = self.vault_file_path.parent() {
-            fs::create_dir_all(parent_directory).map_err(VaultError::storage)?;
+            create_owner_only_directory(parent_directory)?;
         }
         if self.vault_exists() {
-            fs::copy(&self.vault_file_path, self.sibling_path_with_suffix(".bak")).map_err(VaultError::storage)?;
+            let previous_vault_bytes = fs::read(&self.vault_file_path).map_err(VaultError::storage)?;
+            write_owner_only_file(&self.sibling_path_with_suffix(".bak"), &previous_vault_bytes)?;
         }
 
         let temporary_file_path = self.sibling_path_with_suffix(".tmp");
-        write_and_sync_owner_only_file(&temporary_file_path, encrypted_vault_bytes)?;
+        write_owner_only_file(&temporary_file_path, encrypted_vault_bytes)?;
         fs::rename(&temporary_file_path, &self.vault_file_path).map_err(VaultError::storage)?;
         sync_parent_directory(&self.vault_file_path);
         Ok(())
     }
-}
 
-pub(crate) fn write_and_sync_owner_only_file(file_path: &Path, file_bytes: &[u8]) -> VaultResult<()> {
-    let mut open_options = OpenOptions::new();
-    open_options.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        open_options.mode(0o600);
+    fn discard_backup(&self) -> VaultResult<()> {
+        match fs::remove_file(self.sibling_path_with_suffix(".bak")) {
+            Ok(()) => Ok(()),
+            Err(remove_error) if remove_error.kind() == ErrorKind::NotFound => Ok(()),
+            Err(remove_error) => Err(VaultError::storage(remove_error)),
+        }
     }
-
-    let mut output_file = open_options.open(file_path).map_err(VaultError::storage)?;
-    output_file.write_all(file_bytes).map_err(VaultError::storage)?;
-    output_file.sync_all().map_err(VaultError::storage)
 }
 
 /// Best-effort: en algunos sistemas no se puede abrir un directorio para fsync.
@@ -96,6 +92,21 @@ mod tests {
         assert_eq!(vault_repository.read_vault_bytes().expect("leer"), b"version-2");
         let backup_bytes = fs::read(temporary_directory.path().join("personal.vault.bak")).expect("leer bak");
         assert_eq!(backup_bytes, b"version-1");
+    }
+
+    #[test]
+    fn discarding_backup_removes_previous_version() {
+        let temporary_directory = tempfile::tempdir().expect("directorio temporal");
+        let vault_file_path = temporary_directory.path().join("personal.vault");
+        let vault_repository = AtomicFileVaultRepository::new(&vault_file_path);
+        vault_repository.write_vault_bytes(b"version-1").expect("escribir v1");
+        vault_repository.write_vault_bytes(b"version-2").expect("escribir v2");
+
+        vault_repository.discard_backup().expect("descartar");
+
+        assert!(!temporary_directory.path().join("personal.vault.bak").exists());
+        assert_eq!(vault_repository.read_vault_bytes().expect("leer"), b"version-2");
+        vault_repository.discard_backup().expect("descartar sin copia no falla");
     }
 
     #[test]

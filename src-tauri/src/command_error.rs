@@ -29,6 +29,11 @@ impl CommandError {
     pub fn file_access(file_error: impl ToString) -> Self {
         Self { technical_detail: Some(file_error.to_string()), ..Self::with_code("fileAccess") }
     }
+
+    /// Fallo al escribir un archivo elegido por el usuario (se informa como acceso a archivo, no como error de la bóveda).
+    pub fn file_write(storage_error: VaultError) -> Self {
+        Self::file_access(format!("{storage_error:?}"))
+    }
 }
 
 impl From<VaultError> for CommandError {

@@ -1,5 +1,5 @@
 use crate::application::vault_dependencies::VaultDependencies;
-use crate::domain::encryption_key::{ENCRYPTION_KEY_LENGTH_BYTES, EncryptionKey};
+use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::key_derivation_parameters::KeyDerivationParameters;
 use crate::domain::ports::authenticated_cipher::SealedBox;
 use crate::domain::secret_text::SecretText;
@@ -50,9 +50,5 @@ pub fn unwrap_vault_key(
         .open(&key_encryption_key, &vault_header.wrapped_vault_key, &vault_header.key_wrapping_associated_data())
         .map_err(|_| VaultError::InvalidMasterPasswordOrCorruptedVault)?;
 
-    let vault_key_array: [u8; ENCRYPTION_KEY_LENGTH_BYTES] = vault_key_bytes
-        .as_slice()
-        .try_into()
-        .map_err(|_| VaultError::InvalidMasterPasswordOrCorruptedVault)?;
-    Ok(EncryptionKey::from_bytes(vault_key_array))
+    EncryptionKey::copy_from_slice(&vault_key_bytes).ok_or(VaultError::InvalidMasterPasswordOrCorruptedVault)
 }

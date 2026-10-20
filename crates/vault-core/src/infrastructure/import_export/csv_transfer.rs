@@ -317,15 +317,17 @@ fn bitwarden_csv_row(vault_item: &VaultItem, folder_name_by_id: &HashMap<Uuid, &
         .join("\n");
 
     Some([
-        folder_name.to_string(),
+        neutralize_spreadsheet_formula(folder_name),
         if vault_item.is_favorite { "1" } else { "" }.to_string(),
         item_type.to_string(),
-        vault_item.title.clone(),
-        vault_item.notes.expose_secret().to_string(),
-        serialized_fields,
+        neutralize_spreadsheet_formula(&vault_item.title),
+        neutralize_spreadsheet_formula(vault_item.notes.expose_secret()),
+        neutralize_spreadsheet_formula(&serialized_fields),
         "0".to_string(),
-        login_content.map(|login| login.website_urls.join(",")).unwrap_or_default(),
-        login_content.map(|login| login.username.clone()).unwrap_or_default(),
+        neutralize_spreadsheet_formula(&login_content.map(|login| login.website_urls.join(",")).unwrap_or_default()),
+        neutralize_spreadsheet_formula(&login_content.map(|login| login.username.clone()).unwrap_or_default()),
+        // Contraseña y TOTP se exportan tal cual: alterarlos rompería el login al reimportar
+        // en otro gestor, y no vienen de terceros sino del propio usuario.
         login_content.map(|login| login.password.expose_secret().to_string()).unwrap_or_default(),
         login_content
             .and_then(|login| login.totp_secret.as_ref())
@@ -334,9 +336,39 @@ fn bitwarden_csv_row(vault_item: &VaultItem, folder_name_by_id: &HashMap<Uuid, &
     ])
 }
 
+/// Caracteres con los que `Excel` / `LibreOffice` interpretan una celda como fórmula.
+const SPREADSHEET_FORMULA_PREFIXES: [char; 6] = ['=', '+', '-', '@', '\t', '\r'];
+
+/// Evita la "CSV injection": un título importado como `=HYPERLINK(...)` se ejecutaría
+/// como fórmula al abrir la exportación en una hoja de cálculo. El apóstrofo inicial
+/// hace que se muestre como texto (recomendación de OWASP).
+fn neutralize_spreadsheet_formula(cell_text: &str) -> String {
+    if cell_text.starts_with(SPREADSHEET_FORMULA_PREFIXES) {
+        return format!("'{cell_text}");
+    }
+    cell_text.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exported_formulas_are_neutralized_but_passwords_are_kept() {
+        let bitwarden_csv = "folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp\n\
+            ,,login,\"=HYPERLINK(\"\"https://malo.example\"\")\",@SUM(1),,0,https://ok.example,+ana,=pw-que-empieza-por-igual,\n";
+        let imported_vault_data = BitwardenCsvImporter.parse_file(bitwarden_csv.as_bytes(), None).expect("importar");
+        let vault_contents = VaultContents { vault_items: imported_vault_data.vault_items, ..VaultContents::default() };
+
+        let exported_bytes = BitwardenCsvExporter.serialize_vault(&vault_contents, None).expect("exportar");
+        let exported_text = String::from_utf8(exported_bytes).expect("utf-8");
+
+        assert!(exported_text.contains("'=HYPERLINK"));
+        assert!(exported_text.contains("'@SUM(1)"));
+        assert!(exported_text.contains("'+ana"));
+        assert!(exported_text.contains(",=pw-que-empieza-por-igual,"));
+        assert!(exported_text.contains(",https://ok.example,"));
+    }
 
     #[test]
     fn chrome_csv_is_imported_with_title_fallback_to_host() {

@@ -5,6 +5,7 @@ use crate::domain::ports::authenticated_cipher::AuthenticatedCipher;
 use crate::domain::ports::clock::Clock;
 use crate::domain::ports::key_derivation_function::KeyDerivationFunction;
 use crate::domain::ports::secret_clipboard::SecretClipboard;
+use crate::domain::ports::unlock_throttle_store::UnlockThrottleStore;
 use crate::domain::ports::vault_repository::VaultRepository;
 
 pub struct KeyDerivationPolicy {
@@ -34,6 +35,7 @@ pub struct VaultDependencies {
     pub key_derivation_function: Box<dyn KeyDerivationFunction>,
     pub authenticated_cipher: Box<dyn AuthenticatedCipher>,
     pub secret_clipboard: Box<dyn SecretClipboard>,
+    pub unlock_throttle_store: Box<dyn UnlockThrottleStore>,
     pub clock: Box<dyn Clock>,
     pub transfer_format_registry: TransferFormatRegistry,
     pub key_derivation_policy: KeyDerivationPolicy,

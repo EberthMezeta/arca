@@ -5,7 +5,7 @@ use hkdf::Hkdf;
 use sha2::Sha256;
 use uuid::Uuid;
 
-use crate::domain::encryption_key::{ENCRYPTION_KEY_LENGTH_BYTES, EncryptionKey};
+use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::vault_error::{VaultError, VaultResult};
 
 const VAULT_CONTENTS_KEY_PURPOSE: &[u8] = b"rustvault/v1/vault-contents";
@@ -32,9 +32,9 @@ pub fn derive_single_attachment_key(attachments_root_key: &EncryptionKey, attach
 
 fn derive_subkey(parent_key: &EncryptionKey, purpose_label: &[u8]) -> VaultResult<EncryptionKey> {
     let key_derivation = Hkdf::<Sha256>::new(None, parent_key.as_bytes());
-    let mut subkey_bytes = [0u8; ENCRYPTION_KEY_LENGTH_BYTES];
-    key_derivation.expand(purpose_label, &mut subkey_bytes).map_err(|_| VaultError::Cryptography)?;
-    Ok(EncryptionKey::from_bytes(subkey_bytes))
+    EncryptionKey::fill_in_place(|key_slot| {
+        key_derivation.expand(purpose_label, key_slot).map_err(|_| VaultError::Cryptography)
+    })
 }
 
 #[cfg(test)]

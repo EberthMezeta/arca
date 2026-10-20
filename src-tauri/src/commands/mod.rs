@@ -21,7 +21,6 @@ pub fn all_command_handlers() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + 's
         session_commands::get_vault_location,
         item_commands::search_vault_items,
         item_commands::get_vault_overview,
-        item_commands::get_vault_item,
         item_commands::get_vault_item_details,
         item_commands::save_vault_item,
         item_commands::move_item_to_trash,

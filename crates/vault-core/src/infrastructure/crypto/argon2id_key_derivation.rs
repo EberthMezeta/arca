@@ -24,10 +24,10 @@ impl KeyDerivationFunction for Argon2idKeyDerivation {
         .map_err(|_| VaultError::InsecureKeyDerivationParameters)?;
         let argon2id = Argon2::new(Algorithm::Argon2id, Version::V0x13, argon2_parameters);
 
-        let mut derived_key_bytes = [0u8; ENCRYPTION_KEY_LENGTH_BYTES];
-        argon2id
-            .hash_password_into(master_password.expose_secret().as_bytes(), salt, &mut derived_key_bytes)
-            .map_err(|_| VaultError::Cryptography)?;
-        Ok(EncryptionKey::from_bytes(derived_key_bytes))
+        EncryptionKey::fill_in_place(|key_slot| {
+            argon2id
+                .hash_password_into(master_password.expose_secret().as_bytes(), salt, key_slot)
+                .map_err(|_| VaultError::Cryptography)
+        })
     }
 }

@@ -1,10 +1,13 @@
 use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
 const FREE_FAILED_ATTEMPTS: u32 = 3;
 const MAXIMUM_DELAY_SECONDS: i64 = 5 * 60;
 
 /// Retardo exponencial tras intentos fallidos de desbloqueo (1 s, 2 s, 4 s ... hasta 5 min).
-#[derive(Debug, Default)]
+/// Se serializa para sobrevivir a reinicios de la app (ver `UnlockThrottleStore`).
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UnlockAttemptThrottle {
     failed_unlock_attempt_count: u32,
     next_attempt_allowed_at: Option<DateTime<Utc>>,
