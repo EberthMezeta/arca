@@ -12,7 +12,7 @@ const LEGACY_SINGLE_INSTANCE_LOCK_FILE_NAME: &str = "rustvault.lock";
 const VAULT_FILE_NAME: &str = "personal.vault";
 
 /// Lo que se traslada: la bóveda, su copia, los adjuntos cifrados, el retardo de desbloqueo
-/// y el `localStorage` del WebView (idioma, tema y opciones del generador). Las cachés de WebKit no.
+/// y el `localStorage` del `WebView` (idioma, tema y opciones del generador). Las cachés de `WebKit` no.
 const MIGRATED_ENTRY_NAMES: [&str; 5] =
     ["personal.vault", "personal.vault.bak", "personal.vault.d", "unlock-throttle.json", "localstorage"];
 
