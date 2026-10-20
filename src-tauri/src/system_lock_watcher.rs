@@ -54,6 +54,7 @@ mod linux_session_signals {
     use std::thread;
     use std::time::Duration;
 
+    use dbus::Path;
     use dbus::blocking::Connection;
     use dbus::message::MatchRule;
     use tauri::AppHandle;
@@ -62,6 +63,10 @@ mod linux_session_signals {
     use crate::vault_events::VaultLockReason;
 
     const SIGNAL_POLL_INTERVAL: Duration = Duration::from_secs(60);
+    const LOGIN_MANAGER_SERVICE: &str = "org.freedesktop.login1";
+    const LOGIN_MANAGER_PATH: &str = "/org/freedesktop/login1";
+    const LOGIN_MANAGER_INTERFACE: &str = "org.freedesktop.login1.Manager";
+    const LOGIN_MANAGER_CALL_TIMEOUT: Duration = Duration::from_secs(5);
 
     /// Bloqueo de pantalla del escritorio (estándar freedesktop y GNOME): `ActiveChanged(bool)`.
     const SCREENSAVER_INTERFACES: [&str; 2] = ["org.freedesktop.ScreenSaver", "org.gnome.ScreenSaver"];
@@ -93,15 +98,30 @@ mod linux_session_signals {
         process_signals_forever(&session_bus);
     }
 
+    /// Sesión de logind a la que pertenece este proceso. Así solo cuenta el bloqueo de
+    /// NUESTRA sesión: otro usuario del equipo no puede bloquearnos la bóveda con el suyo.
+    fn own_login_session(system_bus: &Connection) -> Option<Path<'static>> {
+        let login_manager = system_bus.with_proxy(LOGIN_MANAGER_SERVICE, LOGIN_MANAGER_PATH, LOGIN_MANAGER_CALL_TIMEOUT);
+        let (session_path,): (Path<'static>,) =
+            login_manager.method_call(LOGIN_MANAGER_INTERFACE, "GetSessionByPID", (std::process::id(),)).ok()?;
+        Some(session_path)
+    }
+
     /// logind: `Session.Lock` (p. ej. `loginctl lock-session`, COSMIC, KDE) y
     /// `Manager.PrepareForSleep(true)` justo antes de suspender o hibernar.
     fn listen_to_system_bus(app_handle: &AppHandle) {
         let Ok(system_bus) = Connection::new_system() else {
             return;
         };
+        let session_lock_rule = MatchRule::new_signal("org.freedesktop.login1.Session", "Lock");
+        // Sin sesión propia (p. ej. lanzada desde un servicio) se escucha cualquiera: mejor bloquear de más.
+        let session_lock_rule = match own_login_session(&system_bus) {
+            Some(session_path) => session_lock_rule.with_path(session_path),
+            None => session_lock_rule,
+        };
         let lock_app_handle = app_handle.clone();
         let _ = system_bus.add_match(
-            MatchRule::new_signal("org.freedesktop.login1.Session", "Lock"),
+            session_lock_rule,
             move |(): (), _, _| {
                 lock_and_notify(&lock_app_handle, VaultLockReason::ScreenLocked);
                 true
@@ -109,7 +129,7 @@ mod linux_session_signals {
         );
         let sleep_app_handle = app_handle.clone();
         let _ = system_bus.add_match(
-            MatchRule::new_signal("org.freedesktop.login1.Manager", "PrepareForSleep"),
+            MatchRule::new_signal(LOGIN_MANAGER_INTERFACE, "PrepareForSleep"),
             move |(is_going_to_sleep,): (bool,), _, _| {
                 if is_going_to_sleep {
                     lock_and_notify(&sleep_app_handle, VaultLockReason::SystemSuspended);

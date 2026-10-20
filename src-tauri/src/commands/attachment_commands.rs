@@ -1,13 +1,13 @@
-use std::fs;
-
 use tauri::{AppHandle, State};
 use uuid::Uuid;
+use vault_core::domain::vault_error::VaultError;
 use vault_core::domain::vault_item::AttachmentReference;
 use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
-use zeroize::Zeroizing;
 
 use crate::app_state::AppState;
+use crate::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
 use crate::command_error::{CommandError, CommandResult};
+use crate::composition_root::MAXIMUM_ATTACHMENT_SIZE_BYTES;
 use crate::file_dialogs::{ask_file_to_open, ask_file_to_save};
 
 /// Devuelve `None` si el usuario cancela el diálogo.
@@ -21,7 +21,10 @@ pub async fn add_attachment_from_file(
     let Some(selected_file_path) = ask_file_to_open(&app_handle, &dialog_title, None) else {
         return Ok(None);
     };
-    let file_bytes = Zeroizing::new(fs::read(&selected_file_path).map_err(CommandError::file_access)?);
+    let file_bytes = read_file_with_size_limit(&selected_file_path, MAXIMUM_ATTACHMENT_SIZE_BYTES).map_err(|read_error| match read_error {
+        BoundedReadError::TooLarge => CommandError::from(VaultError::AttachmentTooLarge { maximum_size_bytes: MAXIMUM_ATTACHMENT_SIZE_BYTES }),
+        BoundedReadError::Unreadable(io_error) => CommandError::file_access(io_error),
+    })?;
     let file_name = selected_file_path.file_name().map(|file_name| file_name.to_string_lossy().into_owned()).unwrap_or_default();
 
     let attachment_reference = app_state.lock_vault_service()?.add_attachment(item_id, &file_name, &file_bytes)?;

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroize;
 
 use crate::domain::secret_text::SecretText;
 
@@ -71,6 +72,40 @@ impl ItemContent {
             Self::SecureNote(_) => ItemContentType::SecureNote,
             Self::PaymentCard(_) => ItemContentType::PaymentCard,
             Self::Identity(_) => ItemContentType::Identity,
+        }
+    }
+
+    /// Borra usuarios, URLs y datos personales (no son `SecretText`, pero tampoco deben
+    /// quedar en memoria liberada).
+    pub fn zeroize_plain_text(&mut self) {
+        match self {
+            Self::Login(login_content) => {
+                login_content.username.zeroize();
+                login_content.website_urls.zeroize();
+            }
+            Self::SecureNote(_) => {}
+            Self::PaymentCard(card_content) => [
+                &mut card_content.cardholder_name,
+                &mut card_content.card_brand,
+                &mut card_content.expiration_month,
+                &mut card_content.expiration_year,
+            ]
+            .into_iter()
+            .for_each(Zeroize::zeroize),
+            Self::Identity(identity_content) => [
+                &mut identity_content.honorific_title,
+                &mut identity_content.first_name,
+                &mut identity_content.last_name,
+                &mut identity_content.email_address,
+                &mut identity_content.phone_number,
+                &mut identity_content.street_address,
+                &mut identity_content.city,
+                &mut identity_content.postal_code,
+                &mut identity_content.country,
+                &mut identity_content.company_name,
+            ]
+            .into_iter()
+            .for_each(Zeroize::zeroize),
         }
     }
 

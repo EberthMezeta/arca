@@ -256,7 +256,7 @@ fn health_report_flags_reused_and_weak_passwords() {
 fn bitwarden_json_export_reimports_into_a_new_vault() {
     let mut source_harness = harness_with_created_vault();
     source_harness.vault_service.save_item(login_request("Correo", "pw-exportable")).expect("guardar");
-    let exported_file = source_harness.vault_service.export_vault(ExportFormat::BitwardenJson, None).expect("exportar");
+    let exported_file = source_harness.vault_service.export_vault(&master_password(), ExportFormat::BitwardenJson, None).expect("exportar");
 
     let mut target_harness = harness_with_created_vault();
     let import_summary = target_harness
@@ -274,10 +274,10 @@ fn encrypted_export_requires_a_password_and_round_trips() {
     source_harness.vault_service.save_item(login_request("Correo", "pw-cifrada")).expect("guardar");
     let export_password = SecretText::new("timber-cobalt-lantern-prism-44");
 
-    let missing_password_result = source_harness.vault_service.export_vault(ExportFormat::EncryptedVaultExport, None);
+    let missing_password_result = source_harness.vault_service.export_vault(&master_password(), ExportFormat::EncryptedVaultExport, None);
     let exported_file = source_harness
         .vault_service
-        .export_vault(ExportFormat::EncryptedVaultExport, Some(&export_password))
+        .export_vault(&master_password(), ExportFormat::EncryptedVaultExport, Some(&export_password))
         .expect("exportar");
     let mut target_harness = harness_with_created_vault();
     let wrong_password_result = target_harness.vault_service.import_file(
@@ -542,4 +542,33 @@ fn placeholder_typed_in_a_new_item_is_stored_literally() {
     let revealed_password =
         test_harness.vault_service.reveal_item_field(saved_item.item_id, RevealableField::Password).expect("revelar");
     assert_eq!(revealed_password.expose_secret(), REDACTED_SECRET_PLACEHOLDER);
+}
+
+// ── Reautenticación ──────────────────────────────────────────────────────────
+
+#[test]
+fn export_requires_the_master_password() {
+    let mut test_harness = harness_with_created_vault();
+    test_harness.vault_service.save_item(login_request("Correo", "pw")).expect("guardar");
+
+    let export_result =
+        test_harness.vault_service.export_vault(&SecretText::new("no-es-la-maestra"), ExportFormat::BitwardenJson, None);
+
+    assert!(matches!(export_result, Err(VaultError::InvalidMasterPasswordOrCorruptedVault)));
+}
+
+#[test]
+fn wrong_passwords_while_unlocked_are_throttled_too() {
+    let mut test_harness = harness_with_created_vault();
+    let wrong_password = SecretText::new("no-es-la-maestra");
+    let new_master_password = SecretText::new("harbor-quartz-meadow-falcon-81");
+    for _ in 0..3 {
+        let _ = test_harness.vault_service.change_master_password(&wrong_password, &new_master_password);
+    }
+
+    let export_result = test_harness.vault_service.export_vault(&master_password(), ExportFormat::BitwardenJson, None);
+    let change_result = test_harness.vault_service.change_master_password(&master_password(), &new_master_password);
+
+    assert!(matches!(export_result, Err(VaultError::UnlockTemporarilyBlocked { .. })));
+    assert!(matches!(change_result, Err(VaultError::UnlockTemporarilyBlocked { .. })));
 }

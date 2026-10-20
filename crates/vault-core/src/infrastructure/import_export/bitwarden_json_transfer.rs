@@ -92,6 +92,7 @@ impl VaultExporter for BitwardenJsonExporter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::vault_preferences::VaultPreferences;
     use crate::domain::item_content::ItemContent;
 
     const BITWARDEN_SAMPLE_EXPORT: &str = r#"{
@@ -131,7 +132,7 @@ mod tests {
         let vault_contents = VaultContents {
             vault_items: imported_vault_data.vault_items,
             folders: imported_vault_data.folders,
-            ..VaultContents::default()
+            preferences: VaultPreferences::default(),
         };
 
         let exported_bytes = BitwardenJsonExporter.serialize_vault(&vault_contents, None).expect("exportar");

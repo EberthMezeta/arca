@@ -36,8 +36,9 @@ impl VaultRepository for InMemoryVaultRepository {
         Ok(())
     }
 
-    fn discard_backup(&self) -> VaultResult<()> {
+    fn write_vault_bytes_discarding_backups(&self, encrypted_vault_bytes: &[u8]) -> VaultResult<()> {
         *self.backup_vault_bytes.lock().expect("mutex") = None;
+        *self.stored_vault_bytes.lock().expect("mutex") = Some(encrypted_vault_bytes.to_vec());
         Ok(())
     }
 }
@@ -114,8 +115,8 @@ impl<T: VaultRepository> VaultRepository for std::sync::Arc<T> {
         self.as_ref().write_vault_bytes(encrypted_vault_bytes)
     }
 
-    fn discard_backup(&self) -> VaultResult<()> {
-        self.as_ref().discard_backup()
+    fn write_vault_bytes_discarding_backups(&self, encrypted_vault_bytes: &[u8]) -> VaultResult<()> {
+        self.as_ref().write_vault_bytes_discarding_backups(encrypted_vault_bytes)
     }
 }
 

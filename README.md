@@ -38,22 +38,27 @@ pnpm typecheck
 | Cifrado | XChaCha20-Poly1305 con nonce aleatorio de 192 bits en cada guardado |
 | Integridad | La cabecera (parámetros KDF, salt) va como AAD: cualquier byte alterado impide abrir la bóveda |
 | Subclaves | HKDF-SHA256 por propósito (contenido, adjuntos); una clave distinta por adjunto |
-| Memoria | `zeroize` en claves y secretos (también la memoria interna de Argon2id y ChaCha20); las claves se rellenan en su sitio y el JSON descifrado se serializa en un buffer de tamaño exacto para no dejar copias al realocar. Al bloquear se descarta todo el estado descifrado |
-| Disco | Escritura atómica (`.tmp` + fsync + rename), copia `.bak` (se borra al cambiar la contraseña maestra). Archivos `0600` y directorio de datos `0700`, también para exportaciones y adjuntos descifrados |
-| Fuerza bruta | Retardo exponencial tras 3 intentos fallidos, guardado en disco para que reiniciar la app no lo borre (además del coste de Argon2id, que es lo que protege frente a un ataque con el archivo copiado) |
+| Memoria | `zeroize` en claves y secretos (también la memoria interna de Argon2id y ChaCha20) y en títulos, usuarios, URLs y datos personales al bloquear; las claves se rellenan en su sitio y el JSON descifrado, las frases de paso y los archivos leídos usan buffers de tamaño exacto para no dejar copias al realocar |
+| Disco | Escritura atómica (`.tmp` + fsync + rename) y copia `.bak` (no se genera al cambiar la contraseña maestra y la anterior se borra). Archivos `0600` y directorio de datos `0700`, también para exportaciones y adjuntos descifrados (en un USB FAT/exFAT no hay permisos) |
+| Fuerza bruta | Retardo exponencial tras 3 intentos fallidos (máx. 5 min), guardado en disco para que reiniciar la app no lo borre. Se aplica también a cambiar la contraseña y a exportar. Frente a un ataque con el archivo copiado protege el coste de Argon2id |
+| Reautenticación | Exportar pide la contraseña maestra aunque la bóveda esté desbloqueada |
 | Frontend | La clave nunca sale de Rust; la UI (también el editor) recibe secretos enmascarados y solo pide el valor real al pulsar «Mostrar» / «Copiar». Al guardar, un secreto enmascarado sin tocar conserva su valor |
 | Tauri | CSP estricta, sin plugins `shell`/`fs`/`http`; los diálogos de archivo se abren desde Rust (la UI no envía rutas) |
 | Portapapeles | Se marca como sensible para que los gestores de historial no lo guarden, y se vacía a los 30 s (por defecto), al bloquear la bóveda y al cerrar la app, si sigue conteniendo el secreto |
-| Bloqueo | Por inactividad, al minimizar (opcional), al suspender el equipo y, en Linux, al bloquear la pantalla (señales de D-Bus del salvapantallas y de logind) |
+| Bloqueo | Por inactividad, al minimizar (opcional), al suspender el equipo y, en Linux, al bloquear la pantalla (señales de D-Bus del salvapantallas y de logind, solo de la sesión propia) |
 | Exportación | Las celdas de CSV que empiezan por `=`, `+`, `-` o `@` se exportan como texto (evita la *CSV injection*); contraseña y TOTP se exportan intactos |
+| Archivos externos | Importaciones (máx. 64 MB) y adjuntos (máx. 50 MB) se rechazan antes de leerlos si son más grandes; lo importado pasa las mismas reglas que el editor. Argon2id acepta como mucho 1 GiB al abrir un archivo |
+| Proceso | Sin volcados de memoria; en Linux, `PR_SET_DUMPABLE = 0` impide leer la memoria con `ptrace` desde otros procesos. Una sola instancia a la vez (dos se pisarían los cambios) |
 
-Archivos: `~/.local/share/dev.rustvault.desktop/personal.vault`, los adjuntos cifrados en `personal.vault.d/` y el contador de intentos fallidos en `unlock-throttle.json`.
+Archivos: `~/.local/share/dev.rustvault.desktop/personal.vault`, los adjuntos cifrados en `personal.vault.d/`, el contador de intentos fallidos en `unlock-throttle.json` y el bloqueo de instancia única en `rustvault.lock`.
 
 > **Limitaciones honestas:** no hay auditoría externa; un equipo con malware/keylogger puede capturar la contraseña maestra;
 > no todos los gestores de portapapeles respetan la marca de contenido sensible; borrar `zeroize` es *best-effort*
 > (el compilador o el sistema pueden haber copiado memoria antes); los strings que ya llegaron a JavaScript al pulsar
 > «Mostrar» no se pueden borrar de memoria; borrar el `.bak` en un SSD no garantiza que los bloques se sobrescriban;
-> las exportaciones antiguas siguen cifradas con la contraseña con la que se crearon.
+> las exportaciones antiguas siguen cifradas con la contraseña con la que se crearon; quien pueda escribir en tu disco
+> puede sustituir la bóveda por una versión anterior suya sin que la app lo detecte (*rollback*), y borrar
+> `unlock-throttle.json` reinicia el retardo (no protege frente a quien ya tiene acceso al disco).
 
 ## Arquitectura
 

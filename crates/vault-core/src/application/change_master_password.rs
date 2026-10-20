@@ -1,7 +1,7 @@
 use crate::application::manage_attachments::reencrypt_attachments_with_new_key;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::{build_header_wrapping_vault_key, unwrap_vault_key};
-use crate::application::vault_session::{UnlockedVault, persist_vault_contents};
+use crate::application::vault_session::{UnlockedVault, seal_vault_file};
 use crate::domain::key_hierarchy::derive_vault_subkeys;
 use crate::domain::master_password_policy::MasterPasswordPolicy;
 use crate::domain::secret_text::SecretText;
@@ -13,7 +13,7 @@ use crate::domain::vault_error::{VaultError, VaultResult};
 /// Solo re-envolver la clave antigua no basta: quien tuviera una copia vieja del archivo
 /// y la contraseña antigua (justo el motivo habitual para cambiarla) podría recuperar la
 /// clave de bóveda y descifrar también las versiones futuras. Por eso se genera una clave
-/// nueva, se vuelve a cifrar todo (adjuntos incluidos) y se borra la copia `.bak`.
+/// nueva, se vuelve a cifrar todo (adjuntos incluidos) y se escribe sin dejar copia `.bak`.
 pub fn execute(
     vault_dependencies: &VaultDependencies,
     unlocked_vault: &mut UnlockedVault,
@@ -43,21 +43,21 @@ pub fn execute(
         &new_vault_subkeys.attachments_root_key,
         &mut rotated_contents,
     )?;
-    let persist_result = persist_vault_contents(
+    let persist_result = seal_vault_file(
         vault_dependencies,
         &new_encoded_header_bytes,
         &new_vault_subkeys.vault_contents_key,
         &rotated_contents,
-    );
+    )
+    .and_then(|vault_file_bytes| vault_dependencies.vault_repository.write_vault_bytes_discarding_backups(&vault_file_bytes));
     if let Err(persist_error) = persist_result {
         attachment_key_rotation.discard_reencrypted_copies(vault_dependencies);
         return Err(persist_error);
     }
 
-    // El cambio ya está guardado; limpiar restos antiguos es best-effort
+    // El cambio ya está guardado; borrar los adjuntos antiguos es best-effort
     // (un fallo aquí no debe hacer creer al usuario que la contraseña no cambió).
     attachment_key_rotation.discard_previous_copies(vault_dependencies);
-    let _ = vault_dependencies.vault_repository.discard_backup();
 
     *unlocked_vault = UnlockedVault {
         vault_key: new_vault_key,

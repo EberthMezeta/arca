@@ -11,7 +11,7 @@ use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_item::{CustomField, VaultItem, restore_sealed_content_secrets, restore_sealed_secret};
 
-const MAXIMUM_TITLE_CHARACTER_COUNT: usize = 200;
+pub(crate) const MAXIMUM_TITLE_CHARACTER_COUNT: usize = 200;
 
 /// Campo personalizado tal como lo edita la UI. `source_field_index` es su posición en el
 /// elemento guardado (`None` si es nuevo): permite recuperar un valor oculto enmascarado

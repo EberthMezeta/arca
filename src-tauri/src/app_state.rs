@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
@@ -9,6 +10,8 @@ use crate::composition_root::ComposedApplication;
 pub struct AppState {
     vault_service: Mutex<VaultService>,
     pub vault_file_path: PathBuf,
+    /// Se conserva para mantener el bloqueo de instancia única mientras la app esté abierta.
+    _single_instance_lock: File,
 }
 
 impl AppState {
@@ -16,6 +19,7 @@ impl AppState {
         Self {
             vault_service: Mutex::new(composed_application.vault_service),
             vault_file_path: composed_application.vault_file_path,
+            _single_instance_lock: composed_application.single_instance_lock,
         }
     }
 

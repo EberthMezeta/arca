@@ -2978,6 +2978,7 @@ version = "0.1.0"
 dependencies = [
  "arboard",
  "dbus",
+ "libc",
  "serde",
  "tauri",
  "tauri-build",

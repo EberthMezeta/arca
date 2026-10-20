@@ -12,8 +12,10 @@ use crate::application::import_export_vault::{self, ExportedFile, ImportSummary}
 use crate::application::manage_attachments::{self, DecryptedAttachment};
 use crate::application::save_vault_item::{self, SaveVaultItemRequest};
 use crate::application::search_vault_items::{self, VaultItemFilter, VaultItemSummary, VaultOverview};
+use crate::application::throttled_master_password_attempt::run_throttled;
 use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::application::vault_dependencies::VaultDependencies;
+use crate::application::vault_key_wrapping::unwrap_vault_key;
 use crate::application::vault_session::{UnlockedVault, VaultSessionState};
 use crate::application::{
     change_master_password, create_vault, manage_folders, manage_item_lifecycle, unlock_vault,
@@ -123,12 +125,14 @@ impl VaultService {
     ) -> VaultResult<()> {
         let unlocked_vault =
             Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        change_master_password::execute(
-            &self.vault_dependencies,
-            unlocked_vault,
-            current_master_password,
-            new_master_password,
-        )
+        run_throttled(&self.vault_dependencies, &mut self.unlock_attempt_throttle, || {
+            change_master_password::execute(
+                &self.vault_dependencies,
+                unlocked_vault,
+                current_master_password,
+                new_master_password,
+            )
+        })
     }
 
     // ── Consultas ─────────────────────────────────────────────────────────────
@@ -316,8 +320,18 @@ impl VaultService {
         })
     }
 
-    pub fn export_vault(&self, export_format: ExportFormat, file_password: Option<&SecretText>) -> VaultResult<ExportedFile> {
+    /// Exportar saca toda la bóveda del cifrado: exige la contraseña maestra (con retardo),
+    /// para que alguien con acceso breve a la app desbloqueada no pueda llevársela.
+    pub fn export_vault(
+        &mut self,
+        master_password: &SecretText,
+        export_format: ExportFormat,
+        file_password: Option<&SecretText>,
+    ) -> VaultResult<ExportedFile> {
         let unlocked_vault = self.session_state.require_unlocked()?;
+        run_throttled(&self.vault_dependencies, &mut self.unlock_attempt_throttle, || {
+            unwrap_vault_key(&self.vault_dependencies, master_password, &unlocked_vault.vault_header)
+        })?;
         import_export_vault::export_vault(&self.vault_dependencies, &unlocked_vault.vault_contents, export_format, file_password)
     }
 

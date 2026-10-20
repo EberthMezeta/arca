@@ -7,6 +7,7 @@ pub mod manage_folders;
 pub mod manage_item_lifecycle;
 pub mod save_vault_item;
 pub mod search_vault_items;
+pub mod throttled_master_password_attempt;
 pub mod transfer_format_registry;
 pub mod unlock_vault;
 pub mod vault_dependencies;

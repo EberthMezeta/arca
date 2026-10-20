@@ -15,6 +15,8 @@ const OWNER_ONLY_DIRECTORY_MODE: u32 = 0o700;
 
 /// Escribe y sincroniza con permisos `0600`. Si el archivo ya existía con permisos
 /// más abiertos (p. ej. una exportación anterior), se restringen antes de escribir.
+/// En sistemas de archivos sin permisos Unix (FAT32 / exFAT de un USB) el `chmod` falla
+/// con `EPERM`: ahí los permisos no significan nada, así que se escribe igualmente.
 pub fn write_owner_only_file(file_path: &Path, file_bytes: &[u8]) -> VaultResult<()> {
     let mut open_options = OpenOptions::new();
     open_options.write(true).create(true).truncate(true);
@@ -25,23 +27,19 @@ pub fn write_owner_only_file(file_path: &Path, file_bytes: &[u8]) -> VaultResult
     }
 
     let mut output_file = open_options.open(file_path).map_err(VaultError::storage)?;
-    restrict_to_owner(&output_file)?;
+    restrict_to_owner_if_supported(&output_file);
     output_file.write_all(file_bytes).map_err(VaultError::storage)?;
     output_file.sync_all().map_err(VaultError::storage)
 }
 
 #[cfg(unix)]
-fn restrict_to_owner(open_file: &fs::File) -> VaultResult<()> {
+fn restrict_to_owner_if_supported(open_file: &fs::File) {
     use std::os::unix::fs::PermissionsExt;
-    open_file
-        .set_permissions(fs::Permissions::from_mode(OWNER_ONLY_FILE_MODE))
-        .map_err(VaultError::storage)
+    let _ = open_file.set_permissions(fs::Permissions::from_mode(OWNER_ONLY_FILE_MODE));
 }
 
 #[cfg(not(unix))]
-fn restrict_to_owner(_open_file: &fs::File) -> VaultResult<()> {
-    Ok(())
-}
+fn restrict_to_owner_if_supported(_open_file: &fs::File) {}
 
 /// Crea el directorio (y sus padres) y lo deja en `0700`: nadie más puede listar qué hay dentro.
 pub fn create_owner_only_directory(directory_path: &Path) -> VaultResult<()> {

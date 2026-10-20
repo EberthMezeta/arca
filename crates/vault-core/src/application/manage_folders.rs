@@ -4,7 +4,7 @@ use crate::domain::folder::Folder;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
 
-const MAXIMUM_FOLDER_NAME_CHARACTER_COUNT: usize = 100;
+pub(crate) const MAXIMUM_FOLDER_NAME_CHARACTER_COUNT: usize = 100;
 
 fn validated_folder_name(
     vault_contents: &VaultContents,

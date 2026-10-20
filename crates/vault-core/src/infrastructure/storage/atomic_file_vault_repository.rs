@@ -42,14 +42,37 @@ impl VaultRepository for AtomicFileVaultRepository {
     }
 
     fn write_vault_bytes(&self, encrypted_vault_bytes: &[u8]) -> VaultResult<()> {
-        if let Some(parent_directory) = self.vault_file_path.parent() {
-            create_owner_only_directory(parent_directory)?;
-        }
+        self.ensure_parent_directory()?;
         if self.vault_exists() {
             let previous_vault_bytes = fs::read(&self.vault_file_path).map_err(VaultError::storage)?;
-            write_owner_only_file(&self.sibling_path_with_suffix(".bak"), &previous_vault_bytes)?;
+            write_owner_only_file(&self.backup_file_path(), &previous_vault_bytes)?;
         }
+        self.replace_atomically(encrypted_vault_bytes)
+    }
 
+    /// Primero se borra la copia (si el proceso se corta justo después, la bóveda sigue
+    /// intacta); luego se reemplaza el archivo sin generar copia nueva.
+    fn write_vault_bytes_discarding_backups(&self, encrypted_vault_bytes: &[u8]) -> VaultResult<()> {
+        self.ensure_parent_directory()?;
+        self.discard_backup()?;
+        self.replace_atomically(encrypted_vault_bytes)
+    }
+}
+
+impl AtomicFileVaultRepository {
+    fn backup_file_path(&self) -> PathBuf {
+        self.sibling_path_with_suffix(".bak")
+    }
+
+    fn ensure_parent_directory(&self) -> VaultResult<()> {
+        let Some(parent_directory) = self.vault_file_path.parent() else {
+            return Ok(());
+        };
+        create_owner_only_directory(parent_directory)
+    }
+
+    /// `.tmp` + fsync + `rename`: un corte de luz nunca deja un archivo a medio escribir.
+    fn replace_atomically(&self, encrypted_vault_bytes: &[u8]) -> VaultResult<()> {
         let temporary_file_path = self.sibling_path_with_suffix(".tmp");
         write_owner_only_file(&temporary_file_path, encrypted_vault_bytes)?;
         fs::rename(&temporary_file_path, &self.vault_file_path).map_err(VaultError::storage)?;
@@ -58,7 +81,7 @@ impl VaultRepository for AtomicFileVaultRepository {
     }
 
     fn discard_backup(&self) -> VaultResult<()> {
-        match fs::remove_file(self.sibling_path_with_suffix(".bak")) {
+        match fs::remove_file(self.backup_file_path()) {
             Ok(()) => Ok(()),
             Err(remove_error) if remove_error.kind() == ErrorKind::NotFound => Ok(()),
             Err(remove_error) => Err(VaultError::storage(remove_error)),
@@ -95,18 +118,17 @@ mod tests {
     }
 
     #[test]
-    fn discarding_backup_removes_previous_version() {
+    fn writing_without_backup_removes_previous_versions() {
         let temporary_directory = tempfile::tempdir().expect("directorio temporal");
         let vault_file_path = temporary_directory.path().join("personal.vault");
         let vault_repository = AtomicFileVaultRepository::new(&vault_file_path);
         vault_repository.write_vault_bytes(b"version-1").expect("escribir v1");
         vault_repository.write_vault_bytes(b"version-2").expect("escribir v2");
 
-        vault_repository.discard_backup().expect("descartar");
+        vault_repository.write_vault_bytes_discarding_backups(b"version-3").expect("escribir v3");
 
         assert!(!temporary_directory.path().join("personal.vault.bak").exists());
-        assert_eq!(vault_repository.read_vault_bytes().expect("leer"), b"version-2");
-        vault_repository.discard_backup().expect("descartar sin copia no falla");
+        assert_eq!(vault_repository.read_vault_bytes().expect("leer"), b"version-3");
     }
 
     #[test]

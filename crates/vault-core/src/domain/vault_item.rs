@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroize;
 use uuid::Uuid;
 
 use crate::domain::item_content::ItemContent;
@@ -149,6 +150,15 @@ impl VaultItem {
             .iter_mut()
             .for_each(|history_entry| redact_secret(&mut history_entry.previous_password));
         redacted_item
+    }
+
+    /// Borra el texto que no es `SecretText` (los secretos se borran solos al soltarse).
+    pub fn zeroize_plain_text(&mut self) {
+        self.title.zeroize();
+        self.tag_names.zeroize();
+        self.item_content.zeroize_plain_text();
+        self.custom_fields.iter_mut().for_each(|custom_field| custom_field.field_label.zeroize());
+        self.attachments.iter_mut().for_each(|attachment| attachment.file_name.zeroize());
     }
 
     pub fn is_in_trash(&self) -> bool {

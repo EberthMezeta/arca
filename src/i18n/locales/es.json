@@ -303,7 +303,9 @@
     "plaintextAcknowledge": "Entiendo el riesgo",
     "exportAndSave": "Exportar y guardar",
     "chooseExportFile": "¿Dónde guardar la exportación?",
-    "exported": "Exportación guardada"
+    "exported": "Exportación guardada",
+    "masterPasswordForExport": "Contraseña maestra",
+    "masterPasswordForExportHint": "Para confirmar que eres tú: exportar saca todos tus datos de la bóveda."
   },
   "errors": {
     "internal": "Algo salió mal. Inténtalo de nuevo.",
@@ -341,7 +343,9 @@
       "autoLockOutOfRange": "Tiempo de bloqueo fuera de rango.",
       "clipboardClearOutOfRange": "Tiempo de borrado del portapapeles fuera de rango.",
       "historyLimitOutOfRange": "Límite de historial fuera de rango.",
-      "emptyRandomRange": "Parámetros de generación no válidos."
-    }
+      "emptyRandomRange": "Parámetros de generación no válidos.",
+      "wordSeparatorTooLong": "El separador es demasiado largo (máx. 5 caracteres)."
+    },
+    "importFileTooLarge": "El archivo es demasiado grande para importarlo (máximo 64 MB)."
   }
 }

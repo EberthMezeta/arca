@@ -105,8 +105,9 @@ export const vaultApiClient = {
   // Importar / exportar
   importVaultFile: (importFormat: ImportFormat, filePassword: string | null, dialogTitle: string) =>
     callBackend<ImportSummary | null>("import_vault_file", { importFormat, filePassword, dialogTitle }),
-  exportVaultToFile: (exportFormat: ExportFormat, filePassword: string | null, dialogTitle: string) =>
-    callBackend<boolean>("export_vault_to_file", { exportFormat, filePassword, dialogTitle }),
+  /** Exportar exige la contraseña maestra aunque la bóveda esté desbloqueada. */
+  exportVaultToFile: (masterPassword: string, exportFormat: ExportFormat, filePassword: string | null, dialogTitle: string) =>
+    callBackend<boolean>("export_vault_to_file", { masterPassword, exportFormat, filePassword, dialogTitle }),
 
   // Preferencias
   getVaultPreferences: () => callBackend<VaultPreferences>("get_vault_preferences"),

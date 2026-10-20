@@ -1,5 +1,3 @@
-use std::fs;
-
 use tauri::{AppHandle, State};
 use vault_core::application::import_export_vault::ImportSummary;
 use vault_core::domain::ports::vault_exporter::ExportFormat;
@@ -9,7 +7,9 @@ use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file
 use zeroize::Zeroizing;
 
 use crate::app_state::AppState;
+use crate::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
 use crate::command_error::{CommandError, CommandResult};
+use crate::composition_root::MAXIMUM_IMPORT_FILE_SIZE_BYTES;
 use crate::file_dialogs::{FileTypeFilter, ask_file_to_open, ask_file_to_save};
 
 fn accepted_extensions(import_format: ImportFormat) -> &'static [&'static str] {
@@ -33,7 +33,10 @@ pub async fn import_vault_file(
     let Some(selected_file_path) = ask_file_to_open(&app_handle, &dialog_title, Some(file_type_filter)) else {
         return Ok(None);
     };
-    let file_bytes = Zeroizing::new(fs::read(selected_file_path).map_err(CommandError::file_access)?);
+    let file_bytes = read_file_with_size_limit(&selected_file_path, MAXIMUM_IMPORT_FILE_SIZE_BYTES).map_err(|read_error| match read_error {
+        BoundedReadError::TooLarge => CommandError::import_file_too_large(),
+        BoundedReadError::Unreadable(io_error) => CommandError::file_access(io_error),
+    })?;
 
     let import_summary =
         app_state.lock_vault_service()?.import_file(import_format, &file_bytes, file_password.as_ref())?;
@@ -45,11 +48,13 @@ pub async fn import_vault_file(
 pub async fn export_vault_to_file(
     app_handle: AppHandle,
     app_state: State<'_, AppState>,
+    master_password: SecretText,
     export_format: ExportFormat,
     file_password: Option<SecretText>,
     dialog_title: String,
 ) -> CommandResult<bool> {
-    let exported_file = app_state.lock_vault_service()?.export_vault(export_format, file_password.as_ref())?;
+    let exported_file =
+        app_state.lock_vault_service()?.export_vault(&master_password, export_format, file_password.as_ref())?;
     let exported_bytes = Zeroizing::new(exported_file.file_bytes);
     let suggested_file_name = format!("rust-vault-export.{}", exported_file.suggested_file_extension);
 

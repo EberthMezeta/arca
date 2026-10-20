@@ -1,4 +1,5 @@
 use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
+use crate::application::throttled_master_password_attempt::run_throttled;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::unwrap_vault_key;
 use crate::application::vault_session::UnlockedVault;
@@ -13,20 +14,7 @@ pub fn execute(
     unlock_attempt_throttle: &mut UnlockAttemptThrottle,
     master_password: &SecretText,
 ) -> VaultResult<UnlockedVault> {
-    let now = vault_dependencies.clock.now();
-    if let Some(retry_after_seconds) = unlock_attempt_throttle.seconds_until_next_attempt(now) {
-        return Err(VaultError::UnlockTemporarilyBlocked { retry_after_seconds });
-    }
-
-    let unlock_result = decrypt_vault(vault_dependencies, master_password);
-    match &unlock_result {
-        Ok(_) => unlock_attempt_throttle.register_successful_attempt(),
-        Err(VaultError::InvalidMasterPasswordOrCorruptedVault) => unlock_attempt_throttle.register_failed_attempt(now),
-        Err(_) => return unlock_result,
-    }
-    // Best-effort: si no se puede guardar, el retardo sigue vigente en memoria.
-    let _ = vault_dependencies.unlock_throttle_store.save_throttle(unlock_attempt_throttle);
-    unlock_result
+    run_throttled(vault_dependencies, unlock_attempt_throttle, || decrypt_vault(vault_dependencies, master_password))
 }
 
 fn decrypt_vault(vault_dependencies: &VaultDependencies, master_password: &SecretText) -> VaultResult<UnlockedVault> {

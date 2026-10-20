@@ -71,16 +71,26 @@ impl UnlockedVault {
     }
 }
 
-/// Serializa, cifra (AAD = cabecera) y escribe la bóveda completa.
+/// Serializa, cifra (AAD = cabecera) y escribe la bóveda completa, conservando la versión anterior como `.bak`.
 pub fn persist_vault_contents(
     vault_dependencies: &VaultDependencies,
     encoded_header_bytes: &[u8],
     vault_contents_key: &EncryptionKey,
     vault_contents: &VaultContents,
 ) -> VaultResult<()> {
+    let vault_file_bytes = seal_vault_file(vault_dependencies, encoded_header_bytes, vault_contents_key, vault_contents)?;
+    vault_dependencies.vault_repository.write_vault_bytes(&vault_file_bytes)
+}
+
+/// Serializa y cifra la bóveda completa (AAD = cabecera) sin escribirla.
+pub fn seal_vault_file(
+    vault_dependencies: &VaultDependencies,
+    encoded_header_bytes: &[u8],
+    vault_contents_key: &EncryptionKey,
+    vault_contents: &VaultContents,
+) -> VaultResult<Vec<u8>> {
     let serialized_contents = serialize_secret_json(vault_contents)?;
     let encrypted_contents =
         vault_dependencies.authenticated_cipher.seal(vault_contents_key, &serialized_contents, encoded_header_bytes)?;
-    let vault_file_bytes = encode_vault_file(encoded_header_bytes, &encrypted_contents)?;
-    vault_dependencies.vault_repository.write_vault_bytes(&vault_file_bytes)
+    encode_vault_file(encoded_header_bytes, &encrypted_contents)
 }

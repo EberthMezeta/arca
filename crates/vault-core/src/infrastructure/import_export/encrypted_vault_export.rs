@@ -141,8 +141,11 @@ impl VaultImporter for EncryptedVaultExportImporter {
             .open(&export_key, &sealed_contents, &export_envelope.associated_data())
             .map_err(|_| VaultError::InvalidMasterPasswordOrCorruptedVault)?;
 
-        let exported_contents: VaultContents =
+        let mut exported_contents: VaultContents =
             serde_json::from_slice(&serialized_contents).map_err(VaultError::import_failed)?;
-        Ok(ImportedVaultData { folders: exported_contents.folders, vault_items: exported_contents.vault_items })
+        Ok(ImportedVaultData {
+            folders: std::mem::take(&mut exported_contents.folders),
+            vault_items: std::mem::take(&mut exported_contents.vault_items),
+        })
     }
 }

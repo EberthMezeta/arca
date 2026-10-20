@@ -316,6 +316,7 @@ function ExportSettings() {
   const { t: translate } = useTranslation();
   const { reportSuccess, reportError } = useSettingsFeedback();
   const [exportFormat, setExportFormat] = useState<ExportFormat>("encryptedVaultExport");
+  const [masterPassword, setMasterPassword] = useState("");
   const [filePassword, setFilePassword] = useState("");
   const [confirmedFilePassword, setConfirmedFilePassword] = useState("");
   const [hasAcknowledgedPlaintextRisk, setHasAcknowledgedPlaintextRisk] = useState(false);
@@ -330,8 +331,14 @@ function ExportSettings() {
   const exportFile = async () => {
     setIsExporting(true);
     try {
-      const wasSaved = await vaultApiClient.exportVaultToFile(exportFormat, formatDescription.requiresFilePassword ? filePassword : null, translate("transfer.chooseExportFile"));
+      const wasSaved = await vaultApiClient.exportVaultToFile(
+        masterPassword,
+        exportFormat,
+        formatDescription.requiresFilePassword ? filePassword : null,
+        translate("transfer.chooseExportFile"),
+      );
       if (!wasSaved) return;
+      setMasterPassword("");
       setFilePassword("");
       setConfirmedFilePassword("");
       reportSuccess(translate("transfer.exported"));
@@ -359,6 +366,11 @@ function ExportSettings() {
           </FormField>
         </div>
       )}
+      <FormField fieldLabel={translate("transfer.masterPasswordForExport")} hintText={translate("transfer.masterPasswordForExportHint")}>
+        {(fieldControlId) => (
+          <PasswordInput id={fieldControlId} value={masterPassword} onChange={(changeEvent) => setMasterPassword(changeEvent.target.value)} />
+        )}
+      </FormField>
       {formatDescription.isPlaintext && (
         <div className="flex gap-3 rounded-xl bg-danger-soft p-4 text-sm text-danger">
           <ShieldAlert className="size-5 shrink-0" />
@@ -376,7 +388,7 @@ function ExportSettings() {
         className="self-start"
         leadingIcon={<Download className="size-4" />}
         isBusy={isExporting}
-        disabled={!isPasswordReady || !isRiskAcknowledged}
+        disabled={!masterPassword || !isPasswordReady || !isRiskAcknowledged}
         onClick={exportFile}
       >
         {translate("transfer.exportAndSave")}

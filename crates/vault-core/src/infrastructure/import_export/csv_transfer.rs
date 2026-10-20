@@ -352,13 +352,18 @@ fn neutralize_spreadsheet_formula(cell_text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::vault_preferences::VaultPreferences;
 
     #[test]
     fn exported_formulas_are_neutralized_but_passwords_are_kept() {
         let bitwarden_csv = "folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp\n\
             ,,login,\"=HYPERLINK(\"\"https://malo.example\"\")\",@SUM(1),,0,https://ok.example,+ana,=pw-que-empieza-por-igual,\n";
         let imported_vault_data = BitwardenCsvImporter.parse_file(bitwarden_csv.as_bytes(), None).expect("importar");
-        let vault_contents = VaultContents { vault_items: imported_vault_data.vault_items, ..VaultContents::default() };
+        let vault_contents = VaultContents {
+            vault_items: imported_vault_data.vault_items,
+            folders: Vec::new(),
+            preferences: VaultPreferences::default(),
+        };
 
         let exported_bytes = BitwardenCsvExporter.serialize_vault(&vault_contents, None).expect("exportar");
         let exported_text = String::from_utf8(exported_bytes).expect("utf-8");
@@ -404,7 +409,7 @@ mod tests {
         let vault_contents = VaultContents {
             vault_items: imported_vault_data.vault_items,
             folders: imported_vault_data.folders,
-            ..VaultContents::default()
+            preferences: VaultPreferences::default(),
         };
         let exported_bytes = BitwardenCsvExporter.serialize_vault(&vault_contents, None).expect("exportar");
         let reimported_vault_data = BitwardenCsvImporter.parse_file(&exported_bytes, None).expect("reimportar");

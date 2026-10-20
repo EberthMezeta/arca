@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use zeroize::Zeroize;
 
 use crate::domain::folder::Folder;
 use crate::domain::vault_error::{VaultError, VaultResult};
@@ -7,12 +8,26 @@ use crate::domain::vault_item::VaultItem;
 use crate::domain::vault_preferences::VaultPreferences;
 
 /// Todo lo que se guarda cifrado dentro del archivo `.vault`.
+/// (`default` va por campo y no en el struct: con `Drop` no se puede usar `..Default::default()`.)
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct VaultContents {
+    #[serde(default)]
     pub vault_items: Vec<VaultItem>,
+    #[serde(default)]
     pub folders: Vec<Folder>,
+    #[serde(default)]
     pub preferences: VaultPreferences,
+}
+
+/// Los secretos (`SecretText`) ya se borran solos; aquí se borra el resto del texto descifrado
+/// (títulos, usuarios, URLs, datos personales, nombres de carpetas y adjuntos) al bloquear o al
+/// sustituir una copia por otra. Best-effort: las copias que ya salieron hacia la UI no se alcanzan.
+impl Drop for VaultContents {
+    fn drop(&mut self) {
+        self.vault_items.iter_mut().for_each(VaultItem::zeroize_plain_text);
+        self.folders.iter_mut().for_each(|folder| folder.folder_name.zeroize());
+    }
 }
 
 impl VaultContents {

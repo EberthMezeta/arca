@@ -303,7 +303,9 @@
     "plaintextAcknowledge": "I understand the risk",
     "exportAndSave": "Export and save",
     "chooseExportFile": "Where should the export be saved?",
-    "exported": "Export saved"
+    "exported": "Export saved",
+    "masterPasswordForExport": "Master password",
+    "masterPasswordForExportHint": "To confirm it is you: exporting takes all your data out of the vault."
   },
   "errors": {
     "internal": "Something went wrong. Please try again.",
@@ -341,7 +343,9 @@
       "autoLockOutOfRange": "Lock timeout out of range.",
       "clipboardClearOutOfRange": "Clipboard clear time out of range.",
       "historyLimitOutOfRange": "History limit out of range.",
-      "emptyRandomRange": "Invalid generation settings."
-    }
+      "emptyRandomRange": "Invalid generation settings.",
+      "wordSeparatorTooLong": "The separator is too long (5 characters max)."
+    },
+    "importFileTooLarge": "The file is too large to import (64 MB max)."
   }
 }
