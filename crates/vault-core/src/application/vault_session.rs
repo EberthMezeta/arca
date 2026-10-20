@@ -58,14 +58,38 @@ impl UnlockedVault {
         vault_dependencies: &VaultDependencies,
         apply_mutation: impl FnOnce(&mut VaultContents) -> VaultResult<MutationOutput>,
     ) -> VaultResult<MutationOutput> {
+        self.modify_and_write(vault_dependencies, apply_mutation, |vault_file_bytes| {
+            vault_dependencies.vault_repository.write_vault_bytes(vault_file_bytes)
+        })
+    }
+
+    /// Igual que `modify_and_persist`, pero sin dejar la versión anterior como `.bak`: para
+    /// borrados definitivos, que si no seguirían recuperables desde la copia con la misma contraseña.
+    pub fn modify_and_persist_discarding_backups<MutationOutput>(
+        &mut self,
+        vault_dependencies: &VaultDependencies,
+        apply_mutation: impl FnOnce(&mut VaultContents) -> VaultResult<MutationOutput>,
+    ) -> VaultResult<MutationOutput> {
+        self.modify_and_write(vault_dependencies, apply_mutation, |vault_file_bytes| {
+            vault_dependencies.vault_repository.write_vault_bytes_discarding_backups(vault_file_bytes)
+        })
+    }
+
+    fn modify_and_write<MutationOutput>(
+        &mut self,
+        vault_dependencies: &VaultDependencies,
+        apply_mutation: impl FnOnce(&mut VaultContents) -> VaultResult<MutationOutput>,
+        write_vault_file: impl FnOnce(&[u8]) -> VaultResult<()>,
+    ) -> VaultResult<MutationOutput> {
         let mut updated_contents = self.vault_contents.clone();
         let mutation_output = apply_mutation(&mut updated_contents)?;
-        persist_vault_contents(
+        let vault_file_bytes = seal_vault_file(
             vault_dependencies,
             &self.encoded_header_bytes,
             &self.vault_subkeys.vault_contents_key,
             &updated_contents,
         )?;
+        write_vault_file(&vault_file_bytes)?;
         self.vault_contents = updated_contents;
         Ok(mutation_output)
     }

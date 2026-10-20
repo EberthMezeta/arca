@@ -233,7 +233,7 @@ impl VaultService {
     pub fn delete_item_permanently(&mut self, item_id: Uuid) -> VaultResult<()> {
         let unlocked_vault =
             Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        let removed_items = unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        let removed_items = unlocked_vault.modify_and_persist_discarding_backups(&self.vault_dependencies, |vault_contents| {
             manage_item_lifecycle::delete_permanently(vault_contents, item_id)
         })?;
         manage_attachments::delete_attachments_of_items(&self.vault_dependencies, &removed_items);
@@ -243,7 +243,7 @@ impl VaultService {
     pub fn empty_trash(&mut self) -> VaultResult<usize> {
         let unlocked_vault =
             Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        let removed_items = unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        let removed_items = unlocked_vault.modify_and_persist_discarding_backups(&self.vault_dependencies, |vault_contents| {
             Ok(manage_item_lifecycle::empty_trash(vault_contents))
         })?;
         manage_attachments::delete_attachments_of_items(&self.vault_dependencies, &removed_items);
@@ -292,8 +292,18 @@ impl VaultService {
         manage_attachments::add_attachment(&self.vault_dependencies, unlocked_vault, item_id, file_name, file_bytes)
     }
 
-    pub fn read_attachment(&self, item_id: Uuid, attachment_id: Uuid) -> VaultResult<DecryptedAttachment> {
+    /// Guardar un adjunto descifrado lo saca del cifrado, como exportar: exige la contraseña
+    /// maestra (con retardo), para que alguien con acceso breve a la app no se lleve los archivos.
+    pub fn read_attachment(
+        &mut self,
+        master_password: &SecretText,
+        item_id: Uuid,
+        attachment_id: Uuid,
+    ) -> VaultResult<DecryptedAttachment> {
         let unlocked_vault = self.session_state.require_unlocked()?;
+        run_throttled(&self.vault_dependencies, &mut self.unlock_attempt_throttle, || {
+            unwrap_vault_key(&self.vault_dependencies, master_password, &unlocked_vault.vault_header)
+        })?;
         manage_attachments::read_attachment(&self.vault_dependencies, unlocked_vault, item_id, attachment_id)
     }
 

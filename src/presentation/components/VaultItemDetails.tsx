@@ -15,6 +15,7 @@ import { ConfirmDialog } from "./primitives/ConfirmDialog";
 import { EmptyState } from "./primitives/EmptyState";
 import { IconButton } from "./primitives/IconButton";
 import { Spinner } from "./primitives/Spinner";
+import { TextPromptDialog } from "./primitives/TextPromptDialog";
 
 export function formatFileSize(sizeBytes: number): string {
   const sizeUnits = ["B", "KB", "MB", "GB"];
@@ -236,6 +237,7 @@ function AttachmentsSection({ vaultItem }: { vaultItem: VaultItem }) {
   const showToast = useToastStore((toastState) => toastState.showToast);
   const describeError = useErrorMessage();
   const [isAddingAttachment, setIsAddingAttachment] = useState(false);
+  const [attachmentIdToSave, setAttachmentIdToSave] = useState<string | null>(null);
   const isInTrash = vaultItem.movedToTrashAt !== null;
 
   const reportError = (commandError: unknown) => showToast({ message: describeError(commandError as CommandError), tone: "error" });
@@ -285,12 +287,7 @@ function AttachmentsSection({ vaultItem }: { vaultItem: VaultItem }) {
               <IconButton
                 accessibleLabel={translate("attachments.saveCopy")}
                 icon={<Download className="size-4" />}
-                onClick={() =>
-                  vaultApiClient
-                    .saveAttachmentToFile(vaultItem.itemId, attachment.attachmentId, translate("attachments.saveCopy"))
-                    .then((wasSaved) => wasSaved && showToast({ message: translate("attachments.saved"), tone: "success" }))
-                    .catch(reportError)
-                }
+                onClick={() => setAttachmentIdToSave(attachment.attachmentId)}
               />
               {!isInTrash && (
                 <IconButton
@@ -305,6 +302,25 @@ function AttachmentsSection({ vaultItem }: { vaultItem: VaultItem }) {
           ))}
         </ul>
       )}
+      <TextPromptDialog
+        isOpen={attachmentIdToSave !== null}
+        onOpenChange={(isOpen) => !isOpen && setAttachmentIdToSave(null)}
+        dialogTitle={translate("attachments.saveCopy")}
+        fieldLabel={translate("attachments.masterPassword")}
+        hintText={translate("attachments.masterPasswordHint")}
+        isSecretValue
+        confirmLabel={translate("attachments.saveConfirm")}
+        onSubmitValue={async (masterPassword) => {
+          if (!attachmentIdToSave) return;
+          const wasSaved = await vaultApiClient.saveAttachmentToFile(
+            masterPassword,
+            vaultItem.itemId,
+            attachmentIdToSave,
+            translate("attachments.saveCopy"),
+          );
+          if (wasSaved) showToast({ message: translate("attachments.saved"), tone: "success" });
+        }}
+      />
     </section>
   );
 }

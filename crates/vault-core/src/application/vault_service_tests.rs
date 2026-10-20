@@ -214,13 +214,54 @@ fn attachments_are_encrypted_and_size_limited() {
         .expect("adjuntar");
     let decrypted_attachment = test_harness
         .vault_service
-        .read_attachment(saved_item.item_id, attachment_reference.attachment_id)
+        .read_attachment(&master_password(), saved_item.item_id, attachment_reference.attachment_id)
         .expect("leer adjunto");
     let oversized_result = test_harness.vault_service.add_attachment(saved_item.item_id, "grande.bin", &[0u8; 2048]);
 
     assert_eq!(attachment_reference.file_name, "contrato.pdf");
     assert_eq!(decrypted_attachment.file_bytes.as_slice(), b"contenido del pdf");
     assert!(matches!(oversized_result, Err(VaultError::AttachmentTooLarge { .. })));
+}
+
+#[test]
+fn saving_an_attachment_requires_the_master_password() {
+    let mut test_harness = harness_with_created_vault();
+    let saved_item = test_harness.vault_service.save_item(login_request("Correo", "pw")).expect("guardar");
+    let attachment_reference =
+        test_harness.vault_service.add_attachment(saved_item.item_id, "contrato.pdf", b"contenido").expect("adjuntar");
+    let wrong_password = SecretText::new("totalmente-incorrecta-123");
+
+    for _ in 0..3 {
+        let read_result =
+            test_harness.vault_service.read_attachment(&wrong_password, saved_item.item_id, attachment_reference.attachment_id);
+        assert!(matches!(read_result, Err(VaultError::InvalidMasterPasswordOrCorruptedVault)));
+    }
+    let throttled_result =
+        test_harness.vault_service.read_attachment(&master_password(), saved_item.item_id, attachment_reference.attachment_id);
+
+    assert!(matches!(throttled_result, Err(VaultError::UnlockTemporarilyBlocked { .. })));
+}
+
+fn has_backup(test_harness: &TestVaultHarness) -> bool {
+    test_harness.vault_repository.backup_vault_bytes.lock().expect("mutex").is_some()
+}
+
+#[test]
+fn permanently_deleted_items_do_not_survive_in_the_backup() {
+    let mut test_harness = harness_with_created_vault();
+    let deleted_item = test_harness.vault_service.save_item(login_request("Borrado", "pw-borrada")).expect("guardar");
+    let emptied_item = test_harness.vault_service.save_item(login_request("Papelera", "pw-papelera")).expect("guardar");
+    test_harness.vault_service.move_item_to_trash(deleted_item.item_id).expect("papelera");
+    test_harness.vault_service.move_item_to_trash(emptied_item.item_id).expect("papelera");
+    assert!(has_backup(&test_harness));
+
+    test_harness.vault_service.delete_item_permanently(deleted_item.item_id).expect("borrar");
+    assert!(!has_backup(&test_harness), "el .bak aún contendría el elemento borrado");
+
+    test_harness.vault_service.restore_item_from_trash(emptied_item.item_id).expect("restaurar");
+    test_harness.vault_service.move_item_to_trash(emptied_item.item_id).expect("papelera");
+    test_harness.vault_service.empty_trash().expect("vaciar");
+    assert!(!has_backup(&test_harness), "el .bak aún contendría la papelera");
 }
 
 #[test]
@@ -378,7 +419,7 @@ fn attachments_are_reencrypted_and_old_copies_removed_on_password_change() {
     assert_ne!(rotated_attachment_id, original_attachment.attachment_id);
     assert_eq!(stored_attachment_ids, vec![rotated_attachment_id]);
     let decrypted_attachment =
-        test_harness.vault_service.read_attachment(saved_item.item_id, rotated_attachment_id).expect("leer adjunto");
+        test_harness.vault_service.read_attachment(&new_master_password, saved_item.item_id, rotated_attachment_id).expect("leer adjunto");
     assert_eq!(decrypted_attachment.file_bytes.as_slice(), b"contenido");
 }
 

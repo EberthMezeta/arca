@@ -130,7 +130,10 @@
     "chooseFile": "Choose a file to attach",
     "added": "“{{fileName}}” attached and encrypted",
     "saveCopy": "Save a decrypted copy",
-    "saved": "File saved"
+    "saved": "File saved",
+    "masterPassword": "Master password",
+    "masterPasswordHint": "To confirm it is you: the file will be saved unencrypted.",
+    "saveConfirm": "Save"
   },
   "clipboard": {
     "copied": "{{copiedLabel}} copied · clears in {{clearAfterSeconds}} s",

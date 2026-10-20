@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use vault_core::application::vault_service::VaultService;
 
@@ -27,11 +27,15 @@ impl AppState {
         self.vault_service.lock().map_err(|_| CommandError::internal())
     }
 
+    /// Para bloquear la bóveda hay que poder entrar aunque el mutex esté envenenado (un pánico
+    /// con él tomado): si no, las claves seguirían en memoria y ni el auto-bloqueo funcionaría.
+    fn vault_service_even_if_poisoned(&self) -> MutexGuard<'_, VaultService> {
+        self.vault_service.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// Bloquea si el usuario activó "bloquear al minimizar". Devuelve `true` si bloqueó.
     pub fn lock_if_minimize_policy_applies(&self) -> bool {
-        let Ok(mut vault_service) = self.vault_service.lock() else {
-            return false;
-        };
+        let mut vault_service = self.vault_service_even_if_poisoned();
         let should_lock = vault_service
             .preferences()
             .is_ok_and(|vault_preferences| vault_preferences.should_lock_on_window_minimize);
@@ -43,15 +47,13 @@ impl AppState {
 
     /// Bloquea ya (suspensión, bloqueo de pantalla, cierre). Devuelve `true` si estaba desbloqueada.
     pub fn lock_if_unlocked(&self) -> bool {
-        let Ok(mut vault_service) = self.vault_service.lock() else {
-            return false;
-        };
+        let mut vault_service = self.vault_service_even_if_poisoned();
         let was_unlocked = vault_service.vault_status().is_unlocked;
         vault_service.lock_vault();
         was_unlocked
     }
 
     pub fn lock_if_idle(&self) -> bool {
-        self.vault_service.lock().is_ok_and(|mut vault_service| vault_service.lock_if_idle())
+        self.vault_service_even_if_poisoned().lock_if_idle()
     }
 }

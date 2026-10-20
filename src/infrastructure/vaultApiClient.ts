@@ -97,8 +97,9 @@ export const vaultApiClient = {
   // Adjuntos (los diálogos de archivo se abren desde Rust)
   addAttachmentFromFile: (itemId: ItemId, dialogTitle: string) =>
     callBackend<AttachmentReference | null>("add_attachment_from_file", { itemId, dialogTitle }),
-  saveAttachmentToFile: (itemId: ItemId, attachmentId: string, dialogTitle: string) =>
-    callBackend<boolean>("save_attachment_to_file", { itemId, attachmentId, dialogTitle }),
+  /** Guardar un adjunto descifrado exige la contraseña maestra, como exportar. */
+  saveAttachmentToFile: (masterPassword: string, itemId: ItemId, attachmentId: string, dialogTitle: string) =>
+    callBackend<boolean>("save_attachment_to_file", { masterPassword, itemId, attachmentId, dialogTitle }),
   deleteAttachment: (itemId: ItemId, attachmentId: string) =>
     callBackend<void>("delete_attachment", { itemId, attachmentId }),
 

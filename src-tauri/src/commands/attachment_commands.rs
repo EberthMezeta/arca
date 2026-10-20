@@ -1,5 +1,6 @@
 use tauri::{AppHandle, State};
 use uuid::Uuid;
+use vault_core::domain::secret_text::SecretText;
 use vault_core::domain::vault_error::VaultError;
 use vault_core::domain::vault_item::AttachmentReference;
 use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
@@ -31,16 +32,17 @@ pub async fn add_attachment_from_file(
     Ok(Some(attachment_reference))
 }
 
-/// Descifra el adjunto y lo guarda donde elija el usuario. `false` si cancela.
+/// Descifra el adjunto (previa contraseña maestra) y lo guarda donde elija el usuario. `false` si cancela.
 #[tauri::command]
 pub async fn save_attachment_to_file(
     app_handle: AppHandle,
     app_state: State<'_, AppState>,
+    master_password: SecretText,
     item_id: Uuid,
     attachment_id: Uuid,
     dialog_title: String,
 ) -> CommandResult<bool> {
-    let decrypted_attachment = app_state.lock_vault_service()?.read_attachment(item_id, attachment_id)?;
+    let decrypted_attachment = app_state.lock_vault_service()?.read_attachment(&master_password, item_id, attachment_id)?;
     let Some(destination_path) = ask_file_to_save(&app_handle, &dialog_title, &decrypted_attachment.file_name) else {
         return Ok(false);
     };

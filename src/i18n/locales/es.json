@@ -130,7 +130,10 @@
     "chooseFile": "Elige un archivo para adjuntar",
     "added": "«{{fileName}}» adjuntado y cifrado",
     "saveCopy": "Guardar una copia descifrada",
-    "saved": "Archivo guardado"
+    "saved": "Archivo guardado",
+    "masterPassword": "Contraseña maestra",
+    "masterPasswordHint": "Para confirmar que eres tú: el archivo se guardará sin cifrar.",
+    "saveConfirm": "Guardar"
   },
   "clipboard": {
     "copied": "{{copiedLabel}} copiado · se borrará en {{clearAfterSeconds}} s",

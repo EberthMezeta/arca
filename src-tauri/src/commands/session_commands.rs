@@ -22,9 +22,9 @@ pub async fn unlock_vault(app_state: State<'_, AppState>, master_password: Secre
 }
 
 #[tauri::command]
-pub fn lock_vault(app_state: State<'_, AppState>) -> CommandResult<()> {
-    app_state.lock_vault_service()?.lock_vault();
-    Ok(())
+/// No puede fallar: bloquear funciona incluso con el estado envenenado.
+pub fn lock_vault(app_state: State<'_, AppState>) {
+    app_state.lock_if_unlocked();
 }
 
 #[tauri::command]

@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::Duration;
 
@@ -104,10 +104,9 @@ impl SecretClipboard for TauriSecretClipboard {
         Ok(())
     }
 
+    /// Se llama al bloquear: aunque el mutex esté envenenado, el secreto no debe quedarse copiado.
     fn clear_copied_secret(&self) {
-        let Ok(mut clipboard_state) = self.clipboard_state.lock() else {
-            return;
-        };
+        let mut clipboard_state = self.clipboard_state.lock().unwrap_or_else(PoisonError::into_inner);
         if clipboard_state.clear_tracked_secret() {
             emit_clipboard_cleared(&self.app_handle);
         }
