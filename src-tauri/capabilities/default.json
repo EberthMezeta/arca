@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Permisos mínimos: solo eventos y ventana. Diálogos y portapapeles se usan desde Rust, nunca desde JS.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

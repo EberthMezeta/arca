@@ -1,0 +1,28 @@
+[package]
+name = "rust-vault"
+version = "0.1.0"
+description = "Gestor de contraseñas local y cifrado"
+edition = "2024"
+
+[lib]
+name = "rust_vault_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+tauri = { version = "2.12.4", features = [] }
+tauri-plugin-clipboard-manager = "2.5.0"
+tauri-plugin-dialog = "2.8.3"
+uuid = { version = "1.28.0", features = ["serde"] }
+vault-core = { path = "../crates/vault-core" }
+zeroize = "1.9.1"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+needless_pass_by_value = "allow"
+
+[build-dependencies]
+tauri-build = { version = "2.7.3", features = [] }

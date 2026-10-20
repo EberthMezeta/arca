@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+members = ["crates/vault-core", "src-tauri"]
+
+# Argon2 sin optimizar es lentísimo; así el desbloqueo en `tauri dev` tarda lo mismo que en release.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true

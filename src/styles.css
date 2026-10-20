@@ -1,0 +1,144 @@
+@import "tailwindcss";
+
+/* Tokens de diseño: un único lugar para colores claro/oscuro. */
+:root {
+  --canvas: #f5f6f8;
+  --surface: #ffffff;
+  --surface-muted: #eef0f3;
+  --surface-hover: #e6e9ee;
+  --border: #dde1e7;
+  --text: #15181d;
+  --text-muted: #5b6472;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #e0e9fd;
+  --accent-contrast: #ffffff;
+  --danger: #d23a3a;
+  --danger-soft: #fde7e7;
+  --success: #198754;
+  --success-soft: #def5e8;
+  --warning: #b86e00;
+  --warning-soft: #fdf0d9;
+  --focus-ring: #2563eb66;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #0f1115;
+    --surface: #171a20;
+    --surface-muted: #1f232b;
+    --surface-hover: #262b34;
+    --border: #2c313b;
+    --text: #e8eaee;
+    --text-muted: #9aa3b2;
+    --accent: #5b8cff;
+    --accent-hover: #7aa2ff;
+    --accent-soft: #1c2a4a;
+    --accent-contrast: #0b0d12;
+    --danger: #f07070;
+    --danger-soft: #3a1c1f;
+    --success: #4cc38a;
+    --success-soft: #16301f;
+    --warning: #f0b45a;
+    --warning-soft: #352713;
+    --focus-ring: #5b8cff66;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0f1115;
+  --surface: #171a20;
+  --surface-muted: #1f232b;
+  --surface-hover: #262b34;
+  --border: #2c313b;
+  --text: #e8eaee;
+  --text-muted: #9aa3b2;
+  --accent: #5b8cff;
+  --accent-hover: #7aa2ff;
+  --accent-soft: #1c2a4a;
+  --accent-contrast: #0b0d12;
+  --danger: #f07070;
+  --danger-soft: #3a1c1f;
+  --success: #4cc38a;
+  --success-soft: #16301f;
+  --warning: #f0b45a;
+  --warning-soft: #352713;
+  --focus-ring: #5b8cff66;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+input,
+textarea,
+[data-selectable] {
+  user-select: text;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+@keyframes shrink-width {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.countdown-bar {
+  transform-origin: left;
+  animation-name: shrink-width;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

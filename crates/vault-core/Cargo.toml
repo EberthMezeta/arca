@@ -1,0 +1,36 @@
+[package]
+name = "vault-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+argon2 = "0.6.0"
+base32 = "0.5.1"
+base64 = "0.23.1"
+chacha20poly1305 = "0.11.0"
+chrono = { version = "0.4.45", features = ["serde"] }
+csv = "1.4.0"
+getrandom = "0.4.3"
+hkdf = "0.13.0"
+hmac = "0.13.0"
+secrecy = "0.10.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha1 = "0.11.0"
+sha2 = "0.11.1"
+thiserror = "2.0.21"
+url = "2.5.8"
+uuid = { version = "1.28.0", features = ["v4", "serde"] }
+zeroize = { version = "1.9.1", features = ["derive"] }
+zxcvbn = "3.1.1"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
