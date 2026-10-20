@@ -1,22 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <title>Arca</title>
   <defs>
+    <!-- Ámbar cálido: se aleja de los azules habituales en gestores de contraseñas. -->
     <linearGradient id="arca-background" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3b74f0"/>
-      <stop offset="1" stop-color="#1d4ed8"/>
+      <stop offset="0" stop-color="#f7b955"/>
+      <stop offset="1" stop-color="#e2602a"/>
     </linearGradient>
-    <!-- El ojo de cerradura se recorta del cofre: deja ver el fondo. -->
-    <mask id="arca-keyhole">
-      <rect width="1024" height="1024" fill="#fff"/>
-      <circle cx="512" cy="592" r="38" fill="#000"/>
-      <path d="M494 610 H530 L542 676 H482 Z" fill="#000"/>
-    </mask>
   </defs>
-  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#arca-background)"/>
-  <g fill="#fff" mask="url(#arca-keyhole)">
-    <!-- Tapa en arco -->
-    <path d="M252 474 V430 C252 336 368 286 512 286 C656 286 772 336 772 430 V474 Z"/>
-    <!-- Cuerpo, separado de la tapa por una ranura -->
-    <path d="M252 506 H772 V690 C772 718 750 740 722 740 H302 C274 740 252 718 252 690 Z"/>
+  <rect x="64" y="64" width="896" height="896" rx="220" fill="url(#arca-background)"/>
+  <g fill="#231a14">
+    <!-- La "A" de Arca, sin travesaño -->
+    <path d="M296 776 L512 244 L728 776" fill="none" stroke="#231a14" stroke-width="128" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- El ojo de cerradura ocupa el lugar del travesaño -->
+    <circle cx="512" cy="590" r="40"/>
+    <path d="M492 606 H532 L546 690 H478 Z"/>
   </g>
 </svg>
