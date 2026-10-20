@@ -118,6 +118,19 @@ fn weak_master_password_is_rejected_on_creation() {
 }
 
 #[test]
+fn accented_password_unlocks_whether_typed_composed_or_decomposed() {
+    let mut test_harness = build_test_vault_service();
+    let decomposed_password = SecretText::new("harbor-quartz-cafe\u{301}-falcon-81");
+    let composed_password = SecretText::new("harbor-quartz-caf\u{e9}-falcon-81");
+    test_harness.vault_service.create_vault(&decomposed_password).expect("crear bóveda");
+
+    test_harness.vault_service.lock_vault();
+    test_harness.vault_service.unlock_vault(&composed_password).expect("desbloquear con acento compuesto");
+    test_harness.vault_service.lock_vault();
+    test_harness.vault_service.unlock_vault(&decomposed_password).expect("desbloquear con acento descompuesto");
+}
+
+#[test]
 fn creating_twice_is_rejected() {
     let mut test_harness = harness_with_created_vault();
 

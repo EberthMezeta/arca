@@ -4,6 +4,7 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroizing;
 
 use crate::domain::key_derivation_parameters::KeyDerivationParameters;
 use crate::domain::master_password_policy::MasterPasswordPolicy;
@@ -88,7 +89,7 @@ impl VaultExporter for EncryptedVaultExportExporter {
         };
 
         let export_key = Argon2idKeyDerivation.derive_key_encryption_key(
-            file_password,
+            &file_password.nfc_normalized(),
             &export_salt,
             &export_envelope.key_derivation_parameters,
         )?;
@@ -100,6 +101,28 @@ impl VaultExporter for EncryptedVaultExportExporter {
         export_envelope.ciphertext_base64 = BASE64_STANDARD.encode(&sealed_contents.ciphertext_with_tag);
         serde_json::to_vec_pretty(&export_envelope).map_err(VaultError::storage)
     }
+}
+
+/// Como al desbloquear: la contraseña en NFC y, si difiere, tal cual (copias anteriores a normalizar).
+fn open_with_first_matching_password(
+    file_password: &SecretText,
+    export_salt: &[u8],
+    export_envelope: &EncryptedExportEnvelope,
+    sealed_contents: &SealedBox,
+) -> VaultResult<Zeroizing<Vec<u8>>> {
+    for password_candidate in file_password.key_derivation_candidates() {
+        let export_key = Argon2idKeyDerivation.derive_key_encryption_key(
+            &password_candidate,
+            export_salt,
+            &export_envelope.key_derivation_parameters,
+        )?;
+        if let Ok(serialized_contents) =
+            XChaCha20Poly1305Cipher.open(&export_key, sealed_contents, &export_envelope.associated_data())
+        {
+            return Ok(serialized_contents);
+        }
+    }
+    Err(VaultError::InvalidMasterPasswordOrCorruptedVault)
 }
 
 pub struct EncryptedVaultExportImporter;
@@ -133,14 +156,12 @@ impl VaultImporter for EncryptedVaultExportImporter {
             nonce: decode_base64(&export_envelope.nonce_base64)?,
             ciphertext_with_tag: decode_base64(&export_envelope.ciphertext_base64)?,
         };
-        let export_key = Argon2idKeyDerivation.derive_key_encryption_key(
+        let serialized_contents = open_with_first_matching_password(
             file_password,
             &export_salt,
-            &export_envelope.key_derivation_parameters,
+            &export_envelope,
+            &sealed_contents,
         )?;
-        let serialized_contents = XChaCha20Poly1305Cipher
-            .open(&export_key, &sealed_contents, &export_envelope.associated_data())
-            .map_err(|_| VaultError::InvalidMasterPasswordOrCorruptedVault)?;
 
         let mut exported_contents: VaultContents =
             serde_json::from_slice(&serialized_contents).map_err(VaultError::import_failed)?;

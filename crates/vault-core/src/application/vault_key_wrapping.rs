@@ -22,7 +22,7 @@ pub fn build_header_wrapping_vault_key(
     };
 
     let key_encryption_key = vault_dependencies.key_derivation_function.derive_key_encryption_key(
-        master_password,
+        &master_password.nfc_normalized(),
         &master_key_salt,
         &key_derivation_parameters,
     )?;
@@ -35,7 +35,25 @@ pub fn build_header_wrapping_vault_key(
 }
 
 /// Recupera la clave de bóveda. Cualquier fallo se reporta igual (no se distingue contraseña de manipulación).
+///
+/// Se prueba la contraseña en NFC y, si difiere, tal cual se escribió (bóvedas creadas antes de
+/// normalizar): solo una contraseña con acentos descompuestos cuesta un segundo Argon2id.
 pub fn unwrap_vault_key(
+    vault_dependencies: &VaultDependencies,
+    master_password: &SecretText,
+    vault_header: &VaultFileHeader,
+) -> VaultResult<EncryptionKey> {
+    let mut unwrap_result = Err(VaultError::InvalidMasterPasswordOrCorruptedVault);
+    for password_candidate in master_password.key_derivation_candidates() {
+        unwrap_result = unwrap_vault_key_with_exact_password(vault_dependencies, &password_candidate, vault_header);
+        if !matches!(unwrap_result, Err(VaultError::InvalidMasterPasswordOrCorruptedVault)) {
+            break;
+        }
+    }
+    unwrap_result
+}
+
+fn unwrap_vault_key_with_exact_password(
     vault_dependencies: &VaultDependencies,
     master_password: &SecretText,
     vault_header: &VaultFileHeader,

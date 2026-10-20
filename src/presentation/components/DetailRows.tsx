@@ -54,6 +54,10 @@ interface SecretDetailRowProps {
   maskedValue: string;
 }
 
+/** Un secreto revelado vuelve a ocultarse solo: en el WebView no se puede borrar de memoria,
+ * pero así al menos no queda a la vista ni referenciado por React indefinidamente. */
+export const REVEALED_SECRET_VISIBLE_MILLISECONDS = 30_000;
+
 /** Muestra el secreto enmascarado; solo lo pide al backend al pulsar "mostrar". */
 export function SecretDetailRow({ rowLabel, itemId, revealableField, maskedValue }: SecretDetailRowProps) {
   const { t: translate } = useTranslation();
@@ -61,6 +65,12 @@ export function SecretDetailRow({ rowLabel, itemId, revealableField, maskedValue
   const [revealedValue, setRevealedValue] = useState<string | null>(null);
 
   useEffect(() => setRevealedValue(null), [itemId]);
+
+  useEffect(() => {
+    if (revealedValue === null) return;
+    const hideTimer = window.setTimeout(() => setRevealedValue(null), REVEALED_SECRET_VISIBLE_MILLISECONDS);
+    return () => window.clearTimeout(hideTimer);
+  }, [revealedValue]);
 
   const toggleReveal = async () => {
     if (revealedValue !== null) {
