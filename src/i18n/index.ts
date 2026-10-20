@@ -12,7 +12,7 @@ export const SUPPORTED_LANGUAGES = {
 
 export type SupportedLanguage = keyof typeof SUPPORTED_LANGUAGES;
 
-const LANGUAGE_PREFERENCE_KEY = "rustvault.language";
+const LANGUAGE_PREFERENCE_KEY = "arca.language";
 
 function isSupportedLanguage(candidateLanguage: string | null): candidateLanguage is SupportedLanguage {
   return candidateLanguage !== null && candidateLanguage in SUPPORTED_LANGUAGES;

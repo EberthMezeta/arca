@@ -25,7 +25,7 @@ impl KeyDerivationParameters {
         parallelism_degree: 1,
     };
 
-    /// Límite superior: un archivo manipulado (bóveda o `.rvexport`) no puede forzar a reservar
+    /// Límite superior: un archivo manipulado (bóveda o copia `.arca`) no puede forzar a reservar
     /// más de 1 GiB, que un equipo con poca RAM no aguantaría (4× el valor recomendado).
     pub const MAXIMUM_ACCEPTED: Self = Self {
         memory_cost_kibibytes: 1024 * 1024,

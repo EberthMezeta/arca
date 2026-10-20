@@ -8,6 +8,7 @@ mod command_error;
 mod commands;
 mod composition_root;
 mod file_dialogs;
+mod legacy_data_migration;
 mod process_hardening;
 mod single_instance_lock;
 mod system_lock_watcher;
@@ -22,8 +23,9 @@ use crate::vault_events::{VaultLockReason, emit_vault_locked};
 
 const MAIN_WINDOW_LABEL: &str = "main";
 /// En Rust no se conoce el idioma elegido en la UI (vive en el `localStorage` del `WebView`).
-const ANOTHER_INSTANCE_MESSAGE: &str =
-    "RustVault ya está abierto en otra ventana.\nRustVault is already open in another window.";
+/// También se muestra si la versión anterior (`RustVault`) sigue abierta: hay que cerrarla para migrar sus datos.
+const ANOTHER_INSTANCE_MESSAGE: &str = "Arca (o RustVault, su versión anterior) ya está abierta en otra ventana. Ciérrala e inténtalo de nuevo.\n\
+     Arca (or RustVault, its previous version) is already open in another window. Close it and try again.";
 
 /// Al cerrar la app se bloquea la bóveda: borra las claves y vacía el portapapeles si aún tiene un secreto.
 fn lock_on_exit(app_handle: &AppHandle, run_event: RunEvent) {
@@ -44,7 +46,7 @@ fn warn_about_running_instance_and_exit(tauri_app: &App) {
     tauri_app
         .dialog()
         .message(ANOTHER_INSTANCE_MESSAGE)
-        .title("RustVault")
+        .title("Arca")
         .kind(MessageDialogKind::Warning)
         .show(move |_| app_handle.exit(0));
 }

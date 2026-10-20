@@ -19,6 +19,7 @@ use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::infrastructure::crypto::argon2id_key_derivation::Argon2idKeyDerivation;
 use crate::infrastructure::crypto::xchacha20_poly1305_cipher::XChaCha20Poly1305Cipher;
 
+/// Congelado: viene del nombre anterior (`RustVault`); cambiarlo rompería las copias ya hechas.
 const EXPORT_FORMAT_IDENTIFIER: &str = "rustvault-encrypted-export";
 const EXPORT_FORMAT_VERSION: u16 = 1;
 const EXPORT_SALT_LENGTH_BYTES: usize = 32;
@@ -66,7 +67,7 @@ impl VaultExporter for EncryptedVaultExportExporter {
     }
 
     fn suggested_file_extension(&self) -> &'static str {
-        "rvexport"
+        "arca"
     }
 
     fn serialize_vault(&self, vault_contents: &VaultContents, file_password: Option<&SecretText>) -> VaultResult<Vec<u8>> {

@@ -4,7 +4,7 @@ import { readLocalPreference, writeLocalPreference } from "../../infrastructure/
 
 export type ThemePreference = "system" | "light" | "dark";
 
-const THEME_PREFERENCE_KEY = "rustvault.theme";
+const THEME_PREFERENCE_KEY = "arca.theme";
 const THEME_PREFERENCES: readonly ThemePreference[] = ["system", "light", "dark"];
 
 function readStoredThemePreference(): ThemePreference {

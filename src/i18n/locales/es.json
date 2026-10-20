@@ -202,7 +202,7 @@
   },
   "setup": {
     "progress": "Paso {{current}} de {{total}}",
-    "welcomeTitle": "Bienvenido a RustVault",
+    "welcomeTitle": "Bienvenido a Arca",
     "welcomeText": "Un gestor de contraseñas privado que funciona solo en este equipo.",
     "pointLocal": "Tus datos nunca salen de tu ordenador: no hay nube ni cuentas.",
     "pointEncryption": "Todo se cifra con XChaCha20-Poly1305 y una clave derivada con Argon2id.",
@@ -280,10 +280,10 @@
       "bitwardenJson": "Bitwarden (.json sin cifrar)",
       "bitwardenCsv": "Bitwarden (.csv)",
       "browserCsv": "Navegador: Chrome, Edge, Firefox… (.csv)",
-      "encryptedVaultExport": "Copia cifrada de RustVault (.rvexport)"
+      "encryptedVaultExport": "Copia cifrada de Arca (.arca)"
     },
     "importTitle": "Importar",
-    "importDescription": "Trae contraseñas desde Bitwarden, tu navegador u otra copia de RustVault.",
+    "importDescription": "Trae contraseñas desde Bitwarden, tu navegador u otra copia de Arca (también las .rvexport de RustVault).",
     "importHints": {
       "bitwardenJson": "En Bitwarden: Herramientas › Exportar bóveda › formato .json (no el cifrado).",
       "bitwardenCsv": "En Bitwarden: Herramientas › Exportar bóveda › formato .csv.",

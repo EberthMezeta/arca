@@ -8,6 +8,8 @@ use uuid::Uuid;
 use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::vault_error::{VaultError, VaultResult};
 
+// Etiquetas congeladas del formato: vienen del nombre anterior (`RustVault`). Cambiarlas
+// cambiaría las subclaves y ninguna bóveda existente se podría abrir.
 const VAULT_CONTENTS_KEY_PURPOSE: &[u8] = b"rustvault/v1/vault-contents";
 const ATTACHMENTS_ROOT_KEY_PURPOSE: &[u8] = b"rustvault/v1/attachments-root";
 const SINGLE_ATTACHMENT_KEY_PURPOSE: &[u8] = b"rustvault/v1/attachment/";

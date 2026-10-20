@@ -16,7 +16,8 @@ use vault_core::infrastructure::storage::json_file_unlock_throttle_store::JsonFi
 use vault_core::infrastructure::storage::owner_only_files::create_owner_only_directory;
 
 use crate::adapters::tauri_secret_clipboard::TauriSecretClipboard;
-use crate::single_instance_lock::{self, InstanceLockOutcome};
+use crate::legacy_data_migration::{MigrationOutcome, migrate_legacy_data};
+use crate::single_instance_lock::{self, InstanceLockOutcome, SINGLE_INSTANCE_LOCK_FILE_NAME};
 
 const VAULT_FILE_NAME: &str = "personal.vault";
 const ATTACHMENTS_DIRECTORY_NAME: &str = "personal.vault.d";
@@ -42,9 +43,14 @@ pub fn compose_application(app_handle: &AppHandle) -> tauri::Result<StartupOutco
     create_owner_only_directory(&application_data_directory).map_err(|storage_error| {
         tauri::Error::Io(std::io::Error::other(format!("No se pudo proteger {}: {storage_error:?}", application_data_directory.display())))
     })?;
-    let InstanceLockOutcome::Acquired(single_instance_lock) = single_instance_lock::acquire(&application_data_directory)? else {
+    let InstanceLockOutcome::Acquired(single_instance_lock) =
+        single_instance_lock::acquire(&application_data_directory, SINGLE_INSTANCE_LOCK_FILE_NAME)?
+    else {
         return Ok(StartupOutcome::AnotherInstanceIsRunning);
     };
+    if let MigrationOutcome::LegacyAppStillRunning = migrate_legacy_data(&application_data_directory)? {
+        return Ok(StartupOutcome::AnotherInstanceIsRunning);
+    }
     let vault_file_path = application_data_directory.join(VAULT_FILE_NAME);
 
     let vault_dependencies = VaultDependencies {

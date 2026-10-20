@@ -15,6 +15,7 @@ use crate::domain::ports::authenticated_cipher::SealedBox;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_file::byte_reader::ByteReader;
 
+/// Congelado: viene del nombre anterior (`RustVault`) y forma parte del formato del archivo.
 pub const VAULT_FILE_MAGIC: &[u8; 4] = b"RVLT";
 pub const CURRENT_VAULT_FORMAT_VERSION: u16 = 1;
 pub const MASTER_KEY_SALT_LENGTH_BYTES: usize = 32;

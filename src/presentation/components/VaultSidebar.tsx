@@ -200,7 +200,7 @@ export function VaultSidebar({ vaultOverview }: { vaultOverview: VaultOverview |
         <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-accent-contrast">
           <ShieldCheck className="size-4.5" />
         </span>
-        <span className="text-base font-semibold">RustVault</span>
+        <span className="text-base font-semibold">Arca</span>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 pb-3">

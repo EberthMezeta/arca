@@ -5,7 +5,7 @@ use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
 
-const SINGLE_INSTANCE_LOCK_FILE_NAME: &str = "rustvault.lock";
+pub const SINGLE_INSTANCE_LOCK_FILE_NAME: &str = "arca.lock";
 
 pub enum InstanceLockOutcome {
     /// El bloqueo dura lo que viva este `File`: el sistema lo libera al cerrarse la app (aunque se cuelgue).
@@ -13,12 +13,12 @@ pub enum InstanceLockOutcome {
     HeldByAnotherInstance,
 }
 
-pub fn acquire(application_data_directory: &Path) -> io::Result<InstanceLockOutcome> {
+pub fn acquire(application_data_directory: &Path, lock_file_name: &str) -> io::Result<InstanceLockOutcome> {
     let lock_file = OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(false)
-        .open(application_data_directory.join(SINGLE_INSTANCE_LOCK_FILE_NAME))?;
+        .open(application_data_directory.join(lock_file_name))?;
     match lock_file.try_lock() {
         Ok(()) => Ok(InstanceLockOutcome::Acquired(lock_file)),
         Err(TryLockError::WouldBlock) => Ok(InstanceLockOutcome::HeldByAnotherInstance),
@@ -32,15 +32,15 @@ mod tests {
 
     #[test]
     fn second_instance_cannot_take_the_lock_until_the_first_releases_it() {
-        let temporary_directory = std::env::temp_dir().join(format!("rustvault-lock-test-{}", std::process::id()));
+        let temporary_directory = std::env::temp_dir().join(format!("arca-lock-test-{}", std::process::id()));
         std::fs::create_dir_all(&temporary_directory).expect("crear directorio");
 
-        let first_instance = acquire(&temporary_directory).expect("primer bloqueo");
+        let first_instance = acquire(&temporary_directory, SINGLE_INSTANCE_LOCK_FILE_NAME).expect("primer bloqueo");
         assert!(matches!(first_instance, InstanceLockOutcome::Acquired(_)));
-        assert!(matches!(acquire(&temporary_directory).expect("segundo intento"), InstanceLockOutcome::HeldByAnotherInstance));
+        assert!(matches!(acquire(&temporary_directory, SINGLE_INSTANCE_LOCK_FILE_NAME).expect("segundo intento"), InstanceLockOutcome::HeldByAnotherInstance));
 
         drop(first_instance);
-        assert!(matches!(acquire(&temporary_directory).expect("tras liberar"), InstanceLockOutcome::Acquired(_)));
+        assert!(matches!(acquire(&temporary_directory, SINGLE_INSTANCE_LOCK_FILE_NAME).expect("tras liberar"), InstanceLockOutcome::Acquired(_)));
         let _ = std::fs::remove_dir_all(&temporary_directory);
     }
 }

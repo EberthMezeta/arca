@@ -39,7 +39,7 @@ mod tests {
     use super::*;
 
     fn temporary_file_with(file_name: &str, file_bytes: &[u8]) -> std::path::PathBuf {
-        let file_path = std::env::temp_dir().join(format!("rustvault-{}-{file_name}", std::process::id()));
+        let file_path = std::env::temp_dir().join(format!("arca-{}-{file_name}", std::process::id()));
         std::fs::write(&file_path, file_bytes).expect("escribir");
         file_path
     }

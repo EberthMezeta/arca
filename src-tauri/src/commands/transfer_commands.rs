@@ -16,7 +16,8 @@ fn accepted_extensions(import_format: ImportFormat) -> &'static [&'static str] {
     match import_format {
         ImportFormat::BitwardenJson => &["json"],
         ImportFormat::BitwardenCsv | ImportFormat::BrowserCsv => &["csv"],
-        ImportFormat::EncryptedVaultExport => &["rvexport", "json"],
+        // `.rvexport`: copias hechas cuando la app se llamaba RustVault (mismo formato).
+        ImportFormat::EncryptedVaultExport => &["arca", "rvexport", "json"],
     }
 }
 
@@ -56,7 +57,7 @@ pub async fn export_vault_to_file(
     let exported_file =
         app_state.lock_vault_service()?.export_vault(&master_password, export_format, file_password.as_ref())?;
     let exported_bytes = Zeroizing::new(exported_file.file_bytes);
-    let suggested_file_name = format!("rust-vault-export.{}", exported_file.suggested_file_extension);
+    let suggested_file_name = format!("arca-export.{}", exported_file.suggested_file_extension);
 
     let Some(destination_path) = ask_file_to_save(&app_handle, &dialog_title, &suggested_file_name) else {
         return Ok(false);

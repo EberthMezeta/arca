@@ -1,4 +1,4 @@
-# RustVault
+# Arca
 
 Gestor de contraseñas **100 % local** (sin nube ni cuentas) con un diseño criptográfico inspirado en Bitwarden.
 Backend en **Rust**, escritorio con **Tauri 2** e interfaz en **React + TypeScript** (español / inglés).
@@ -50,7 +50,11 @@ pnpm typecheck
 | Archivos externos | Importaciones (máx. 64 MB) y adjuntos (máx. 50 MB) se rechazan antes de leerlos si son más grandes; lo importado pasa las mismas reglas que el editor. Argon2id acepta como mucho 1 GiB al abrir un archivo |
 | Proceso | Sin volcados de memoria; en Linux, `PR_SET_DUMPABLE = 0` impide leer la memoria con `ptrace` desde otros procesos. Una sola instancia a la vez (dos se pisarían los cambios) |
 
-Archivos: `~/.local/share/dev.rustvault.desktop/personal.vault`, los adjuntos cifrados en `personal.vault.d/`, el contador de intentos fallidos en `unlock-throttle.json` y el bloqueo de instancia única en `rustvault.lock`.
+Archivos: `~/.local/share/dev.arca.desktop/personal.vault`, los adjuntos cifrados en `personal.vault.d/`, el contador de intentos fallidos en `unlock-throttle.json` y el bloqueo de instancia única en `arca.lock`.
+
+> **Antes se llamaba RustVault.** Al arrancar por primera vez, Arca mueve la bóveda, los adjuntos y las preferencias desde
+> `~/.local/share/dev.rustvault.desktop/` (nunca sobrescribe una bóveda que ya exista en la carpeta nueva). Las copias
+> `.rvexport` antiguas se siguen importando: el formato no cambió.
 
 > **Limitaciones honestas:** no hay auditoría externa; un equipo con malware/keylogger puede capturar la contraseña maestra;
 > no todos los gestores de portapapeles respetan la marca de contenido sensible; borrar `zeroize` es *best-effort*

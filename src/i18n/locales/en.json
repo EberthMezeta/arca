@@ -202,7 +202,7 @@
   },
   "setup": {
     "progress": "Step {{current}} of {{total}}",
-    "welcomeTitle": "Welcome to RustVault",
+    "welcomeTitle": "Welcome to Arca",
     "welcomeText": "A private password manager that runs only on this computer.",
     "pointLocal": "Your data never leaves your computer: no cloud, no accounts.",
     "pointEncryption": "Everything is encrypted with XChaCha20-Poly1305 and an Argon2id-derived key.",
@@ -280,10 +280,10 @@
       "bitwardenJson": "Bitwarden (.json, unencrypted)",
       "bitwardenCsv": "Bitwarden (.csv)",
       "browserCsv": "Browser: Chrome, Edge, Firefox… (.csv)",
-      "encryptedVaultExport": "RustVault encrypted backup (.rvexport)"
+      "encryptedVaultExport": "Arca encrypted backup (.arca)"
     },
     "importTitle": "Import",
-    "importDescription": "Bring in passwords from Bitwarden, your browser or another RustVault backup.",
+    "importDescription": "Bring in passwords from Bitwarden, your browser or another Arca backup (including RustVault .rvexport files).",
     "importHints": {
       "bitwardenJson": "In Bitwarden: Tools › Export vault › .json format (not the encrypted one).",
       "bitwardenCsv": "In Bitwarden: Tools › Export vault › .csv format.",

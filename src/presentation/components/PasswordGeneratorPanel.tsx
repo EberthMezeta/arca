@@ -31,7 +31,7 @@ const DEFAULT_OPTIONS_BY_STRATEGY: { [Strategy in GenerationStrategy]: OptionsOf
   },
 };
 
-const GENERATOR_OPTIONS_PREFERENCE_KEY = "rustvault.generatorOptions";
+const GENERATOR_OPTIONS_PREFERENCE_KEY = "arca.generatorOptions";
 
 /** Las opciones del generador no son secretas: se recuerdan entre sesiones. */
 function readStoredGeneratorOptions(): typeof DEFAULT_OPTIONS_BY_STRATEGY & { activeStrategy: GenerationStrategy } {
