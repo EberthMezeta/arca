@@ -312,7 +312,9 @@
     "chooseExportFile": "¿Dónde guardar la exportación?",
     "exported": "Exportación guardada",
     "masterPasswordForExport": "Contraseña maestra",
-    "masterPasswordForExportHint": "Para confirmar que eres tú: exportar saca todos tus datos de la bóveda."
+    "masterPasswordForExportHint": "Para confirmar que eres tú: exportar saca todos tus datos de la bóveda.",
+    "untitledItem": "Sin título",
+    "invalidTotpField": "TOTP (no válido)"
   },
   "errors": {
     "internal": "Algo salió mal. Inténtalo de nuevo.",
@@ -351,9 +353,11 @@
       "clipboardClearOutOfRange": "Tiempo de borrado del portapapeles fuera de rango.",
       "historyLimitOutOfRange": "Límite de historial fuera de rango.",
       "emptyRandomRange": "Parámetros de generación no válidos.",
-      "wordSeparatorTooLong": "El separador es demasiado largo (máx. 5 caracteres)."
+      "wordSeparatorTooLong": "El separador es demasiado largo (máx. 5 caracteres).",
+      "attachmentNameRequired": "El archivo no tiene un nombre válido."
     },
-    "importFileTooLarge": "El archivo es demasiado grande para importarlo (máximo 64 MB)."
+    "importFileTooLarge": "El archivo es demasiado grande para importarlo (máximo 64 MB).",
+    "invalidSystemClock": "La hora del sistema no es válida: revisa la fecha y la hora del equipo."
   },
   "rollback": {
     "title": "La bóveda ha retrocedido",

@@ -49,6 +49,8 @@ pub enum VaultError {
     Storage { reason: String },
     #[error("error criptográfico")]
     Cryptography,
+    #[error("la hora del sistema es anterior a 1970")]
+    InvalidSystemClock,
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -77,6 +79,7 @@ impl VaultError {
             Self::ImportFailed { .. } => "importFailed",
             Self::Storage { .. } => "storage",
             Self::Cryptography => "cryptography",
+            Self::InvalidSystemClock => "invalidSystemClock",
         }
     }
 

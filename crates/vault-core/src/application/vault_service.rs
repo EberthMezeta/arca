@@ -9,7 +9,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::application::analyze_password_health::{self, PasswordHealthReport};
-use crate::application::import_export_vault::{self, ExportedFile, ImportSummary};
+use crate::application::import_export_vault::{self, ExportedFile, ImportLabels, ImportSummary};
 use crate::application::manage_attachments::{self, DecryptedAttachment};
 use crate::application::save_vault_item::{self, SaveVaultItemRequest};
 use crate::application::search_vault_items::{self, VaultItemFilter, VaultItemSummary, VaultOverview};
@@ -213,7 +213,7 @@ impl VaultService {
         let unlocked_vault = self.session_state.require_unlocked()?;
         let vault_item = unlocked_vault.vault_contents.find_item(item_id)?;
         let totp_secret = vault_item.item_content.totp_secret().ok_or(VaultError::FieldNotAvailable)?;
-        let unix_timestamp_seconds = u64::try_from(self.now().timestamp()).map_err(|_| VaultError::Cryptography)?;
+        let unix_timestamp_seconds = u64::try_from(self.now().timestamp()).map_err(|_| VaultError::InvalidSystemClock)?;
         TotpConfiguration::parse(totp_secret)?.code_at(unix_timestamp_seconds)
     }
 
@@ -347,8 +347,12 @@ impl VaultService {
     }
 
     /// Fusiona en la bóveda lo leído con `import_export_vault::parse_import_file`.
-    pub fn merge_imported_data(&mut self, imported_vault_data: ImportedVaultData) -> VaultResult<ImportSummary> {
-        self.mutate(|vault_contents| Ok(import_export_vault::merge_imported_data(vault_contents, imported_vault_data)))
+    pub fn merge_imported_data(
+        &mut self,
+        imported_vault_data: ImportedVaultData,
+        import_labels: &ImportLabels,
+    ) -> VaultResult<ImportSummary> {
+        self.mutate(|vault_contents| Ok(import_export_vault::merge_imported_data(vault_contents, imported_vault_data, import_labels)))
     }
 
     /// Leer y fusionar en un paso (con la bóveda tomada todo el rato): cómodo en tests.
@@ -357,6 +361,7 @@ impl VaultService {
         import_format: ImportFormat,
         file_bytes: &[u8],
         file_password: Option<&SecretText>,
+        import_labels: &ImportLabels,
     ) -> VaultResult<ImportSummary> {
         let imported_vault_data = import_export_vault::parse_import_file(
             &self.vault_dependencies.transfer_format_registry,
@@ -364,7 +369,7 @@ impl VaultService {
             file_bytes,
             file_password,
         )?;
-        self.merge_imported_data(imported_vault_data)
+        self.merge_imported_data(imported_vault_data, import_labels)
     }
 
     /// Exportar saca toda la bóveda del cifrado: exige la contraseña maestra (con retardo),

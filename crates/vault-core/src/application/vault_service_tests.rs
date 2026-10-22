@@ -2,6 +2,7 @@
 
 use chrono::Duration;
 
+use crate::application::import_export_vault::ImportLabels;
 use crate::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest, SubmittedSecret};
 use crate::application::search_vault_items::VaultItemFilter;
 use crate::application::test_support::{
@@ -27,6 +28,10 @@ use crate::domain::vault_file::vault_file_format::decode_vault_file;
 use crate::domain::vault_item::{REDACTED_SECRET_PLACEHOLDER, RevealableField, VaultItem};
 use crate::infrastructure::crypto::argon2id_key_derivation::Argon2idKeyDerivation;
 use crate::infrastructure::crypto::xchacha20_poly1305_cipher::XChaCha20Poly1305Cipher;
+
+fn import_labels() -> ImportLabels {
+    ImportLabels { untitled_item_title: "Sin título".into(), invalid_totp_field_label: "TOTP (no válido)".into() }
+}
 
 fn master_password() -> SecretText {
     SecretText::new(STRONG_MASTER_PASSWORD)
@@ -395,7 +400,7 @@ fn bitwarden_json_export_reimports_into_a_new_vault() {
     let mut target_harness = harness_with_created_vault();
     let import_summary = target_harness
         .vault_service
-        .import_file(ImportFormat::BitwardenJson, &exported_file.file_bytes, None)
+        .import_file(ImportFormat::BitwardenJson, &exported_file.file_bytes, None, &import_labels())
         .expect("importar");
 
     assert_eq!(import_summary.imported_item_count, 1);
@@ -418,10 +423,11 @@ fn encrypted_export_requires_a_password_and_round_trips() {
         ImportFormat::EncryptedVaultExport,
         &exported_file.file_bytes,
         Some(&SecretText::new("otra-clave-distinta-99")),
+        &import_labels(),
     );
     let import_summary = target_harness
         .vault_service
-        .import_file(ImportFormat::EncryptedVaultExport, &exported_file.file_bytes, Some(&export_password))
+        .import_file(ImportFormat::EncryptedVaultExport, &exported_file.file_bytes, Some(&export_password), &import_labels())
         .expect("importar");
 
     assert!(matches!(missing_password_result, Err(VaultError::TransferPasswordRequired)));

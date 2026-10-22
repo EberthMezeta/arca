@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use chrono::Local;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
-use vault_core::application::import_export_vault::{ExportedFile, parse_import_file};
+use vault_core::application::import_export_vault::{ExportedFile, ImportLabels, parse_import_file};
 use vault_core::domain::ports::vault_exporter::ExportFormat;
 use vault_core::domain::ports::vault_importer::ImportFormat;
 use vault_core::domain::secret_text::SecretText;
@@ -388,6 +388,11 @@ impl SettingsController {
                 .then(|| SecretText::new(settings.get_import_file_password().as_str()));
             settings.set_is_importing(true);
 
+            // Lo que la importación escribe en la bóveda, en el idioma de la interfaz.
+            let import_labels = ImportLabels {
+                untitled_item_title: self.context.text("transfer.untitledItem"),
+                invalid_totp_field_label: self.context.text("transfer.invalidTotpField"),
+            };
             let controller = Rc::clone(self);
             spawn_ui_task(async move {
                 let dialog_title = controller.context.text("transfer.chooseImportFile");
@@ -410,7 +415,7 @@ impl SettingsController {
                 let import_result = match parse_result {
                     Ok(imported_vault_data) => {
                         run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                            Ok(vault_service.merge_imported_data(imported_vault_data)?)
+                            Ok(vault_service.merge_imported_data(imported_vault_data, &import_labels)?)
                         })
                         .await
                     }

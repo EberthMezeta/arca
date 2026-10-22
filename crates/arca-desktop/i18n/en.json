@@ -312,7 +312,9 @@
     "chooseExportFile": "Where should the export be saved?",
     "exported": "Export saved",
     "masterPasswordForExport": "Master password",
-    "masterPasswordForExportHint": "To confirm it is you: exporting takes all your data out of the vault."
+    "masterPasswordForExportHint": "To confirm it is you: exporting takes all your data out of the vault.",
+    "untitledItem": "Untitled",
+    "invalidTotpField": "TOTP (invalid)"
   },
   "errors": {
     "internal": "Something went wrong. Please try again.",
@@ -351,9 +353,11 @@
       "clipboardClearOutOfRange": "Clipboard clear time out of range.",
       "historyLimitOutOfRange": "History limit out of range.",
       "emptyRandomRange": "Invalid generation settings.",
-      "wordSeparatorTooLong": "The separator is too long (5 characters max)."
+      "wordSeparatorTooLong": "The separator is too long (5 characters max).",
+      "attachmentNameRequired": "The file doesn't have a valid name."
     },
-    "importFileTooLarge": "The file is too large to import (64 MB max)."
+    "importFileTooLarge": "The file is too large to import (64 MB max).",
+    "invalidSystemClock": "The system clock is not valid: check this computer's date and time."
   },
   "rollback": {
     "title": "The vault has gone back in time",

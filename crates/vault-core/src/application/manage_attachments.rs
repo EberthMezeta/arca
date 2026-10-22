@@ -43,7 +43,7 @@ pub fn add_attachment(
 
     let attachment_reference = AttachmentReference {
         attachment_id: Uuid::new_v4(),
-        file_name: sanitize_file_name(raw_file_name),
+        file_name: sanitize_file_name(raw_file_name)?,
         size_bytes,
         added_at: vault_dependencies.clock.now(),
     };
@@ -208,13 +208,14 @@ fn find_attachment_reference(vault_item: &VaultItem, attachment_id: Uuid) -> Vau
         .ok_or(VaultError::AttachmentNotFound { attachment_id })
 }
 
-/// Se queda solo con el nombre (sin rutas) para evitar path traversal al guardar.
-fn sanitize_file_name(raw_file_name: &str) -> String {
+/// Se queda solo con el nombre (sin rutas) para evitar path traversal al guardar. Sin nombre
+/// utilizable es un error (el núcleo no inventa uno: tendría que elegir idioma).
+fn sanitize_file_name(raw_file_name: &str) -> VaultResult<String> {
     Path::new(raw_file_name)
         .file_name()
         .and_then(|file_name| file_name.to_str())
         .map(str::trim)
         .filter(|file_name| !file_name.is_empty())
-        .unwrap_or("adjunto")
-        .to_string()
+        .map(str::to_string)
+        .ok_or(VaultError::invalid_input("attachmentNameRequired"))
 }

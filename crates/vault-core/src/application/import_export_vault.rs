@@ -41,8 +41,12 @@ pub fn parse_import_file(
     transfer_format_registry.importer_for(import_format)?.parse_file(file_bytes, file_password)
 }
 
-const UNTITLED_ITEM_TITLE: &str = "Sin título";
-const INVALID_TOTP_FIELD_LABEL: &str = "TOTP (no válido)";
+/// Textos que la importación escribe en la bóveda, en el idioma de la interfaz (el núcleo no traduce).
+#[derive(Debug, Clone)]
+pub struct ImportLabels {
+    pub untitled_item_title: String,
+    pub invalid_totp_field_label: String,
+}
 
 /// Recorta a `maximum_character_count` caracteres (no bytes, para no partir un carácter UTF-8).
 fn truncated_to_characters(raw_text: &str, maximum_character_count: usize) -> String {
@@ -52,10 +56,10 @@ fn truncated_to_characters(raw_text: &str, maximum_character_count: usize) -> St
 /// Lo importado viene de terceros: se le aplican las mismas reglas que al guardar desde el
 /// editor, para que luego se pueda editar sin errores. Un TOTP no válido no se pierde: pasa a
 /// un campo oculto (si se quedara, el elemento no se podría volver a guardar sin borrarlo).
-fn normalize_imported_item(imported_item: &mut VaultItem) {
+fn normalize_imported_item(imported_item: &mut VaultItem, import_labels: &ImportLabels) {
     imported_item.title = truncated_to_characters(&imported_item.title, MAXIMUM_TITLE_CHARACTER_COUNT);
     if imported_item.title.is_empty() {
-        imported_item.title = UNTITLED_ITEM_TITLE.to_string();
+        imported_item.title.clone_from(&import_labels.untitled_item_title);
     }
 
     let ItemContent::Login(login_content) = &mut imported_item.item_content else {
@@ -68,7 +72,7 @@ fn normalize_imported_item(imported_item: &mut VaultItem) {
         return;
     };
     imported_item.custom_fields.push(CustomField {
-        field_label: INVALID_TOTP_FIELD_LABEL.to_string(),
+        field_label: import_labels.invalid_totp_field_label.clone(),
         field_value: invalid_totp_secret,
         is_hidden: true,
     });
@@ -76,7 +80,11 @@ fn normalize_imported_item(imported_item: &mut VaultItem) {
 
 /// Fusiona lo importado: las carpetas con el mismo nombre se reutilizan; las que no tienen
 /// nombre no se crean (sus elementos quedan sin carpeta).
-pub fn merge_imported_data(vault_contents: &mut VaultContents, imported_vault_data: ImportedVaultData) -> ImportSummary {
+pub fn merge_imported_data(
+    vault_contents: &mut VaultContents,
+    imported_vault_data: ImportedVaultData,
+    import_labels: &ImportLabels,
+) -> ImportSummary {
     let mut folder_id_translation: HashMap<Uuid, Uuid> = HashMap::new();
     let mut created_folder_count = 0;
 
@@ -98,7 +106,7 @@ pub fn merge_imported_data(vault_contents: &mut VaultContents, imported_vault_da
 
     let imported_item_count = imported_vault_data.vault_items.len();
     for mut imported_item in imported_vault_data.vault_items {
-        normalize_imported_item(&mut imported_item);
+        normalize_imported_item(&mut imported_item, import_labels);
         imported_item.item_id = Uuid::new_v4();
         imported_item.attachments.clear();
         imported_item.folder_id =
@@ -172,11 +180,15 @@ mod tests {
             vault_items: vec![imported_login("   ", "¡no es base32!"), imported_login(&"x".repeat(500), "JBSWY3DPEHPK3PXP")],
         };
 
-        let import_summary = merge_imported_data(&mut vault_contents, imported_vault_data);
+        let import_labels =
+            ImportLabels { untitled_item_title: "Untitled".into(), invalid_totp_field_label: "TOTP (invalid)".into() };
+
+        let import_summary = merge_imported_data(&mut vault_contents, imported_vault_data, &import_labels);
 
         assert_eq!(import_summary.created_folder_count, 0);
         let untitled_item = &vault_contents.vault_items[0];
-        assert_eq!(untitled_item.title, UNTITLED_ITEM_TITLE);
+        assert_eq!(untitled_item.title, "Untitled");
+        assert_eq!(untitled_item.custom_fields[0].field_label, "TOTP (invalid)");
         assert_eq!(untitled_item.item_content.totp_secret(), None);
         assert_eq!(untitled_item.custom_fields[0].field_value.expose_secret(), "¡no es base32!");
         assert!(untitled_item.custom_fields[0].is_hidden);
