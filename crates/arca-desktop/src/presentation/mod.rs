@@ -1,5 +1,6 @@
 //! Capa de presentación: controladores que traducen entre la interfaz Slint y `VaultService`.
 
+pub mod app_commands;
 pub mod app_context;
 pub mod background_task;
 pub mod controllers;

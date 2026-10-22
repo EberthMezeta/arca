@@ -11,8 +11,6 @@ export enum ListState { loading, vault-empty, no-matches, item-list }
 export enum NavIcon { layers, star, login, secure-note, payment-card, identity, folder, folder-muted, hash, trash, generator, health, settings, lock }
 export enum DetailRowKind { plain, secret, totp }
 export enum HealthIssueKind { weak, reused, old }
-/// Atajos globales de teclado; las teclas que los disparan están en una tabla en Rust (`shortcuts.rs`).
-export enum Shortcut { palette, new-login, lock, find, save, escape }
 /// Campo del editor cuyo valor real se pide al pulsar «Mostrar».
 export enum SealedField { password, totp-secret, descriptor, custom }
 
@@ -173,8 +171,9 @@ export global Workspace {
     callback create-item(kind: ItemKind);
     callback open-section(section: VaultSection);
     callback request-import();
-    callback shortcut(shortcut: Shortcut) -> bool;
-    /// Ctrl + tecla: Rust la busca en su tabla de atajos.
+    /// Esc que ningún control usó: cierra el editor si está abierto.
+    callback escape-pressed() -> bool;
+    /// Ctrl + tecla: Rust la busca en su tabla de atajos (`shortcuts.rs`).
     callback control-key-shortcut(key: string) -> bool;
 }
 

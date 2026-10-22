@@ -2,7 +2,7 @@
 // Los globales se reexportan aquí para que los controladores Rust puedan usarlos.
 
 import { Theme } from "theme.slint";
-import { AppScreen, ItemPanel, Shortcut, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette } from "bridge.slint";
+import { AppScreen, ItemPanel, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette } from "bridge.slint";
 import { LoadingScreen, SetupScreen, UnlockScreen } from "session_screens.slint";
 import { VaultScreen } from "vault_screen.slint";
 import { CommandPaletteOverlay } from "command_palette.slint";
@@ -55,7 +55,7 @@ export component AppWindow inherits Window {
                 Viewport.is-drawer-requested = false;
                 return accept;
             }
-            if event.text == Key.Escape && Session.screen == AppScreen.vault && Workspace.shortcut(Shortcut.escape) {
+            if event.text == Key.Escape && Session.screen == AppScreen.vault && Workspace.escape-pressed() {
                 return accept;
             }
             // En una sola columna, Esc desde los detalles vuelve a la lista.

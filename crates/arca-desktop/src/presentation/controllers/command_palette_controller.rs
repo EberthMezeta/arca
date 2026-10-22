@@ -5,20 +5,18 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use vault_core::application::search_vault_items::VaultItemFilter;
-use vault_core::domain::item_content::ItemContentType;
 
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::item_kinds::{ITEM_KIND_DEFINITIONS, definition_for};
 use crate::presentation::shortcuts;
-use crate::{AppWindow, CommandPalette, NavIcon, PaletteEntry, Shortcut, VaultSection};
+use crate::presentation::app_commands::AppCommand;
+use crate::{AppWindow, CommandPalette, NavIcon, PaletteEntry, VaultSection};
 
 const MAXIMUM_ITEM_RESULTS: usize = 6;
 
-type PaletteAction = Rc<dyn Fn(&AppContext)>;
-
 struct PaletteCommand {
     entry: PaletteEntry,
-    run_command: PaletteAction,
+    command: AppCommand,
 }
 
 pub struct CommandPaletteController {
@@ -63,9 +61,9 @@ impl CommandPaletteController {
     }
 
     fn static_commands(&self) -> Vec<PaletteCommand> {
-        let command = |label: String, icon: NavIcon, shortcut: &str, run_command: PaletteAction| PaletteCommand {
-            entry: PaletteEntry { label: label.into(), hint: SharedString::new(), icon, shortcut: shortcut.into() },
-            run_command,
+        let command = |label: String, icon: NavIcon, command: AppCommand| PaletteCommand {
+            entry: PaletteEntry { label: label.into(), hint: SharedString::new(), icon, shortcut: shortcuts::label_for(command).into() },
+            command,
         };
         let mut static_commands: Vec<PaletteCommand> = ITEM_KIND_DEFINITIONS
             .iter()
@@ -75,8 +73,7 @@ impl CommandPaletteController {
                 command(
                     self.context.text_with("palette.newItem", &[("itemType", &item_type_label)]),
                     definition.nav_icon,
-                    if content_type == ItemContentType::Login { shortcuts::label_for(Shortcut::NewLogin) } else { "" },
-                    Rc::new(move |context: &AppContext| context.navigator.start_creating_item(content_type)),
+                    AppCommand::CreateItem(content_type),
                 )
             })
             .collect();
@@ -88,15 +85,10 @@ impl CommandPaletteController {
             ]
             .into_iter()
             .map(|(section, icon, label_key)| {
-                command(self.context.text(label_key), icon, "", Rc::new(move |context: &AppContext| context.navigator.open_section(section)))
+                command(self.context.text(label_key), icon, AppCommand::OpenSection(section))
             }),
         );
-        static_commands.push(command(
-            self.context.text("actions.lock"),
-            NavIcon::Lock,
-            shortcuts::label_for(Shortcut::Lock),
-            Rc::new(|context: &AppContext| context.events.publish(AppEvent::LockRequested)),
-        ));
+        static_commands.push(command(self.context.text("actions.lock"), NavIcon::Lock, AppCommand::LockVault));
         static_commands
     }
 
@@ -111,7 +103,6 @@ impl CommandPaletteController {
             .into_iter()
             .take(MAXIMUM_ITEM_RESULTS)
             .map(|item_summary| {
-                let item_id = item_summary.item_id;
                 PaletteCommand {
                     entry: PaletteEntry {
                         label: item_summary.title.into(),
@@ -119,10 +110,7 @@ impl CommandPaletteController {
                         icon: definition_for(item_summary.content_type).nav_icon,
                         shortcut: SharedString::new(),
                     },
-                    run_command: Rc::new(move |context: &AppContext| {
-                        context.navigator.apply_navigation_filter(VaultItemFilter::default());
-                        context.navigator.select_item(Some(item_id));
-                    }),
+                    command: AppCommand::OpenItem(item_summary.item_id),
                 }
             })
             .collect()
@@ -144,13 +132,13 @@ impl CommandPaletteController {
     }
 
     fn execute(&self, entry_position: i32) {
-        let run_command = usize::try_from(entry_position)
+        let command = usize::try_from(entry_position)
             .ok()
-            .and_then(|entry_position| self.visible_commands.borrow().get(entry_position).map(|command| Rc::clone(&command.run_command)));
-        let Some(run_command) = run_command else {
+            .and_then(|entry_position| self.visible_commands.borrow().get(entry_position).map(|palette_command| palette_command.command));
+        let Some(command) = command else {
             return;
         };
         self.close();
-        run_command(&self.context);
+        command.execute(&self.context);
     }
 }

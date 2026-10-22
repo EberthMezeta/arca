@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use chrono::Local;
 use slint::{ComponentHandle, SharedString};
-use vault_core::application::import_export_vault::{ImportLabels, parse_import_file};
+use vault_core::application::import_export_vault::{ExportedFile, ImportLabels, parse_import_file};
 use vault_core::domain::ports::vault_exporter::ExportFormat;
 use vault_core::domain::ports::vault_importer::ImportFormat;
 use vault_core::domain::secret_text::SecretText;
@@ -21,6 +21,26 @@ use crate::ui_error::UiError;
 use crate::Settings;
 
 use super::SettingsController;
+
+/// Estado de una exportación (patrón State). Solo `AwaitingDestination` guarda bytes, y bloquear
+/// la bóveda vuelve siempre a `Idle`: no hay forma de olvidar una exportación en claro en memoria.
+#[derive(Default)]
+pub(super) enum ExportState {
+    #[default]
+    Idle,
+    /// Generada; espera a que el usuario elija dónde guardarla.
+    AwaitingDestination(ExportedFile),
+}
+
+impl ExportState {
+    /// Saca la exportación pendiente (si la hay) y vuelve a `Idle`.
+    pub(super) fn take_pending(&mut self) -> Option<ExportedFile> {
+        match std::mem::take(self) {
+            Self::AwaitingDestination(exported_file) => Some(exported_file),
+            Self::Idle => None,
+        }
+    }
+}
 
 pub(super) struct TransferFormatDescription<Format> {
     transfer_format: Format,
@@ -197,10 +217,10 @@ impl SettingsController {
                 };
                 let suggested_file_name =
                     format!("arca-export-{}.{}", Local::now().format("%Y-%m-%d"), exported_file.suggested_file_extension);
-                *controller.pending_export.borrow_mut() = Some(exported_file);
+                *controller.export_state.borrow_mut() = ExportState::AwaitingDestination(exported_file);
                 let dialog_title = controller.context.text("transfer.chooseExportFile");
                 let destination_path = ask_file_to_save(&dialog_title, &suggested_file_name).await;
-                let pending_export = controller.pending_export.borrow_mut().take();
+                let pending_export = controller.export_state.borrow_mut().take_pending();
                 let (Some(destination_path), Some(exported_file)) = (destination_path, pending_export) else {
                     return controller.with_settings(|settings| settings.set_is_exporting(false));
                 };

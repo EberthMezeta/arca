@@ -1,7 +1,6 @@
 //! Barra lateral, lista de elementos, selección y atajos de teclado globales.
 
 mod item_list;
-mod keyboard_shortcuts;
 mod sidebar;
 
 use std::cell::RefCell;
@@ -14,8 +13,9 @@ use vault_core::domain::vault_item::RevealableField;
 
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::item_kinds::definition_for_ui_kind;
-use crate::presentation::shortcuts::{self, shortcut_for_control_key};
-use crate::{AppWindow, ItemPanel, ListState, Shortcut, Sidebar, VaultSection, Workspace};
+use crate::presentation::app_commands::AppCommand;
+use crate::presentation::shortcuts::{self, command_for_control_key};
+use crate::{AppWindow, ItemPanel, ListState, Sidebar, VaultSection, Workspace};
 
 #[derive(Clone)]
 enum NavigationTarget {
@@ -48,7 +48,7 @@ impl WorkspaceController {
 
     fn bind_sidebar(self: &Rc<Self>, app_window: &AppWindow) {
         let sidebar = app_window.global::<Sidebar>();
-        sidebar.set_lock_shortcut_label(shortcuts::label_for(Shortcut::Lock).into());
+        sidebar.set_lock_shortcut_label(shortcuts::label_for(AppCommand::LockVault).into());
         let activating_controller = Rc::clone(self);
         sidebar.on_activate(move |entry_key| activating_controller.activate_entry(&entry_key));
         let creating_controller = Rc::clone(self);
@@ -86,9 +86,11 @@ impl WorkspaceController {
         let import_controller = Rc::clone(self);
         workspace.on_request_import(move || import_controller.context.navigator.open_section(VaultSection::Settings));
         let shortcut_controller = Rc::clone(self);
-        workspace.on_shortcut(move |shortcut| shortcut_controller.run_shortcut(shortcut));
+        workspace.on_escape_pressed(move || AppCommand::CancelOpenEditor.execute(&shortcut_controller.context));
         let control_key_controller = Rc::clone(self);
-        workspace.on_control_key_shortcut(move |key| shortcut_for_control_key(&key).is_some_and(|shortcut| control_key_controller.run_shortcut(shortcut)));
+        workspace.on_control_key_shortcut(move |key| {
+            command_for_control_key(&key).is_some_and(|command| command.execute(&control_key_controller.context))
+        });
     }
 
     fn handle_event(&self, app_event: AppEvent) {

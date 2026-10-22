@@ -10,14 +10,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
-use vault_core::application::import_export_vault::ExportedFile;
 
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::translator::SUPPORTED_LANGUAGES;
 use crate::{AppWindow, Settings};
 use appearance::{THEME_CHOICES, follow_system_color_scheme};
 use security_preferences::PreferenceChoices;
-use transfer::{EXPORT_FORMATS, IMPORT_FORMATS};
+use transfer::{EXPORT_FORMATS, ExportState, IMPORT_FORMATS};
 
 fn to_string_model(labels: Vec<String>) -> ModelRc<SharedString> {
     ModelRc::new(VecModel::from(labels.into_iter().map(SharedString::from).collect::<Vec<_>>()))
@@ -28,13 +27,13 @@ pub struct SettingsController {
     preference_choices: RefCell<PreferenceChoices>,
     /// Exportación ya generada que espera a que el usuario elija dónde guardarla. Puede ir en
     /// texto plano: si la bóveda se bloquea mientras tanto, se descarta (y se borra de memoria).
-    pending_export: RefCell<Option<ExportedFile>>,
+    export_state: RefCell<ExportState>,
 }
 
 impl SettingsController {
     pub fn install(context: &Rc<AppContext>, app_window: &AppWindow) -> Rc<Self> {
         let controller =
-            Rc::new(Self { context: Rc::clone(context), preference_choices: RefCell::default(), pending_export: RefCell::default() });
+            Rc::new(Self { context: Rc::clone(context), preference_choices: RefCell::default(), export_state: RefCell::default() });
         controller.bind_callbacks(app_window);
 
         let event_controller = Rc::clone(&controller);
@@ -112,7 +111,7 @@ impl SettingsController {
 
     /// Al bloquear no puede quedar ninguna contraseña escrita en los formularios.
     fn clear_secrets(&self) {
-        self.pending_export.borrow_mut().take();
+        self.export_state.borrow_mut().take_pending();
         self.with_settings(|settings| {
             for clear_field in [
                 Settings::set_current_master_password,

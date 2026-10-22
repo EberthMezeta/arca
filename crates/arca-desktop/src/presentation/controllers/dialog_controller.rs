@@ -9,23 +9,77 @@ use vault_core::domain::secret_text::SecretText;
 
 use crate::{AppWindow, Dialogs};
 
+/// Diálogo que pide un texto. Se construye con lo obligatorio y se ajusta con métodos (Builder).
 pub struct PromptRequest {
-    pub title: String,
-    pub label: String,
-    pub hint: String,
-    pub confirm_label: String,
-    pub initial_value: String,
-    pub is_secret: bool,
+    title: String,
+    label: String,
+    hint: String,
+    confirm_label: String,
+    initial_value: String,
+    is_secret: bool,
     /// Recibe el valor como `SecretText` (puede ser una contraseña). Debe cerrar el diálogo o mostrar un error.
-    pub on_submit: Rc<dyn Fn(SecretText)>,
+    on_submit: Rc<dyn Fn(SecretText)>,
 }
 
+impl PromptRequest {
+    pub fn new(title: String, label: String, confirm_label: String, on_submit: impl Fn(SecretText) + 'static) -> Self {
+        Self {
+            title,
+            label,
+            hint: String::new(),
+            confirm_label,
+            initial_value: String::new(),
+            is_secret: false,
+            on_submit: Rc::new(on_submit),
+        }
+    }
+
+    #[must_use]
+    pub fn hint(mut self, hint: String) -> Self {
+        self.hint = hint;
+        self
+    }
+
+    #[must_use]
+    pub fn initial_value(mut self, initial_value: String) -> Self {
+        self.initial_value = initial_value;
+        self
+    }
+
+    /// El campo se muestra enmascarado (contraseñas).
+    #[must_use]
+    pub fn secret(mut self) -> Self {
+        self.is_secret = true;
+        self
+    }
+}
+
+/// Diálogo de confirmación. Sin `on_confirm`, solo informa (el botón cierra).
 pub struct ConfirmRequest {
-    pub title: String,
-    pub text: String,
-    pub confirm_label: String,
-    pub is_destructive: bool,
-    pub on_confirm: Box<dyn FnOnce()>,
+    title: String,
+    text: String,
+    confirm_label: String,
+    is_destructive: bool,
+    on_confirm: Box<dyn FnOnce()>,
+}
+
+impl ConfirmRequest {
+    pub fn new(title: String, text: String, confirm_label: String) -> Self {
+        Self { title, text, confirm_label, is_destructive: false, on_confirm: Box::new(|| {}) }
+    }
+
+    /// El botón de confirmar se pinta como peligroso (borrar).
+    #[must_use]
+    pub fn destructive(mut self) -> Self {
+        self.is_destructive = true;
+        self
+    }
+
+    #[must_use]
+    pub fn on_confirm(mut self, on_confirm: impl FnOnce() + 'static) -> Self {
+        self.on_confirm = Box::new(on_confirm);
+        self
+    }
 }
 
 #[derive(Default)]

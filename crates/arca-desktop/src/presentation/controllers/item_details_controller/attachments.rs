@@ -9,6 +9,7 @@ use vault_core::domain::vault_error::VaultError;
 use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
 
 use super::ItemDetailsController;
+use crate::presentation::app_commands::ItemCommand;
 use crate::ItemDetails;
 use crate::composition_root::MAXIMUM_ATTACHMENT_SIZE_BYTES;
 use crate::platform::bounded_file_reader::read_user_file;
@@ -81,15 +82,16 @@ impl ItemDetailsController {
             return;
         };
         let controller = Rc::clone(self);
-        self.context.dialogs.ask_for_text(PromptRequest {
-            title: self.context.text("attachments.saveCopy"),
-            label: self.context.text("attachments.masterPassword"),
-            hint: self.context.text("attachments.masterPasswordHint"),
-            confirm_label: self.context.text("attachments.saveConfirm"),
-            initial_value: String::new(),
-            is_secret: true,
-            on_submit: Rc::new(move |master_password: SecretText| controller.save_attachment(item_id, attachment_id, master_password)),
-        });
+        self.context.dialogs.ask_for_text(
+            PromptRequest::new(
+                self.context.text("attachments.saveCopy"),
+                self.context.text("attachments.masterPassword"),
+                self.context.text("attachments.saveConfirm"),
+                move |master_password: SecretText| controller.save_attachment(item_id, attachment_id, master_password),
+            )
+            .hint(self.context.text("attachments.masterPasswordHint"))
+            .secret(),
+        );
     }
 
     fn save_attachment(self: &Rc<Self>, item_id: Uuid, attachment_id: Uuid, master_password: SecretText) {
@@ -128,6 +130,6 @@ impl ItemDetailsController {
         let Some((item_id, attachment_id, _)) = self.attachment_at(attachment_position) else {
             return;
         };
-        self.run_item_action(move |context| Ok(context.shared_vault.lock_service()?.delete_attachment(item_id, attachment_id)?), None, None);
+        self.run_item_command(ItemCommand::DeleteAttachment { item_id, attachment_id }, None, false);
     }
 }

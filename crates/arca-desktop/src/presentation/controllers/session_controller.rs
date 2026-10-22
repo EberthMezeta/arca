@@ -187,16 +187,11 @@ impl SessionController {
     fn warn_about_rollback(&self, detected_rollback: VaultRollback) {
         let opened_revision = detected_rollback.opened_revision_number.to_string();
         let last_seen_revision = detected_rollback.last_seen_revision_number.to_string();
-        self.context.dialogs.confirm(ConfirmRequest {
-            title: self.context.text("rollback.title"),
-            text: self.context.text_with(
-                "rollback.text",
-                &[("openedRevision", &opened_revision), ("lastSeenRevision", &last_seen_revision)],
-            ),
-            confirm_label: self.context.text("rollback.acknowledge"),
-            is_destructive: false,
-            on_confirm: Box::new(|| {}),
-        });
+        self.context.dialogs.confirm(ConfirmRequest::new(
+            self.context.text("rollback.title"),
+            self.context.text_with("rollback.text", &[("openedRevision", &opened_revision), ("lastSeenRevision", &last_seen_revision)]),
+            self.context.text("rollback.acknowledge"),
+        ));
     }
 
     /// La bóveda se creó con una política anterior más permisiva: se sigue abriendo, pero se sugiere cambiarla.
