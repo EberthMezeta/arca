@@ -5,9 +5,14 @@ use chrono::Duration;
 use crate::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest};
 use crate::application::search_vault_items::VaultItemFilter;
 use crate::application::test_support::{
-    FakeClock, STRONG_MASTER_PASSWORD, SharedTestStorage, TestVaultHarness, build_test_vault_service,
-    build_test_vault_service_on,
+    FakeClock, STRONG_MASTER_PASSWORD, SharedTestStorage, TestVaultHarness, build_test_vault_dependencies,
+    build_test_vault_service, build_test_vault_service_on,
 };
+use crate::application::vault_key_wrapping::build_header_wrapping_vault_key;
+use crate::application::vault_session::persist_vault_contents;
+use crate::domain::secure_random::random_encryption_key;
+use crate::domain::vault_contents::VaultContents;
+use crate::infrastructure::storage::in_memory_storage::FakeSecretClipboard;
 use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::item_content::{ItemContent, LoginContent};
 use crate::domain::key_hierarchy::derive_vault_subkeys;
@@ -116,12 +121,12 @@ fn replacing_the_vault_with_an_older_version_is_detected_once() {
     test_harness.vault_service.lock_vault();
     test_harness.vault_repository.write_vault_bytes(&older_vault_bytes).expect("sustituir");
 
-    let detected_rollback = test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear");
+    let unlock_report = test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear");
 
-    let detected_rollback = detected_rollback.expect("debe avisar del retroceso");
+    let detected_rollback = unlock_report.detected_rollback.expect("debe avisar del retroceso");
     assert!(detected_rollback.opened_revision_number < detected_rollback.last_seen_revision_number);
     test_harness.vault_service.lock_vault();
-    assert_eq!(test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear"), None);
+    assert_eq!(test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear").detected_rollback, None);
 }
 
 #[test]
@@ -130,12 +135,45 @@ fn normal_saves_and_reopening_raise_no_rollback_warning() {
     test_harness.vault_service.save_item(login_request("GitHub", "a-Long-unique-pass-1")).expect("guardar");
     test_harness.vault_service.lock_vault();
 
-    assert_eq!(test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear"), None);
+    let unlock_report = test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear");
+    assert_eq!(unlock_report.detected_rollback, None);
+    assert_eq!(unlock_report.master_password_violations, Vec::new());
 
     test_harness.vault_service.change_master_password(&master_password(), &SecretText::new("harbor-quartz-cafe-falcon-81")).expect("cambiar");
     test_harness.vault_service.lock_vault();
     let reopened = test_harness.vault_service.unlock_vault(&SecretText::new("harbor-quartz-cafe-falcon-81")).expect("desbloquear");
-    assert_eq!(reopened, None);
+    assert_eq!(reopened.detected_rollback, None);
+}
+
+#[test]
+fn unlocking_with_a_master_password_below_the_current_policy_reports_it() {
+    let shared_storage = SharedTestStorage::default();
+    let fake_clock = FakeClock::starting_now();
+    let weak_password = SecretText::new("Barcelona1992!");
+    // Una bóveda creada con una política anterior, más permisiva.
+    let vault_dependencies =
+        build_test_vault_dependencies(&shared_storage, &fake_clock, &std::sync::Arc::new(FakeSecretClipboard::default()));
+    let vault_key = random_encryption_key().expect("clave");
+    let vault_header = build_header_wrapping_vault_key(
+        &vault_dependencies,
+        &weak_password,
+        &vault_key,
+        vault_dependencies.key_derivation_policy.parameters_for_new_vaults,
+    )
+    .expect("cabecera");
+    let vault_subkeys = derive_vault_subkeys(&vault_key).expect("subclaves");
+    persist_vault_contents(
+        &vault_dependencies,
+        &vault_header.encode().expect("codificar"),
+        &vault_subkeys.vault_contents_key,
+        &mut VaultContents::default(),
+    )
+    .expect("guardar");
+    let mut test_harness = build_test_vault_service_on(shared_storage, fake_clock);
+
+    let unlock_report = test_harness.vault_service.unlock_vault(&weak_password).expect("se sigue abriendo");
+
+    assert!(!unlock_report.master_password_violations.is_empty());
 }
 
 #[test]

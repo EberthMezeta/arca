@@ -261,7 +261,10 @@ component CreatePasswordStep inherits VerticalLayout {
             accessible-name: I18n.t("setup.masterPassword");
             accepted => { confirmation-field.focus(); }
         }
-        StrengthMeter { score: root.strength-score; }
+        StrengthMeter {
+            score: root.strength-score;
+            minimum-score: PasswordStrengths.master-minimum-score;
+        }
     }
     if Session.setup-password != "" && (root.is-too-short || root.is-too-weak): VerticalLayout {
         spacing: 2px;

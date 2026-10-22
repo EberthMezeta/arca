@@ -150,7 +150,10 @@ component MasterPasswordSettings inherits SettingsSection {
             is-password: true;
             accessible-name: I18n.t("settings.newMasterPassword");
         }
-        StrengthMeter { score: PasswordStrengths.score-of(Settings.new-master-password); }
+        StrengthMeter {
+            score: PasswordStrengths.score-of(Settings.new-master-password);
+            minimum-score: PasswordStrengths.master-minimum-score;
+        }
     }
     FormField {
         label: I18n.t("settings.confirmMasterPassword");

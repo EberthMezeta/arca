@@ -14,11 +14,12 @@ use crate::presentation::background_task::{run_with_vault_in_background, spawn_u
 use crate::presentation::error_messages::describe_error;
 use crate::presentation::vault_event_bridge;
 use crate::vault_events::{VaultEvent, VaultLockReason};
-use crate::{AppScreen, AppWindow, Session, ToastTone};
+use crate::{AppScreen, AppWindow, Session, ToastTone, VaultSection};
 
 const MINIMIZE_CHECK_INTERVAL: Duration = Duration::from_millis(500);
 const CLIPBOARD_CLEARED_TOAST_DURATION: Duration = Duration::from_secs(2);
 const DEFAULT_UNLOCK_SUBTITLE_KEY: &str = "unlock.subtitle";
+const WEAK_MASTER_PASSWORD_TOAST_DURATION: Duration = Duration::from_secs(15);
 
 fn unlock_subtitle_key(lock_reason: VaultLockReason) -> &'static str {
     match lock_reason {
@@ -110,10 +111,13 @@ impl SessionController {
             .await;
             controller.with_session(|session| session.set_is_unlocking(false));
             match unlock_result {
-                Ok(detected_rollback) => {
+                Ok(unlock_report) => {
                     controller.enter_vault();
-                    if let Some(detected_rollback) = detected_rollback {
+                    if let Some(detected_rollback) = unlock_report.detected_rollback {
                         controller.warn_about_rollback(detected_rollback);
+                    }
+                    if !unlock_report.master_password_violations.is_empty() {
+                        controller.suggest_stronger_master_password();
                     }
                 }
                 Err(ui_error) => {
@@ -195,6 +199,18 @@ impl SessionController {
             is_destructive: false,
             on_confirm: Box::new(|| {}),
         });
+    }
+
+    /// La bóveda se creó con una política anterior más permisiva: se sigue abriendo, pero se sugiere cambiarla.
+    fn suggest_stronger_master_password(&self) {
+        let navigating_context = Rc::clone(&self.context);
+        self.context.toasts.show(
+            ToastRequest::new(self.context.text("unlock.weakMasterPassword"), ToastTone::Info)
+                .lasting(WEAK_MASTER_PASSWORD_TOAST_DURATION)
+                .with_action(self.context.text("unlock.changeMasterPassword"), move || {
+                    navigating_context.navigator.open_section(VaultSection::Settings);
+                }),
+        );
     }
 
     fn lock_now(&self) {

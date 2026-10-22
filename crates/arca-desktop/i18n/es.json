@@ -148,7 +148,8 @@
     "weak": "Débil",
     "fair": "Aceptable",
     "strong": "Fuerte",
-    "veryStrong": "Muy fuerte"
+    "veryStrong": "Muy fuerte",
+    "notEnough": "Aún no basta"
   },
   "generator": {
     "title": "Generador de contraseñas",
@@ -238,7 +239,9 @@
     "submit": "Desbloquear",
     "unlocking": "Comprobando…",
     "lockedByScreenLock": "Se bloqueó al bloquear la pantalla.",
-    "lockedBySuspend": "Se bloqueó al suspender el equipo."
+    "lockedBySuspend": "Se bloqueó al suspender el equipo.",
+    "weakMasterPassword": "Tu contraseña maestra ya no cumple el mínimo de seguridad. Sigue funcionando, pero conviene cambiarla.",
+    "changeMasterPassword": "Cambiar"
   },
   "settings": {
     "saved": "Ajustes guardados",

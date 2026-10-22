@@ -148,7 +148,8 @@
     "weak": "Weak",
     "fair": "Fair",
     "strong": "Strong",
-    "veryStrong": "Very strong"
+    "veryStrong": "Very strong",
+    "notEnough": "Not enough yet"
   },
   "generator": {
     "title": "Password generator",
@@ -238,7 +239,9 @@
     "submit": "Unlock",
     "unlocking": "Checking…",
     "lockedByScreenLock": "Locked when the screen was locked.",
-    "lockedBySuspend": "Locked when the computer went to sleep."
+    "lockedBySuspend": "Locked when the computer went to sleep.",
+    "weakMasterPassword": "Your master password no longer meets the security minimum. It still works, but you should change it.",
+    "changeMasterPassword": "Change"
   },
   "settings": {
     "saved": "Settings saved",

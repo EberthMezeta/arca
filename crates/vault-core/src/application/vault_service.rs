@@ -31,6 +31,7 @@ use crate::domain::totp_configuration::{TotpCode, TotpConfiguration};
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_item::{AttachmentReference, RevealableField, VaultItem};
 use crate::domain::vault_preferences::VaultPreferences;
+use crate::domain::master_password_policy::{MasterPasswordPolicy, MasterPasswordViolation};
 use crate::domain::vault_revision::VaultRollback;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -39,6 +40,13 @@ pub struct VaultStatus {
     pub vault_exists: bool,
     pub is_unlocked: bool,
     pub unlock_retry_after_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnlockReport {
+    pub detected_rollback: Option<VaultRollback>,
+    /// Vacío si la maestra cumple la política actual.
+    pub master_password_violations: Vec<MasterPasswordViolation>,
 }
 
 pub struct VaultService {
@@ -89,12 +97,16 @@ impl VaultService {
         Ok(())
     }
 
-    /// Devuelve `Some` si el archivo abierto es más antiguo que el último visto (ver `vault_revision`).
-    pub fn unlock_vault(&mut self, master_password: &SecretText) -> VaultResult<Option<VaultRollback>> {
+    /// Desbloquea e informa de lo que conviene avisar: rollback (ver `vault_revision`) o una
+    /// maestra que ya no cumpliría la política (bóvedas creadas con una política anterior).
+    pub fn unlock_vault(&mut self, master_password: &SecretText) -> VaultResult<UnlockReport> {
         let unlock_outcome =
             unlock_vault::execute(&self.vault_dependencies, &mut self.unlock_attempt_throttle, master_password)?;
         self.session_state = VaultSessionState::Unlocked(Box::new(unlock_outcome.unlocked_vault));
-        Ok(unlock_outcome.detected_rollback)
+        Ok(UnlockReport {
+            detected_rollback: unlock_outcome.detected_rollback,
+            master_password_violations: MasterPasswordPolicy::default().find_violations(master_password),
+        })
     }
 
     pub fn lock_vault(&mut self) {

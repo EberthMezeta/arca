@@ -675,19 +675,23 @@ export component Banner inherits Rectangle {
 
 // ── Fortaleza de contraseña ──────────────────────────────────────────────────
 
-/// Apariencia por puntuación zxcvbn (0-4).
+/// Apariencia por puntuación zxcvbn (0-4). Con un mínimo exigido (contraseña maestra), una
+/// puntuación aceptable pero por debajo de él no se pinta como «fuerte».
 export global StrengthAppearance {
-    public pure function label-key(score: int) -> string {
-        return score <= 0 ? "strength.veryWeak" : score == 1 ? "strength.weak" : score == 2 ? "strength.fair" : score == 3 ? "strength.strong" : "strength.veryStrong";
+    public pure function label-key(score: int, minimum-score: int) -> string {
+        return score >= 2 && score < minimum-score ? "strength.notEnough"
+            : score <= 0 ? "strength.veryWeak" : score == 1 ? "strength.weak" : score == 2 ? "strength.fair" : score == 3 ? "strength.strong" : "strength.veryStrong";
     }
-    public pure function tone(score: int) -> color {
-        return score <= 1 ? Theme.danger : score == 2 ? Theme.warning : Theme.success;
+    public pure function tone(score: int, minimum-score: int) -> color {
+        return score <= 1 ? Theme.danger : score == 2 || score < minimum-score ? Theme.warning : Theme.success;
     }
 }
 
 export component StrengthMeter inherits Rectangle {
     /// -1: no hay nada que evaluar (se reserva el hueco para que el formulario no salte).
     in property <int> score: -1;
+    /// 0 = sin mínimo; en la contraseña maestra, el de la política.
+    in property <int> minimum-score: 0;
     height: 20px;
     if root.score >= 0: HorizontalLayout {
         spacing: 12px;
@@ -697,16 +701,16 @@ export component StrengthMeter inherits Rectangle {
                 y: (parent.height - self.height) / 2;
                 height: 6px;
                 border-radius: 3px;
-                background: segment-index < max(1, root.score) ? StrengthAppearance.tone(root.score) : Theme.surface-hover;
+                background: segment-index < max(1, root.score) ? StrengthAppearance.tone(root.score, root.minimum-score) : Theme.surface-hover;
                 animate background { duration: 150ms; }
             }
         }
         Text {
             horizontal-stretch: 0;
-            text: I18n.t(StrengthAppearance.label-key(root.score));
+            text: I18n.t(StrengthAppearance.label-key(root.score, root.minimum-score));
             font-size: Theme.font-sm;
             font-weight: 700;
-            color: StrengthAppearance.tone(root.score);
+            color: StrengthAppearance.tone(root.score, root.minimum-score);
             vertical-alignment: center;
         }
     }
