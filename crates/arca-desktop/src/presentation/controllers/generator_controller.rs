@@ -83,42 +83,40 @@ impl GeneratorController {
     }
 
     fn publish_settings(&self, generator_settings: &GeneratorSettings) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let generator = app_window.global::<Generator>();
-        let random_characters = &generator_settings.random_characters;
-        let passphrase = &generator_settings.passphrase;
-        generator.set_is_passphrase(generator_settings.active_strategy == GenerationStrategy::Passphrase);
-        generator.set_password_length(i32::try_from(random_characters.password_length).unwrap_or(i32::MAX));
-        generator.set_includes_uppercase(random_characters.includes_uppercase);
-        generator.set_includes_lowercase(random_characters.includes_lowercase);
-        generator.set_includes_digits(random_characters.includes_digits);
-        generator.set_includes_symbols(random_characters.includes_symbols);
-        generator.set_excludes_ambiguous(random_characters.should_exclude_ambiguous_characters);
-        generator.set_word_count(i32::try_from(passphrase.word_count).unwrap_or(i32::MAX));
-        generator.set_word_separator(passphrase.word_separator.clone().into());
-        generator.set_capitalizes_words(passphrase.should_capitalize_words);
-        generator.set_appends_number(passphrase.should_append_number);
+        self.context.with_window(|app_window| {
+            let generator = app_window.global::<Generator>();
+            let random_characters = &generator_settings.random_characters;
+            let passphrase = &generator_settings.passphrase;
+            generator.set_is_passphrase(generator_settings.active_strategy == GenerationStrategy::Passphrase);
+            generator.set_password_length(i32::try_from(random_characters.password_length).unwrap_or(i32::MAX));
+            generator.set_includes_uppercase(random_characters.includes_uppercase);
+            generator.set_includes_lowercase(random_characters.includes_lowercase);
+            generator.set_includes_digits(random_characters.includes_digits);
+            generator.set_includes_symbols(random_characters.includes_symbols);
+            generator.set_excludes_ambiguous(random_characters.should_exclude_ambiguous_characters);
+            generator.set_word_count(i32::try_from(passphrase.word_count).unwrap_or(i32::MAX));
+            generator.set_word_separator(passphrase.word_separator.clone().into());
+            generator.set_capitalizes_words(passphrase.should_capitalize_words);
+            generator.set_appends_number(passphrase.should_append_number);
+        });
     }
 
     fn store_settings_from_window(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let generator = app_window.global::<Generator>();
-        self.context.update_ui_preferences(|ui_preferences| {
-            let generator_settings = &mut ui_preferences.generator_settings;
-            generator_settings.active_strategy =
-                if generator.get_is_passphrase() { GenerationStrategy::Passphrase } else { GenerationStrategy::RandomCharacters };
-            let random_characters = &mut generator_settings.random_characters;
-            random_characters.password_length = usize::try_from(generator.get_password_length()).unwrap_or(DEFAULT_PASSWORD_LENGTH);
-            random_characters.should_exclude_ambiguous_characters = generator.get_excludes_ambiguous();
-            let passphrase = &mut generator_settings.passphrase;
-            passphrase.word_count = usize::try_from(generator.get_word_count()).unwrap_or(DEFAULT_PASSPHRASE_WORD_COUNT);
-            passphrase.word_separator = generator.get_word_separator().to_string();
-            passphrase.should_capitalize_words = generator.get_capitalizes_words();
-            passphrase.should_append_number = generator.get_appends_number();
+        self.context.with_window(|app_window| {
+            let generator = app_window.global::<Generator>();
+            self.context.update_ui_preferences(|ui_preferences| {
+                let generator_settings = &mut ui_preferences.generator_settings;
+                generator_settings.active_strategy =
+                    if generator.get_is_passphrase() { GenerationStrategy::Passphrase } else { GenerationStrategy::RandomCharacters };
+                let random_characters = &mut generator_settings.random_characters;
+                random_characters.password_length = usize::try_from(generator.get_password_length()).unwrap_or(DEFAULT_PASSWORD_LENGTH);
+                random_characters.should_exclude_ambiguous_characters = generator.get_excludes_ambiguous();
+                let passphrase = &mut generator_settings.passphrase;
+                passphrase.word_count = usize::try_from(generator.get_word_count()).unwrap_or(DEFAULT_PASSPHRASE_WORD_COUNT);
+                passphrase.word_separator = generator.get_word_separator().to_string();
+                passphrase.should_capitalize_words = generator.get_capitalizes_words();
+                passphrase.should_append_number = generator.get_appends_number();
+            });
         });
     }
 
@@ -159,17 +157,16 @@ impl GeneratorController {
     }
 
     fn publish_password(&self, generated_password: String) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let strength_score = if generated_password.is_empty() {
-            -1
-        } else {
-            i32::from(PasswordStrength::estimate(&SecretText::new(generated_password.as_str())).score)
-        };
-        let generator = app_window.global::<Generator>();
-        generator.set_generated_password(SharedString::from(generated_password));
-        generator.set_strength_score(strength_score);
+        self.context.with_window(|app_window| {
+            let strength_score = if generated_password.is_empty() {
+                -1
+            } else {
+                i32::from(PasswordStrength::estimate(&SecretText::new(generated_password.as_str())).score)
+            };
+            let generator = app_window.global::<Generator>();
+            generator.set_generated_password(SharedString::from(generated_password));
+            generator.set_strength_score(strength_score);
+        });
     }
 
     fn generated_password(&self) -> Option<SecretText> {

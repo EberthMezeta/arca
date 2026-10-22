@@ -31,46 +31,45 @@ fn is_plain_filter(item_filter: &VaultItemFilter) -> bool {
 
 impl WorkspaceController {
     pub(super) fn refresh_sidebar(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let overview = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.vault_overview()?)).ok();
-        let workspace_state = self.context.navigator.snapshot();
-        let entry_groups = self.build_navigation_groups(overview.as_ref(), &workspace_state);
+        self.context.with_window(|app_window| {
+            let overview = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.vault_overview()?)).ok();
+            let workspace_state = self.context.navigator.snapshot();
+            let entry_groups = self.build_navigation_groups(overview.as_ref(), &workspace_state);
 
-        let mut navigation_targets = HashMap::new();
-        let mut group_models = entry_groups.into_iter().enumerate().map(|(group_position, navigation_entries)| {
-            let nav_entries: Vec<NavEntry> = navigation_entries
-                .into_iter()
-                .enumerate()
-                .map(|(entry_position, navigation_entry)| {
-                    let entry_key = format!("{group_position}:{entry_position}");
-                    navigation_targets.insert(entry_key.clone(), navigation_entry.target);
-                    NavEntry {
-                        entry_key: entry_key.into(),
-                        label: navigation_entry.label.into(),
-                        icon: navigation_entry.icon,
-                        item_count: navigation_entry.item_count.map(|item_count| item_count.to_string()).unwrap_or_default().into(),
-                        is_active: navigation_entry.is_active,
-                        folder_id: navigation_entry.folder_id.map(|folder_id| folder_id.to_string()).unwrap_or_default().into(),
-                    }
-                })
-                .collect();
-            ModelRc::new(VecModel::from(nav_entries))
+            let mut navigation_targets = HashMap::new();
+            let mut group_models = entry_groups.into_iter().enumerate().map(|(group_position, navigation_entries)| {
+                let nav_entries: Vec<NavEntry> = navigation_entries
+                    .into_iter()
+                    .enumerate()
+                    .map(|(entry_position, navigation_entry)| {
+                        let entry_key = format!("{group_position}:{entry_position}");
+                        navigation_targets.insert(entry_key.clone(), navigation_entry.target);
+                        NavEntry {
+                            entry_key: entry_key.into(),
+                            label: navigation_entry.label.into(),
+                            icon: navigation_entry.icon,
+                            item_count: navigation_entry.item_count.map(|item_count| item_count.to_string()).unwrap_or_default().into(),
+                            is_active: navigation_entry.is_active,
+                            folder_id: navigation_entry.folder_id.map(|folder_id| folder_id.to_string()).unwrap_or_default().into(),
+                        }
+                    })
+                    .collect();
+                ModelRc::new(VecModel::from(nav_entries))
+            });
+
+            let sidebar = app_window.global::<Sidebar>();
+            let mut next_group = || group_models.next().unwrap_or_default();
+            sidebar.set_library_entries(next_group());
+            sidebar.set_type_entries(next_group());
+            sidebar.set_folder_entries(next_group());
+            sidebar.set_tag_entries(next_group());
+            sidebar.set_trash_entries(next_group());
+            sidebar.set_tool_entries(next_group());
+
+            let mut view_state = self.view_state.borrow_mut();
+            view_state.navigation_targets = navigation_targets;
+            view_state.overview = overview;
         });
-
-        let sidebar = app_window.global::<Sidebar>();
-        let mut next_group = || group_models.next().unwrap_or_default();
-        sidebar.set_library_entries(next_group());
-        sidebar.set_type_entries(next_group());
-        sidebar.set_folder_entries(next_group());
-        sidebar.set_tag_entries(next_group());
-        sidebar.set_trash_entries(next_group());
-        sidebar.set_tool_entries(next_group());
-
-        let mut view_state = self.view_state.borrow_mut();
-        view_state.navigation_targets = navigation_targets;
-        view_state.overview = overview;
     }
 
     #[allow(clippy::too_many_lines)]

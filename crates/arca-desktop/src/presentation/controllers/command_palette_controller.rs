@@ -47,13 +47,12 @@ impl CommandPaletteController {
     }
 
     fn open(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let command_palette = app_window.global::<CommandPalette>();
-        command_palette.set_query(SharedString::new());
-        self.show_commands_for("");
-        command_palette.set_is_open(true);
+        self.context.with_window(|app_window| {
+            let command_palette = app_window.global::<CommandPalette>();
+            command_palette.set_query(SharedString::new());
+            self.show_commands_for("");
+            command_palette.set_is_open(true);
+        });
     }
 
     fn close(&self) {

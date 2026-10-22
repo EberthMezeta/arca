@@ -36,13 +36,12 @@ impl ItemDetailsController {
         else {
             return;
         };
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let item_details = app_window.global::<ItemDetails>();
-        item_details.set_totp_code(group_totp_digits(&totp_code.current_code).into());
-        item_details.set_totp_seconds_left(i32::try_from(totp_code.seconds_until_refresh).unwrap_or(0));
-        item_details.set_totp_period_seconds(i32::try_from(totp_code.period_seconds).unwrap_or(30));
+        self.context.with_window(|app_window| {
+            let item_details = app_window.global::<ItemDetails>();
+            item_details.set_totp_code(group_totp_digits(&totp_code.current_code).into());
+            item_details.set_totp_seconds_left(i32::try_from(totp_code.seconds_until_refresh).unwrap_or(0));
+            item_details.set_totp_period_seconds(i32::try_from(totp_code.period_seconds).unwrap_or(30));
+        });
     }
 }
 

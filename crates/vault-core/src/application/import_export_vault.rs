@@ -117,7 +117,7 @@ pub fn export_vault(
 ) -> VaultResult<ExportedFile> {
     let vault_exporter = vault_dependencies.transfer_format_registry.exporter_for(export_format)?;
     let usable_file_password = file_password.filter(|file_password| !file_password.is_empty());
-    if vault_exporter.requires_file_password() && usable_file_password.is_none() {
+    if export_format.traits().requires_file_password && usable_file_password.is_none() {
         return Err(VaultError::TransferPasswordRequired);
     }
 

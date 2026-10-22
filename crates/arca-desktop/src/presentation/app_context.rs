@@ -225,6 +225,11 @@ impl AppContext {
         self.window.upgrade()
     }
 
+    /// Ejecuta `use_window` si la ventana sigue viva (al cerrarse, los controladores no hacen nada).
+    pub fn with_window<Output>(&self, use_window: impl FnOnce(&AppWindow) -> Output) -> Option<Output> {
+        self.window().map(|app_window| use_window(&app_window))
+    }
+
     pub fn text(&self, translation_key: &str) -> String {
         self.translator.borrow().text(translation_key)
     }

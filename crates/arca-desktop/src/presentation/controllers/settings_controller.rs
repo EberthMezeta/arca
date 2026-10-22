@@ -43,8 +43,6 @@ struct TransferFormatDescription<Format> {
     transfer_format: Format,
     label_key: &'static str,
     hint_key: &'static str,
-    requires_file_password: bool,
-    is_plaintext: bool,
 }
 
 const IMPORT_FORMATS: [TransferFormatDescription<ImportFormat>; 4] = [
@@ -52,29 +50,21 @@ const IMPORT_FORMATS: [TransferFormatDescription<ImportFormat>; 4] = [
         transfer_format: ImportFormat::BitwardenJson,
         label_key: "transfer.formats.bitwardenJson",
         hint_key: "transfer.importHints.bitwardenJson",
-        requires_file_password: false,
-        is_plaintext: true,
     },
     TransferFormatDescription {
         transfer_format: ImportFormat::BitwardenCsv,
         label_key: "transfer.formats.bitwardenCsv",
         hint_key: "transfer.importHints.bitwardenCsv",
-        requires_file_password: false,
-        is_plaintext: true,
     },
     TransferFormatDescription {
         transfer_format: ImportFormat::BrowserCsv,
         label_key: "transfer.formats.browserCsv",
         hint_key: "transfer.importHints.browserCsv",
-        requires_file_password: false,
-        is_plaintext: true,
     },
     TransferFormatDescription {
         transfer_format: ImportFormat::EncryptedVaultExport,
         label_key: "transfer.formats.encryptedVaultExport",
         hint_key: "transfer.importHints.encryptedVaultExport",
-        requires_file_password: true,
-        is_plaintext: false,
     },
 ];
 
@@ -83,22 +73,16 @@ const EXPORT_FORMATS: [TransferFormatDescription<ExportFormat>; 3] = [
         transfer_format: ExportFormat::EncryptedVaultExport,
         label_key: "transfer.formats.encryptedVaultExport",
         hint_key: "",
-        requires_file_password: true,
-        is_plaintext: false,
     },
     TransferFormatDescription {
         transfer_format: ExportFormat::BitwardenJson,
         label_key: "transfer.formats.bitwardenJson",
         hint_key: "",
-        requires_file_password: false,
-        is_plaintext: true,
     },
     TransferFormatDescription {
         transfer_format: ExportFormat::BitwardenCsv,
         label_key: "transfer.formats.bitwardenCsv",
         hint_key: "",
-        requires_file_password: false,
-        is_plaintext: true,
     },
 ];
 
@@ -304,75 +288,73 @@ impl SettingsController {
     }
 
     fn save_preferences(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let settings = app_window.global::<Settings>();
-        let updated_preferences = {
-            let preference_choices = self.preference_choices.borrow();
-            let Some(loaded_preferences) = preference_choices.loaded_preferences.clone() else {
-                return;
+        self.context.with_window(|app_window| {
+            let settings = app_window.global::<Settings>();
+            let updated_preferences = {
+                let preference_choices = self.preference_choices.borrow();
+                let Some(loaded_preferences) = preference_choices.loaded_preferences.clone() else {
+                    return;
+                };
+                VaultPreferences {
+                    auto_lock_after_idle_seconds: choice_at(&preference_choices.auto_lock_seconds, settings.get_auto_lock_index())
+                        .unwrap_or(loaded_preferences.auto_lock_after_idle_seconds),
+                    clipboard_clear_after_seconds: choice_at(&preference_choices.clipboard_clear_seconds, settings.get_clipboard_clear_index())
+                        .unwrap_or(loaded_preferences.clipboard_clear_after_seconds),
+                    password_history_limit: choice_at(&preference_choices.history_limits, settings.get_history_limit_index())
+                        .and_then(|limit| usize::try_from(limit).ok())
+                        .unwrap_or(loaded_preferences.password_history_limit),
+                    should_lock_on_window_minimize: settings.get_locks_on_minimize(),
+                }
             };
-            VaultPreferences {
-                auto_lock_after_idle_seconds: choice_at(&preference_choices.auto_lock_seconds, settings.get_auto_lock_index())
-                    .unwrap_or(loaded_preferences.auto_lock_after_idle_seconds),
-                clipboard_clear_after_seconds: choice_at(&preference_choices.clipboard_clear_seconds, settings.get_clipboard_clear_index())
-                    .unwrap_or(loaded_preferences.clipboard_clear_after_seconds),
-                password_history_limit: choice_at(&preference_choices.history_limits, settings.get_history_limit_index())
-                    .and_then(|limit| usize::try_from(limit).ok())
-                    .unwrap_or(loaded_preferences.password_history_limit),
-                should_lock_on_window_minimize: settings.get_locks_on_minimize(),
+            let update_result: UiResult<_> =
+                self.context.shared_vault.lock_service().and_then(|mut vault_service| Ok(vault_service.update_preferences(updated_preferences)?));
+            match update_result {
+                Ok(_) => self.report_success("settings.saved"),
+                Err(ui_error) => report_error(&self.context, &ui_error),
             }
-        };
-        let update_result: UiResult<_> =
-            self.context.shared_vault.lock_service().and_then(|mut vault_service| Ok(vault_service.update_preferences(updated_preferences)?));
-        match update_result {
-            Ok(_) => self.report_success("settings.saved"),
-            Err(ui_error) => report_error(&self.context, &ui_error),
-        }
-        // Tanto si se guardó como si no, la vista refleja lo que realmente hay en la bóveda.
-        self.refresh_preferences();
+            // Tanto si se guardó como si no, la vista refleja lo que realmente hay en la bóveda.
+            self.refresh_preferences();
+        });
     }
 
     // ── Contraseña maestra ────────────────────────────────────────────────────
 
     fn change_master_password(self: &Rc<Self>) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let settings = app_window.global::<Settings>();
-        let passwords_match = settings.get_new_master_password() == settings.get_confirmed_master_password();
-        if settings.get_is_changing_master_password() || !passwords_match {
-            return;
-        }
-        let current_master_password = SecretText::new(settings.get_current_master_password().as_str());
-        let new_master_password = SecretText::new(settings.get_new_master_password().as_str());
-        if current_master_password.is_empty() || new_master_password.is_empty() {
-            return;
-        }
-        settings.set_current_master_password(SharedString::new());
-        settings.set_is_changing_master_password(true);
-        settings.set_master_password_error(SharedString::new());
+        self.context.with_window(|app_window| {
+            let settings = app_window.global::<Settings>();
+            let passwords_match = settings.get_new_master_password() == settings.get_confirmed_master_password();
+            if settings.get_is_changing_master_password() || !passwords_match {
+                return;
+            }
+            let current_master_password = SecretText::new(settings.get_current_master_password().as_str());
+            let new_master_password = SecretText::new(settings.get_new_master_password().as_str());
+            if current_master_password.is_empty() || new_master_password.is_empty() {
+                return;
+            }
+            settings.set_current_master_password(SharedString::new());
+            settings.set_is_changing_master_password(true);
+            settings.set_master_password_error(SharedString::new());
 
-        let controller = Rc::clone(self);
-        spawn_ui_task(async move {
-            let change_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                Ok(vault_service.change_master_password(&current_master_password, &new_master_password)?)
-            })
-            .await;
-            let error_message = change_result.as_ref().err().map(|ui_error| describe_error(&controller.context.translator.borrow(), ui_error));
-            controller.with_settings(|settings| {
-                settings.set_is_changing_master_password(false);
-                if let Some(error_message) = &error_message {
-                    settings.set_master_password_error(error_message.clone().into());
-                } else {
-                    settings.set_new_master_password(SharedString::new());
-                    settings.set_confirmed_master_password(SharedString::new());
+            let controller = Rc::clone(self);
+            spawn_ui_task(async move {
+                let change_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                    Ok(vault_service.change_master_password(&current_master_password, &new_master_password)?)
+                })
+                .await;
+                let error_message = change_result.as_ref().err().map(|ui_error| describe_error(&controller.context.translator.borrow(), ui_error));
+                controller.with_settings(|settings| {
+                    settings.set_is_changing_master_password(false);
+                    if let Some(error_message) = &error_message {
+                        settings.set_master_password_error(error_message.clone().into());
+                    } else {
+                        settings.set_new_master_password(SharedString::new());
+                        settings.set_confirmed_master_password(SharedString::new());
+                    }
+                });
+                if error_message.is_none() {
+                    controller.report_success("settings.masterPasswordChanged");
                 }
             });
-            if error_message.is_none() {
-                controller.report_success("settings.masterPasswordChanged");
-            }
         });
     }
 
@@ -385,71 +367,71 @@ impl SettingsController {
         self.with_settings(|settings| {
             settings.set_import_format_index(format_position);
             settings.set_import_hint(self.context.text(description.hint_key).into());
-            settings.set_import_requires_password(description.requires_file_password);
+            settings.set_import_requires_password(description.transfer_format.traits().requires_file_password);
         });
     }
 
     fn import_file(self: &Rc<Self>) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let settings = app_window.global::<Settings>();
-        let Some(description) = usize::try_from(settings.get_import_format_index()).ok().and_then(|position| IMPORT_FORMATS.get(position))
-        else {
-            return;
-        };
-        if settings.get_is_importing() {
-            return;
-        }
-        let import_format = description.transfer_format;
-        let file_password = description
-            .requires_file_password
-            .then(|| SecretText::new(settings.get_import_file_password().as_str()));
-        settings.set_is_importing(true);
-
-        let controller = Rc::clone(self);
-        spawn_ui_task(async move {
-            let dialog_title = controller.context.text("transfer.chooseImportFile");
-            let Some(chosen_path) = ask_file_to_open(&dialog_title, None).await else {
-                return controller.with_settings(|settings| settings.set_is_importing(false));
+        self.context.with_window(|app_window| {
+            let settings = app_window.global::<Settings>();
+            let Some(description) = usize::try_from(settings.get_import_format_index()).ok().and_then(|position| IMPORT_FORMATS.get(position))
+            else {
+                return;
             };
-            // Leer y descifrar el archivo (una copia `.arca` puede pedir un Argon2id de decenas de
-            // segundos) se hace sin tomar la bóveda: así el bloqueo nunca tiene que esperar.
-            let transfer_formats = controller.context.shared_vault.lock_service().map(|vault_service| vault_service.transfer_format_registry());
-            let parse_result = match transfer_formats {
-                Ok(transfer_formats) => {
-                    run_in_background(move || {
-                        let file_bytes = read_user_file(&chosen_path, MAXIMUM_IMPORT_FILE_SIZE_BYTES, UiError::import_file_too_large())?;
-                        Ok(parse_import_file(&transfer_formats, import_format, &file_bytes, file_password.as_ref())?)
-                    })
-                    .await
-                }
-                Err(ui_error) => Err(ui_error),
-            };
-            let import_result = match parse_result {
-                Ok(imported_vault_data) => {
-                    run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                        Ok(vault_service.merge_imported_data(imported_vault_data)?)
-                    })
-                    .await
-                }
-                Err(ui_error) => Err(ui_error),
-            };
-            controller.with_settings(|settings| settings.set_is_importing(false));
-            match import_result {
-                Ok(import_summary) => {
-                    controller.with_settings(|settings| settings.set_import_file_password(SharedString::new()));
-                    controller.context.events.publish(AppEvent::VaultDataChanged);
-                    let imported_count = i64::try_from(import_summary.imported_item_count).unwrap_or(i64::MAX);
-                    let folder_count = import_summary.created_folder_count.to_string();
-                    controller.context.toasts.success(controller.context.count_text(
-                        "transfer.imported",
-                        imported_count,
-                        &[("folderCount", &folder_count)],
-                    ));
-                }
-                Err(ui_error) => report_error(&controller.context, &ui_error),
+            if settings.get_is_importing() {
+                return;
             }
+            let import_format = description.transfer_format;
+            let file_password = import_format
+                .traits()
+                .requires_file_password
+                .then(|| SecretText::new(settings.get_import_file_password().as_str()));
+            settings.set_is_importing(true);
+
+            let controller = Rc::clone(self);
+            spawn_ui_task(async move {
+                let dialog_title = controller.context.text("transfer.chooseImportFile");
+                let Some(chosen_path) = ask_file_to_open(&dialog_title, None).await else {
+                    return controller.with_settings(|settings| settings.set_is_importing(false));
+                };
+                // Leer y descifrar el archivo (una copia `.arca` puede pedir un Argon2id de decenas de
+                // segundos) se hace sin tomar la bóveda: así el bloqueo nunca tiene que esperar.
+                let transfer_formats = controller.context.shared_vault.lock_service().map(|vault_service| vault_service.transfer_format_registry());
+                let parse_result = match transfer_formats {
+                    Ok(transfer_formats) => {
+                        run_in_background(move || {
+                            let file_bytes = read_user_file(&chosen_path, MAXIMUM_IMPORT_FILE_SIZE_BYTES, UiError::import_file_too_large())?;
+                            Ok(parse_import_file(&transfer_formats, import_format, &file_bytes, file_password.as_ref())?)
+                        })
+                        .await
+                    }
+                    Err(ui_error) => Err(ui_error),
+                };
+                let import_result = match parse_result {
+                    Ok(imported_vault_data) => {
+                        run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                            Ok(vault_service.merge_imported_data(imported_vault_data)?)
+                        })
+                        .await
+                    }
+                    Err(ui_error) => Err(ui_error),
+                };
+                controller.with_settings(|settings| settings.set_is_importing(false));
+                match import_result {
+                    Ok(import_summary) => {
+                        controller.with_settings(|settings| settings.set_import_file_password(SharedString::new()));
+                        controller.context.events.publish(AppEvent::VaultDataChanged);
+                        let imported_count = i64::try_from(import_summary.imported_item_count).unwrap_or(i64::MAX);
+                        let folder_count = import_summary.created_folder_count.to_string();
+                        controller.context.toasts.success(controller.context.count_text(
+                            "transfer.imported",
+                            imported_count,
+                            &[("folderCount", &folder_count)],
+                        ));
+                    }
+                    Err(ui_error) => report_error(&controller.context, &ui_error),
+                }
+            });
         });
     }
 
@@ -461,71 +443,71 @@ impl SettingsController {
         };
         self.with_settings(|settings| {
             settings.set_export_format_index(format_position);
-            settings.set_export_requires_password(description.requires_file_password);
-            settings.set_export_is_plaintext(description.is_plaintext);
+            settings.set_export_requires_password(description.transfer_format.traits().requires_file_password);
+            settings.set_export_is_plaintext(description.transfer_format.traits().is_plaintext);
             settings.set_plaintext_risk_acknowledged(false);
         });
     }
 
     /// Primero se comprueba la contraseña maestra (y se cifra); luego se pregunta dónde guardar.
     fn export_file(self: &Rc<Self>) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let settings = app_window.global::<Settings>();
-        let Some(description) = usize::try_from(settings.get_export_format_index()).ok().and_then(|position| EXPORT_FORMATS.get(position))
-        else {
-            return;
-        };
-        if settings.get_is_exporting() {
-            return;
-        }
-        let export_format = description.transfer_format;
-        let master_password = SecretText::new(settings.get_export_master_password().as_str());
-        let file_password = description
-            .requires_file_password
-            .then(|| SecretText::new(settings.get_export_file_password().as_str()));
-        settings.set_export_master_password(SharedString::new());
-        settings.set_is_exporting(true);
-
-        let controller = Rc::clone(self);
-        spawn_ui_task(async move {
-            let export_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                Ok(vault_service.export_vault(&master_password, export_format, file_password.as_ref())?)
-            })
-            .await;
-            let exported_file = match export_result {
-                Ok(exported_file) => exported_file,
-                Err(ui_error) => {
-                    controller.with_settings(|settings| settings.set_is_exporting(false));
-                    return report_error(&controller.context, &ui_error);
-                }
+        self.context.with_window(|app_window| {
+            let settings = app_window.global::<Settings>();
+            let Some(description) = usize::try_from(settings.get_export_format_index()).ok().and_then(|position| EXPORT_FORMATS.get(position))
+            else {
+                return;
             };
-            let suggested_file_name =
-                format!("arca-export-{}.{}", Local::now().format("%Y-%m-%d"), exported_file.suggested_file_extension);
-            *controller.pending_export.borrow_mut() = Some(exported_file);
-            let dialog_title = controller.context.text("transfer.chooseExportFile");
-            let destination_path = ask_file_to_save(&dialog_title, &suggested_file_name).await;
-            let pending_export = controller.pending_export.borrow_mut().take();
-            let (Some(destination_path), Some(exported_file)) = (destination_path, pending_export) else {
-                return controller.with_settings(|settings| settings.set_is_exporting(false));
-            };
-            let write_result = run_in_background(move || {
-                write_owner_only_file(&destination_path, &exported_file.file_bytes).map_err(UiError::file_write)
-            })
-            .await;
-            controller.with_settings(|settings| settings.set_is_exporting(false));
-            match write_result {
-                Ok(()) => {
-                    controller.with_settings(|settings| {
-                        settings.set_export_file_password(SharedString::new());
-                        settings.set_export_confirmed_password(SharedString::new());
-                        settings.set_plaintext_risk_acknowledged(false);
-                    });
-                    controller.report_success("transfer.exported");
-                }
-                Err(ui_error) => report_error(&controller.context, &ui_error),
+            if settings.get_is_exporting() {
+                return;
             }
+            let export_format = description.transfer_format;
+            let master_password = SecretText::new(settings.get_export_master_password().as_str());
+            let file_password = export_format
+                .traits()
+                .requires_file_password
+                .then(|| SecretText::new(settings.get_export_file_password().as_str()));
+            settings.set_export_master_password(SharedString::new());
+            settings.set_is_exporting(true);
+
+            let controller = Rc::clone(self);
+            spawn_ui_task(async move {
+                let export_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                    Ok(vault_service.export_vault(&master_password, export_format, file_password.as_ref())?)
+                })
+                .await;
+                let exported_file = match export_result {
+                    Ok(exported_file) => exported_file,
+                    Err(ui_error) => {
+                        controller.with_settings(|settings| settings.set_is_exporting(false));
+                        return report_error(&controller.context, &ui_error);
+                    }
+                };
+                let suggested_file_name =
+                    format!("arca-export-{}.{}", Local::now().format("%Y-%m-%d"), exported_file.suggested_file_extension);
+                *controller.pending_export.borrow_mut() = Some(exported_file);
+                let dialog_title = controller.context.text("transfer.chooseExportFile");
+                let destination_path = ask_file_to_save(&dialog_title, &suggested_file_name).await;
+                let pending_export = controller.pending_export.borrow_mut().take();
+                let (Some(destination_path), Some(exported_file)) = (destination_path, pending_export) else {
+                    return controller.with_settings(|settings| settings.set_is_exporting(false));
+                };
+                let write_result = run_in_background(move || {
+                    write_owner_only_file(&destination_path, &exported_file.file_bytes).map_err(UiError::file_write)
+                })
+                .await;
+                controller.with_settings(|settings| settings.set_is_exporting(false));
+                match write_result {
+                    Ok(()) => {
+                        controller.with_settings(|settings| {
+                            settings.set_export_file_password(SharedString::new());
+                            settings.set_export_confirmed_password(SharedString::new());
+                            settings.set_plaintext_risk_acknowledged(false);
+                        });
+                        controller.report_success("transfer.exported");
+                    }
+                    Err(ui_error) => report_error(&controller.context, &ui_error),
+                }
+            });
         });
     }
 

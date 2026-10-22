@@ -16,49 +16,48 @@ use super::WorkspaceController;
 
 impl WorkspaceController {
     pub(super) fn refresh_list(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let workspace_state = self.context.navigator.snapshot();
-        let search_result = self.context.shared_vault.lock_service().and_then(|vault_service| {
-            let summaries = vault_service.search_items(&workspace_state.item_filter)?;
-            let overview = vault_service.vault_overview()?;
-            Ok((summaries, overview))
+        self.context.with_window(|app_window| {
+            let workspace_state = self.context.navigator.snapshot();
+            let search_result = self.context.shared_vault.lock_service().and_then(|vault_service| {
+                let summaries = vault_service.search_items(&workspace_state.item_filter)?;
+                let overview = vault_service.vault_overview()?;
+                Ok((summaries, overview))
+            });
+            let Ok((visible_summaries, overview)) = search_result else {
+                return;
+            };
+
+            let workspace = app_window.global::<Workspace>();
+            workspace.set_section(workspace_state.section);
+            workspace.set_list_title(self.describe_active_filter(&workspace_state.item_filter, &overview).into());
+            let is_vault_completely_empty = overview.total_item_count == 0 && !workspace_state.item_filter.should_show_trash;
+            let list_state = match (is_vault_completely_empty, visible_summaries.is_empty()) {
+                (true, _) => ListState::VaultEmpty,
+                (false, false) => ListState::ItemList,
+                (false, true) => ListState::NoMatches,
+            };
+            workspace.set_list_state(list_state);
+            self.publish_no_matches_texts(&workspace, &workspace_state.item_filter);
+
+            let item_rows: Vec<ItemRow> = visible_summaries
+                .iter()
+                .map(|summary| ItemRow {
+                    title: summary.title.clone().into(),
+                    subtitle: summary.subtitle.clone().into(),
+                    kind: definition_for(summary.content_type).ui_kind,
+                    is_favorite: summary.is_favorite,
+                    has_attachments: summary.attachment_count > 0,
+                    can_copy_username: summary.content_type == ItemContentType::Login && !summary.subtitle.is_empty(),
+                    can_copy_password: summary.has_password,
+                })
+                .collect();
+            workspace.set_item_rows(ModelRc::new(VecModel::from(item_rows)));
+            let result_count = i64::try_from(visible_summaries.len()).unwrap_or(i64::MAX);
+            workspace.set_result_count(self.context.count_text("search.resultCount", result_count, &[]).into());
+
+            self.view_state.borrow_mut().visible_summaries = visible_summaries;
+            self.refresh_selection();
         });
-        let Ok((visible_summaries, overview)) = search_result else {
-            return;
-        };
-
-        let workspace = app_window.global::<Workspace>();
-        workspace.set_section(workspace_state.section);
-        workspace.set_list_title(self.describe_active_filter(&workspace_state.item_filter, &overview).into());
-        let is_vault_completely_empty = overview.total_item_count == 0 && !workspace_state.item_filter.should_show_trash;
-        let list_state = match (is_vault_completely_empty, visible_summaries.is_empty()) {
-            (true, _) => ListState::VaultEmpty,
-            (false, false) => ListState::ItemList,
-            (false, true) => ListState::NoMatches,
-        };
-        workspace.set_list_state(list_state);
-        self.publish_no_matches_texts(&workspace, &workspace_state.item_filter);
-
-        let item_rows: Vec<ItemRow> = visible_summaries
-            .iter()
-            .map(|summary| ItemRow {
-                title: summary.title.clone().into(),
-                subtitle: summary.subtitle.clone().into(),
-                kind: definition_for(summary.content_type).ui_kind,
-                is_favorite: summary.is_favorite,
-                has_attachments: summary.attachment_count > 0,
-                can_copy_username: summary.content_type == ItemContentType::Login && !summary.subtitle.is_empty(),
-                can_copy_password: summary.has_password,
-            })
-            .collect();
-        workspace.set_item_rows(ModelRc::new(VecModel::from(item_rows)));
-        let result_count = i64::try_from(visible_summaries.len()).unwrap_or(i64::MAX);
-        workspace.set_result_count(self.context.count_text("search.resultCount", result_count, &[]).into());
-
-        self.view_state.borrow_mut().visible_summaries = visible_summaries;
-        self.refresh_selection();
     }
 
     /// Título de la lista según el filtro activo (orden de prioridad declarativo).
@@ -108,32 +107,30 @@ impl WorkspaceController {
     }
 
     pub(super) fn refresh_selection(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let selected_item_id = self.context.navigator.snapshot().selected_item_id;
-        let selected_position = self
-            .view_state
-            .borrow()
-            .visible_summaries
-            .iter()
-            .position(|summary| Some(summary.item_id) == selected_item_id)
-            .and_then(|position| i32::try_from(position).ok())
-            .unwrap_or(-1);
-        app_window.global::<Workspace>().set_selected_row(selected_position);
+        self.context.with_window(|app_window| {
+            let selected_item_id = self.context.navigator.snapshot().selected_item_id;
+            let selected_position = self
+                .view_state
+                .borrow()
+                .visible_summaries
+                .iter()
+                .position(|summary| Some(summary.item_id) == selected_item_id)
+                .and_then(|position| i32::try_from(position).ok())
+                .unwrap_or(-1);
+            app_window.global::<Workspace>().set_selected_row(selected_position);
+        });
     }
 
     pub(super) fn refresh_item_panel(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let workspace_state = self.context.navigator.snapshot();
-        let item_panel = match (workspace_state.editor_mode, workspace_state.selected_item_id) {
-            (EditorMode::Creating(_) | EditorMode::Editing(_), _) => ItemPanel::Editor,
-            (EditorMode::Closed, Some(_)) => ItemPanel::Details,
-            (EditorMode::Closed, None) => ItemPanel::NothingSelected,
-        };
-        app_window.global::<Workspace>().set_item_panel(item_panel);
+        self.context.with_window(|app_window| {
+            let workspace_state = self.context.navigator.snapshot();
+            let item_panel = match (workspace_state.editor_mode, workspace_state.selected_item_id) {
+                (EditorMode::Creating(_) | EditorMode::Editing(_), _) => ItemPanel::Editor,
+                (EditorMode::Closed, Some(_)) => ItemPanel::Details,
+                (EditorMode::Closed, None) => ItemPanel::NothingSelected,
+            };
+            app_window.global::<Workspace>().set_item_panel(item_panel);
+        });
     }
 
     fn summary_at(&self, row_position: i32) -> Option<VaultItemSummary> {

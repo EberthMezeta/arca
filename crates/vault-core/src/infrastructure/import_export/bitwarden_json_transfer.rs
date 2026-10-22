@@ -69,10 +69,6 @@ impl VaultExporter for BitwardenJsonExporter {
         ExportFormat::BitwardenJson
     }
 
-    fn requires_file_password(&self) -> bool {
-        false
-    }
-
     fn suggested_file_extension(&self) -> &'static str {
         "json"
     }

@@ -115,25 +115,24 @@ impl WorkspaceController {
 
     fn clear(&self) {
         *self.view_state.borrow_mut() = WorkspaceViewState::default();
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let workspace = app_window.global::<Workspace>();
-        workspace.set_item_rows(ModelRc::default());
-        workspace.set_search_text(SharedString::new());
-        workspace.set_selected_row(-1);
-        workspace.set_list_state(ListState::Loading);
-        workspace.set_item_panel(ItemPanel::NothingSelected);
-        workspace.set_section(VaultSection::Items);
-        let sidebar = app_window.global::<Sidebar>();
-        for clear_group in [
-            Sidebar::set_library_entries,
-            Sidebar::set_type_entries,
-            Sidebar::set_folder_entries,
-            Sidebar::set_tag_entries,
-            Sidebar::set_trash_entries,
-        ] {
-            clear_group(&sidebar, ModelRc::default());
-        }
+        self.context.with_window(|app_window| {
+            let workspace = app_window.global::<Workspace>();
+            workspace.set_item_rows(ModelRc::default());
+            workspace.set_search_text(SharedString::new());
+            workspace.set_selected_row(-1);
+            workspace.set_list_state(ListState::Loading);
+            workspace.set_item_panel(ItemPanel::NothingSelected);
+            workspace.set_section(VaultSection::Items);
+            let sidebar = app_window.global::<Sidebar>();
+            for clear_group in [
+                Sidebar::set_library_entries,
+                Sidebar::set_type_entries,
+                Sidebar::set_folder_entries,
+                Sidebar::set_tag_entries,
+                Sidebar::set_trash_entries,
+            ] {
+                clear_group(&sidebar, ModelRc::default());
+            }
+        });
     }
 }

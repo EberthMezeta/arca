@@ -91,84 +91,82 @@ impl SessionController {
     }
 
     fn unlock(self: &Rc<Self>) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let session = app_window.global::<Session>();
-        let master_password = SecretText::new(session.get_unlock_password().as_str());
-        session.set_unlock_password(SharedString::new());
-        if master_password.is_empty() || session.get_is_unlocking() {
-            return;
-        }
-        session.set_is_unlocking(true);
-        session.set_unlock_error(SharedString::new());
-
-        let controller = Rc::clone(self);
-        spawn_ui_task(async move {
-            let unlock_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                Ok(vault_service.unlock_vault(&master_password)?)
-            })
-            .await;
-            controller.with_session(|session| session.set_is_unlocking(false));
-            match unlock_result {
-                Ok(unlock_report) => {
-                    controller.enter_vault();
-                    if let Some(detected_rollback) = unlock_report.detected_rollback {
-                        controller.warn_about_rollback(detected_rollback);
-                    }
-                    if !unlock_report.master_password_violations.is_empty() {
-                        controller.suggest_stronger_master_password();
-                    }
-                }
-                Err(ui_error) => {
-                    let error_message = describe_error(&controller.context.translator.borrow(), &ui_error);
-                    controller.with_session(|session| {
-                        session.set_unlock_error(error_message.into());
-                        session.set_unlock_attempts(session.get_unlock_attempts() + 1);
-                    });
-                    controller.start_retry_countdown(ui_error.retry_after_seconds.unwrap_or(0));
-                }
+        self.context.with_window(|app_window| {
+            let session = app_window.global::<Session>();
+            let master_password = SecretText::new(session.get_unlock_password().as_str());
+            session.set_unlock_password(SharedString::new());
+            if master_password.is_empty() || session.get_is_unlocking() {
+                return;
             }
+            session.set_is_unlocking(true);
+            session.set_unlock_error(SharedString::new());
+
+            let controller = Rc::clone(self);
+            spawn_ui_task(async move {
+                let unlock_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                    Ok(vault_service.unlock_vault(&master_password)?)
+                })
+                .await;
+                controller.with_session(|session| session.set_is_unlocking(false));
+                match unlock_result {
+                    Ok(unlock_report) => {
+                        controller.enter_vault();
+                        if let Some(detected_rollback) = unlock_report.detected_rollback {
+                            controller.warn_about_rollback(detected_rollback);
+                        }
+                        if !unlock_report.master_password_violations.is_empty() {
+                            controller.suggest_stronger_master_password();
+                        }
+                    }
+                    Err(ui_error) => {
+                        let error_message = describe_error(&controller.context.translator.borrow(), &ui_error);
+                        controller.with_session(|session| {
+                            session.set_unlock_error(error_message.into());
+                            session.set_unlock_attempts(session.get_unlock_attempts() + 1);
+                        });
+                        controller.start_retry_countdown(ui_error.retry_after_seconds.unwrap_or(0));
+                    }
+                }
+            });
         });
     }
 
     fn create_vault(self: &Rc<Self>) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let session = app_window.global::<Session>();
-        if session.get_is_creating_vault() {
-            return;
-        }
-        let master_password = SecretText::new(session.get_setup_password().as_str());
-        let is_confirmed = session.get_setup_password() == session.get_setup_confirmation();
-        if !is_confirmed || master_password.is_empty() {
-            return;
-        }
-        session.set_is_creating_vault(true);
-        session.set_setup_error(SharedString::new());
-
-        let controller = Rc::clone(self);
-        spawn_ui_task(async move {
-            let creation_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                Ok(vault_service.create_vault(&master_password)?)
-            })
-            .await;
-            controller.with_session(|session| session.set_is_creating_vault(false));
-            match creation_result {
-                Ok(()) => {
-                    controller.with_session(|session| {
-                        session.set_setup_password(SharedString::new());
-                        session.set_setup_confirmation(SharedString::new());
-                        session.set_setup_step(0);
-                    });
-                    controller.enter_vault();
-                }
-                Err(ui_error) => {
-                    let error_message = describe_error(&controller.context.translator.borrow(), &ui_error);
-                    controller.with_session(|session| session.set_setup_error(error_message.into()));
-                }
+        self.context.with_window(|app_window| {
+            let session = app_window.global::<Session>();
+            if session.get_is_creating_vault() {
+                return;
             }
+            let master_password = SecretText::new(session.get_setup_password().as_str());
+            let is_confirmed = session.get_setup_password() == session.get_setup_confirmation();
+            if !is_confirmed || master_password.is_empty() {
+                return;
+            }
+            session.set_is_creating_vault(true);
+            session.set_setup_error(SharedString::new());
+
+            let controller = Rc::clone(self);
+            spawn_ui_task(async move {
+                let creation_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                    Ok(vault_service.create_vault(&master_password)?)
+                })
+                .await;
+                controller.with_session(|session| session.set_is_creating_vault(false));
+                match creation_result {
+                    Ok(()) => {
+                        controller.with_session(|session| {
+                            session.set_setup_password(SharedString::new());
+                            session.set_setup_confirmation(SharedString::new());
+                            session.set_setup_step(0);
+                        });
+                        controller.enter_vault();
+                    }
+                    Err(ui_error) => {
+                        let error_message = describe_error(&controller.context.translator.borrow(), &ui_error);
+                        controller.with_session(|session| session.set_setup_error(error_message.into()));
+                    }
+                }
+            });
         });
     }
 

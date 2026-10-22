@@ -274,10 +274,6 @@ impl VaultExporter for BitwardenCsvExporter {
         ExportFormat::BitwardenCsv
     }
 
-    fn requires_file_password(&self) -> bool {
-        false
-    }
-
     fn suggested_file_extension(&self) -> &'static str {
         "csv"
     }

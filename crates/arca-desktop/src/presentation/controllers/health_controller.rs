@@ -79,29 +79,28 @@ impl HealthController {
         if self.context.navigator.snapshot().section != VaultSection::Health {
             return;
         }
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let Ok(health_report) = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.password_health_report()?))
-        else {
-            return;
-        };
-        let password_health = app_window.global::<PasswordHealth>();
-        password_health.set_has_logins(health_report.analyzed_login_count > 0);
-        password_health.set_overall_score(i32::from(health_report.overall_health_score));
-        password_health.set_summary(
-            self.context
-                .text_with(
-                    "health.summary",
-                    &[
-                        ("healthyCount", &health_report.healthy_login_count.to_string()),
-                        ("totalCount", &health_report.analyzed_login_count.to_string()),
-                    ],
-                )
-                .into(),
-        );
-        password_health.set_issue_groups(ModelRc::new(VecModel::from(self.build_groups(&health_report))));
-        password_health.set_is_loading(false);
+        self.context.with_window(|app_window| {
+            let Ok(health_report) = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.password_health_report()?))
+            else {
+                return;
+            };
+            let password_health = app_window.global::<PasswordHealth>();
+            password_health.set_has_logins(health_report.analyzed_login_count > 0);
+            password_health.set_overall_score(i32::from(health_report.overall_health_score));
+            password_health.set_summary(
+                self.context
+                    .text_with(
+                        "health.summary",
+                        &[
+                            ("healthyCount", &health_report.healthy_login_count.to_string()),
+                            ("totalCount", &health_report.analyzed_login_count.to_string()),
+                        ],
+                    )
+                    .into(),
+            );
+            password_health.set_issue_groups(ModelRc::new(VecModel::from(self.build_groups(&health_report))));
+            password_health.set_is_loading(false);
+        });
     }
 
     fn build_groups(&self, health_report: &PasswordHealthReport) -> Vec<HealthGroup> {
@@ -137,12 +136,11 @@ impl HealthController {
     }
 
     fn clear(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let password_health = app_window.global::<PasswordHealth>();
-        password_health.set_is_loading(true);
-        password_health.set_issue_groups(ModelRc::default());
-        password_health.set_summary(SharedString::new());
+        self.context.with_window(|app_window| {
+            let password_health = app_window.global::<PasswordHealth>();
+            password_health.set_is_loading(true);
+            password_health.set_issue_groups(ModelRc::default());
+            password_health.set_summary(SharedString::new());
+        });
     }
 }

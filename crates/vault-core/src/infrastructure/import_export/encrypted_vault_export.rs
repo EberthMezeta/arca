@@ -63,10 +63,6 @@ impl VaultExporter for EncryptedVaultExportExporter {
         ExportFormat::EncryptedVaultExport
     }
 
-    fn requires_file_password(&self) -> bool {
-        true
-    }
-
     fn suggested_file_extension(&self) -> &'static str {
         "arca"
     }

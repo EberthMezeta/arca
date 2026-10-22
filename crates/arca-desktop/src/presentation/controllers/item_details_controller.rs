@@ -123,79 +123,77 @@ impl ItemDetailsController {
     }
 
     fn publish_item(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let details_state = self.details_state.borrow();
-        let Some(vault_item) = details_state.displayed_item.as_ref() else {
-            return;
-        };
-        let item_details = app_window.global::<ItemDetails>();
-        let kind_definition = definition_for(vault_item.item_content.content_type());
-        let language_code = self.context.translator.borrow().active_language_code();
+        self.context.with_window(|app_window| {
+            let details_state = self.details_state.borrow();
+            let Some(vault_item) = details_state.displayed_item.as_ref() else {
+                return;
+            };
+            let item_details = app_window.global::<ItemDetails>();
+            let kind_definition = definition_for(vault_item.item_content.content_type());
+            let language_code = self.context.translator.borrow().active_language_code();
 
-        let to_detail_rows = |row_specs: &[DetailRowSpec], first_row_index: usize| -> ModelRc<DetailRow> {
-            let detail_rows: Vec<DetailRow> = row_specs
+            let to_detail_rows = |row_specs: &[DetailRowSpec], first_row_index: usize| -> ModelRc<DetailRow> {
+                let detail_rows: Vec<DetailRow> = row_specs
+                    .iter()
+                    .enumerate()
+                    .map(|(position, row_spec)| {
+                        let row_index = first_row_index + position;
+                        let revealed_value = details_state.revealed_values.get(&row_index);
+                        DetailRow {
+                            row_index: i32::try_from(row_index).unwrap_or(i32::MAX),
+                            kind: row_spec.kind,
+                            label: row_spec.label.clone().into(),
+                            value: revealed_value.map_or(row_spec.displayed_value.as_str(), SecretText::expose_secret).into(),
+                            is_revealed: revealed_value.is_some(),
+                        }
+                    })
+                    .collect();
+                ModelRc::new(VecModel::from(detail_rows))
+            };
+
+            item_details.set_title(vault_item.title.clone().into());
+            item_details.set_kind(kind_definition.ui_kind);
+            item_details.set_kind_label(self.context.text(kind_definition.singular_label_key).into());
+            item_details.set_is_favorite(vault_item.is_favorite);
+            item_details.set_is_in_trash(vault_item.is_in_trash());
+            item_details.set_main_rows(to_detail_rows(&details_state.main_rows, 0));
+            item_details.set_custom_rows(to_detail_rows(&details_state.custom_rows, details_state.main_rows.len()));
+            item_details.set_notes(vault_item.notes.expose_secret().into());
+            item_details.set_notes_in_main_section(matches!(vault_item.item_content, ItemContent::SecureNote(_)));
+            let attachment_rows: Vec<AttachmentRow> = vault_item
+                .attachments
                 .iter()
-                .enumerate()
-                .map(|(position, row_spec)| {
-                    let row_index = first_row_index + position;
-                    let revealed_value = details_state.revealed_values.get(&row_index);
-                    DetailRow {
-                        row_index: i32::try_from(row_index).unwrap_or(i32::MAX),
-                        kind: row_spec.kind,
-                        label: row_spec.label.clone().into(),
-                        value: revealed_value.map_or(row_spec.displayed_value.as_str(), SecretText::expose_secret).into(),
-                        is_revealed: revealed_value.is_some(),
-                    }
+                .map(|attachment| AttachmentRow {
+                    file_name: attachment.file_name.clone().into(),
+                    size_text: format_file_size(attachment.size_bytes).into(),
                 })
                 .collect();
-            ModelRc::new(VecModel::from(detail_rows))
-        };
-
-        item_details.set_title(vault_item.title.clone().into());
-        item_details.set_kind(kind_definition.ui_kind);
-        item_details.set_kind_label(self.context.text(kind_definition.singular_label_key).into());
-        item_details.set_is_favorite(vault_item.is_favorite);
-        item_details.set_is_in_trash(vault_item.is_in_trash());
-        item_details.set_main_rows(to_detail_rows(&details_state.main_rows, 0));
-        item_details.set_custom_rows(to_detail_rows(&details_state.custom_rows, details_state.main_rows.len()));
-        item_details.set_notes(vault_item.notes.expose_secret().into());
-        item_details.set_notes_in_main_section(matches!(vault_item.item_content, ItemContent::SecureNote(_)));
-        let attachment_rows: Vec<AttachmentRow> = vault_item
-            .attachments
-            .iter()
-            .map(|attachment| AttachmentRow {
-                file_name: attachment.file_name.clone().into(),
-                size_text: format_file_size(attachment.size_bytes).into(),
-            })
-            .collect();
-        item_details.set_attachments(ModelRc::new(VecModel::from(attachment_rows)));
-        item_details.set_is_adding_attachment(self.is_adding_attachment.get());
-        let tag_names: Vec<SharedString> = vault_item.tag_names.iter().map(SharedString::from).collect();
-        item_details.set_tag_names(ModelRc::new(VecModel::from(tag_names)));
-        item_details.set_updated_text(
-            self.context.text_with("details.updatedAt", &[("dateTime", &format_date_time(language_code, vault_item.updated_at))]).into(),
-        );
-        item_details.set_created_text(
-            self.context.text_with("details.createdAt", &[("dateTime", &format_date_time(language_code, vault_item.created_at))]).into(),
-        );
-        let history_count = i64::try_from(vault_item.password_history.len()).unwrap_or(i64::MAX);
-        let history_text =
-            if history_count > 0 { self.context.count_text("details.passwordHistoryCount", history_count, &[]) } else { String::new() };
-        item_details.set_history_text(history_text.into());
+            item_details.set_attachments(ModelRc::new(VecModel::from(attachment_rows)));
+            item_details.set_is_adding_attachment(self.is_adding_attachment.get());
+            let tag_names: Vec<SharedString> = vault_item.tag_names.iter().map(SharedString::from).collect();
+            item_details.set_tag_names(ModelRc::new(VecModel::from(tag_names)));
+            item_details.set_updated_text(
+                self.context.text_with("details.updatedAt", &[("dateTime", &format_date_time(language_code, vault_item.updated_at))]).into(),
+            );
+            item_details.set_created_text(
+                self.context.text_with("details.createdAt", &[("dateTime", &format_date_time(language_code, vault_item.created_at))]).into(),
+            );
+            let history_count = i64::try_from(vault_item.password_history.len()).unwrap_or(i64::MAX);
+            let history_text =
+                if history_count > 0 { self.context.count_text("details.passwordHistoryCount", history_count, &[]) } else { String::new() };
+            item_details.set_history_text(history_text.into());
+        });
     }
 
     fn clear(&self) {
         self.totp_timer.stop();
         *self.details_state.borrow_mut() = DetailsState::default();
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let item_details = app_window.global::<ItemDetails>();
-        item_details.set_main_rows(ModelRc::default());
-        item_details.set_custom_rows(ModelRc::default());
-        item_details.set_notes(SharedString::new());
-        item_details.set_totp_code(SharedString::new());
+        self.context.with_window(|app_window| {
+            let item_details = app_window.global::<ItemDetails>();
+            item_details.set_main_rows(ModelRc::default());
+            item_details.set_custom_rows(ModelRc::default());
+            item_details.set_notes(SharedString::new());
+            item_details.set_totp_code(SharedString::new());
+        });
     }
 }

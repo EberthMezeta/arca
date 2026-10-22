@@ -175,154 +175,151 @@ impl ItemEditorController {
     }
 
     fn open_draft_request(&self, draft_request: SaveVaultItemRequest, header_key: &str) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let folders: Vec<Folder> =
-            self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.list_folders()?)).unwrap_or_default();
-        let kind_definition = definition_for(draft_request.item_content.content_type());
-        let item_editor = app_window.global::<ItemEditor>();
+        self.context.with_window(|app_window| {
+            let folders: Vec<Folder> =
+                self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.list_folders()?)).unwrap_or_default();
+            let kind_definition = definition_for(draft_request.item_content.content_type());
+            let item_editor = app_window.global::<ItemEditor>();
 
-        let item_type_label = self.context.text(kind_definition.singular_label_key);
-        item_editor.set_header_title(self.context.text_with(header_key, &[("itemType", &item_type_label)]).into());
-        item_editor.set_kind(kind_definition.ui_kind);
-        item_editor.set_is_saving(false);
-        item_editor.set_save_error(SharedString::new());
-        item_editor.set_can_reveal_sealed(draft_request.item_id.is_some());
-        item_editor.set_is_generator_open(false);
-        item_editor.set_title(draft_request.title.clone().into());
-        item_editor.set_is_favorite(draft_request.is_favorite);
-        item_editor.set_notes(draft_request.notes.expose_secret().into());
-        item_editor.set_tags_text(draft_request.tag_names.join(", ").into());
+            let item_type_label = self.context.text(kind_definition.singular_label_key);
+            item_editor.set_header_title(self.context.text_with(header_key, &[("itemType", &item_type_label)]).into());
+            item_editor.set_kind(kind_definition.ui_kind);
+            item_editor.set_is_saving(false);
+            item_editor.set_save_error(SharedString::new());
+            item_editor.set_can_reveal_sealed(draft_request.item_id.is_some());
+            item_editor.set_is_generator_open(false);
+            item_editor.set_title(draft_request.title.clone().into());
+            item_editor.set_is_favorite(draft_request.is_favorite);
+            item_editor.set_notes(draft_request.notes.expose_secret().into());
+            item_editor.set_tags_text(draft_request.tag_names.join(", ").into());
 
-        let (username, password, totp_secret, website_urls) = match &draft_request.item_content {
-            ItemContent::Login(login_content) => (
-                login_content.username.clone(),
-                login_content.password.expose_secret().to_string(),
-                login_content.totp_secret.as_ref().map(|totp_secret| totp_secret.expose_secret().to_string()).unwrap_or_default(),
-                login_content.website_urls.clone(),
-            ),
-            _ => Default::default(),
-        };
-        item_editor.set_username(username.into());
-        item_editor.set_password(password.into());
-        item_editor.set_totp_secret(totp_secret.into());
-        let website_rows = Rc::new(VecModel::from(
-            website_urls.into_iter().map(|website_url| WebsiteRow { url: website_url.into() }).collect::<Vec<_>>(),
-        ));
-        if website_rows.row_count() == 0 {
-            website_rows.push(WebsiteRow { url: SharedString::new() });
-        }
-        item_editor.set_website_rows(ModelRc::from(Rc::clone(&website_rows)));
+            let (username, password, totp_secret, website_urls) = match &draft_request.item_content {
+                ItemContent::Login(login_content) => (
+                    login_content.username.clone(),
+                    login_content.password.expose_secret().to_string(),
+                    login_content.totp_secret.as_ref().map(|totp_secret| totp_secret.expose_secret().to_string()).unwrap_or_default(),
+                    login_content.website_urls.clone(),
+                ),
+                _ => Default::default(),
+            };
+            item_editor.set_username(username.into());
+            item_editor.set_password(password.into());
+            item_editor.set_totp_secret(totp_secret.into());
+            let website_rows = Rc::new(VecModel::from(
+                website_urls.into_iter().map(|website_url| WebsiteRow { url: website_url.into() }).collect::<Vec<_>>(),
+            ));
+            if website_rows.row_count() == 0 {
+                website_rows.push(WebsiteRow { url: SharedString::new() });
+            }
+            item_editor.set_website_rows(ModelRc::from(Rc::clone(&website_rows)));
 
-        let descriptor_fields = Rc::new(VecModel::from(layout_descriptor_fields(
-            kind_definition.descriptor_fields,
-            &draft_request.item_content,
-            &self.context,
-        )));
-        item_editor.set_descriptor_fields(ModelRc::from(Rc::clone(&descriptor_fields)));
+            let descriptor_fields = Rc::new(VecModel::from(layout_descriptor_fields(
+                kind_definition.descriptor_fields,
+                &draft_request.item_content,
+                &self.context,
+            )));
+            item_editor.set_descriptor_fields(ModelRc::from(Rc::clone(&descriptor_fields)));
 
-        let custom_fields = Rc::new(VecModel::from(
-            draft_request
-                .custom_fields
-                .iter()
-                .map(|field_draft| CustomFieldRow {
-                    label: field_draft.field_label.clone().into(),
-                    value: match &field_draft.field_value {
-                        SubmittedSecret::Unchanged => REDACTED_SECRET_PLACEHOLDER.into(),
-                        SubmittedSecret::Replaced(field_value) => field_value.expose_secret().into(),
-                    },
-                    is_hidden: field_draft.is_hidden,
-                })
-                .collect::<Vec<_>>(),
-        ));
-        item_editor.set_custom_fields(ModelRc::from(Rc::clone(&custom_fields)));
+            let custom_fields = Rc::new(VecModel::from(
+                draft_request
+                    .custom_fields
+                    .iter()
+                    .map(|field_draft| CustomFieldRow {
+                        label: field_draft.field_label.clone().into(),
+                        value: match &field_draft.field_value {
+                            SubmittedSecret::Unchanged => REDACTED_SECRET_PLACEHOLDER.into(),
+                            SubmittedSecret::Replaced(field_value) => field_value.expose_secret().into(),
+                        },
+                        is_hidden: field_draft.is_hidden,
+                    })
+                    .collect::<Vec<_>>(),
+            ));
+            item_editor.set_custom_fields(ModelRc::from(Rc::clone(&custom_fields)));
 
-        let mut folder_names = vec![SharedString::from(self.context.text("navigation.noFolder"))];
-        folder_names.extend(folders.iter().map(|folder| SharedString::from(folder.folder_name.as_str())));
-        let mut folder_ids = vec![None];
-        folder_ids.extend(folders.iter().map(|folder| Some(folder.folder_id)));
-        let folder_position = folder_ids.iter().position(|folder_id| *folder_id == draft_request.folder_id).unwrap_or(0);
-        item_editor.set_folder_names(ModelRc::new(VecModel::from(folder_names)));
-        item_editor.set_folder_index(i32::try_from(folder_position).unwrap_or(0));
-        item_editor.set_focus_title_requests(item_editor.get_focus_title_requests() + 1);
+            let mut folder_names = vec![SharedString::from(self.context.text("navigation.noFolder"))];
+            folder_names.extend(folders.iter().map(|folder| SharedString::from(folder.folder_name.as_str())));
+            let mut folder_ids = vec![None];
+            folder_ids.extend(folders.iter().map(|folder| Some(folder.folder_id)));
+            let folder_position = folder_ids.iter().position(|folder_id| *folder_id == draft_request.folder_id).unwrap_or(0);
+            item_editor.set_folder_names(ModelRc::new(VecModel::from(folder_names)));
+            item_editor.set_folder_index(i32::try_from(folder_position).unwrap_or(0));
+            item_editor.set_focus_title_requests(item_editor.get_focus_title_requests() + 1);
 
-        *self.open_draft.borrow_mut() = Some(OpenDraft {
-            item_id: draft_request.item_id,
-            custom_field_sources: draft_request.custom_fields.iter().map(|field_draft| field_draft.source_field_index).collect(),
-            item_content: draft_request.item_content,
-            folder_ids,
-            website_rows,
-            descriptor_fields,
-            custom_fields,
+            *self.open_draft.borrow_mut() = Some(OpenDraft {
+                item_id: draft_request.item_id,
+                custom_field_sources: draft_request.custom_fields.iter().map(|field_draft| field_draft.source_field_index).collect(),
+                item_content: draft_request.item_content,
+                folder_ids,
+                website_rows,
+                descriptor_fields,
+                custom_fields,
+            });
         });
     }
 
     /// Los valores reales no deben quedarse en el formulario al cerrar el editor.
     fn close(&self) {
         *self.open_draft.borrow_mut() = None;
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let item_editor = app_window.global::<ItemEditor>();
-        item_editor.set_password(SharedString::new());
-        item_editor.set_totp_secret(SharedString::new());
-        item_editor.set_notes(SharedString::new());
-        item_editor.set_descriptor_fields(ModelRc::default());
-        item_editor.set_custom_fields(ModelRc::default());
-        item_editor.set_is_generator_open(false);
+        self.context.with_window(|app_window| {
+            let item_editor = app_window.global::<ItemEditor>();
+            item_editor.set_password(SharedString::new());
+            item_editor.set_totp_secret(SharedString::new());
+            item_editor.set_notes(SharedString::new());
+            item_editor.set_descriptor_fields(ModelRc::default());
+            item_editor.set_custom_fields(ModelRc::default());
+            item_editor.set_is_generator_open(false);
+        });
     }
 
     /// Sustituye el marcador enmascarado por el valor real (el usuario pulsó el ojo).
     fn reveal_sealed(&self, sealed_field: SealedField, field_position: usize) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let item_editor = app_window.global::<ItemEditor>();
-        let open_draft = self.open_draft.borrow();
-        let Some(open_draft) = open_draft.as_ref() else {
-            return;
-        };
-        let Some(item_id) = open_draft.item_id else {
-            return;
-        };
-        let kind_definition = definition_for(open_draft.item_content.content_type());
-        let requested_field = match sealed_field {
-            SealedField::Password => Some(RevealableField::Password),
-            SealedField::TotpSecret => Some(RevealableField::TotpSecret),
-            SealedField::Descriptor => kind_definition.descriptor_fields.get(field_position).and_then(|descriptor| descriptor.revealable_field),
-            SealedField::Custom => open_draft
-                .custom_field_sources
-                .get(field_position)
-                .copied()
-                .flatten()
-                .map(|field_index| RevealableField::CustomField { field_index }),
-        };
-        let Some(requested_field) = requested_field else {
-            return;
-        };
-        let Ok(revealed_value) =
-            self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.reveal_item_field(item_id, requested_field)?))
-        else {
-            return;
-        };
-        let revealed_text = SharedString::from(revealed_value.expose_secret());
-        match sealed_field {
-            SealedField::Password => item_editor.set_password(revealed_text),
-            SealedField::TotpSecret => item_editor.set_totp_secret(revealed_text),
-            SealedField::Descriptor => {
-                if let Some(mut descriptor_field) = open_draft.descriptor_fields.row_data(field_position) {
-                    descriptor_field.value = revealed_text;
-                    open_draft.descriptor_fields.set_row_data(field_position, descriptor_field);
+        self.context.with_window(|app_window| {
+            let item_editor = app_window.global::<ItemEditor>();
+            let open_draft = self.open_draft.borrow();
+            let Some(open_draft) = open_draft.as_ref() else {
+                return;
+            };
+            let Some(item_id) = open_draft.item_id else {
+                return;
+            };
+            let kind_definition = definition_for(open_draft.item_content.content_type());
+            let requested_field = match sealed_field {
+                SealedField::Password => Some(RevealableField::Password),
+                SealedField::TotpSecret => Some(RevealableField::TotpSecret),
+                SealedField::Descriptor => kind_definition.descriptor_fields.get(field_position).and_then(|descriptor| descriptor.revealable_field),
+                SealedField::Custom => open_draft
+                    .custom_field_sources
+                    .get(field_position)
+                    .copied()
+                    .flatten()
+                    .map(|field_index| RevealableField::CustomField { field_index }),
+            };
+            let Some(requested_field) = requested_field else {
+                return;
+            };
+            let Ok(revealed_value) =
+                self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.reveal_item_field(item_id, requested_field)?))
+            else {
+                return;
+            };
+            let revealed_text = SharedString::from(revealed_value.expose_secret());
+            match sealed_field {
+                SealedField::Password => item_editor.set_password(revealed_text),
+                SealedField::TotpSecret => item_editor.set_totp_secret(revealed_text),
+                SealedField::Descriptor => {
+                    if let Some(mut descriptor_field) = open_draft.descriptor_fields.row_data(field_position) {
+                        descriptor_field.value = revealed_text;
+                        open_draft.descriptor_fields.set_row_data(field_position, descriptor_field);
+                    }
+                }
+                SealedField::Custom => {
+                    if let Some(mut custom_field) = open_draft.custom_fields.row_data(field_position) {
+                        custom_field.value = revealed_text;
+                        open_draft.custom_fields.set_row_data(field_position, custom_field);
+                    }
                 }
             }
-            SealedField::Custom => {
-                if let Some(mut custom_field) = open_draft.custom_fields.row_data(field_position) {
-                    custom_field.value = revealed_text;
-                    open_draft.custom_fields.set_row_data(field_position, custom_field);
-                }
-            }
-        }
+        });
     }
 
     fn build_save_request(&self, item_editor: &ItemEditor<'_>) -> Option<SaveVaultItemRequest> {
@@ -379,31 +376,30 @@ impl ItemEditorController {
     }
 
     fn save(&self) {
-        let Some(app_window) = self.context.window() else {
-            return;
-        };
-        let item_editor = app_window.global::<ItemEditor>();
-        if item_editor.get_is_saving() {
-            return;
-        }
-        let Some(save_request) = self.build_save_request(&item_editor) else {
-            return;
-        };
-        item_editor.set_is_saving(true);
-        item_editor.set_save_error(SharedString::new());
-        let save_result: UiResult<_> =
-            self.context.shared_vault.lock_service().and_then(|mut vault_service| Ok(vault_service.save_item(save_request)?));
-        item_editor.set_is_saving(false);
-        match save_result {
-            Ok(saved_item) => {
-                self.context.navigator.select_item(Some(saved_item.item_id));
-                self.context.events.publish(AppEvent::VaultDataChanged);
-                self.context.toasts.success(self.context.text_with("editor.saved", &[("itemTitle", &saved_item.title)]));
+        self.context.with_window(|app_window| {
+            let item_editor = app_window.global::<ItemEditor>();
+            if item_editor.get_is_saving() {
+                return;
             }
-            Err(ui_error) => {
-                item_editor.set_save_error(describe_error(&self.context.translator.borrow(), &ui_error).into());
+            let Some(save_request) = self.build_save_request(&item_editor) else {
+                return;
+            };
+            item_editor.set_is_saving(true);
+            item_editor.set_save_error(SharedString::new());
+            let save_result: UiResult<_> =
+                self.context.shared_vault.lock_service().and_then(|mut vault_service| Ok(vault_service.save_item(save_request)?));
+            item_editor.set_is_saving(false);
+            match save_result {
+                Ok(saved_item) => {
+                    self.context.navigator.select_item(Some(saved_item.item_id));
+                    self.context.events.publish(AppEvent::VaultDataChanged);
+                    self.context.toasts.success(self.context.text_with("editor.saved", &[("itemTitle", &saved_item.title)]));
+                }
+                Err(ui_error) => {
+                    item_editor.set_save_error(describe_error(&self.context.translator.borrow(), &ui_error).into());
+                }
             }
-        }
+        });
     }
 }
 

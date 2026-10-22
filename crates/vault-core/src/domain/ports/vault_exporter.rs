@@ -17,7 +17,6 @@ pub enum ExportFormat {
 pub trait VaultExporter: Send + Sync {
     fn export_format(&self) -> ExportFormat;
 
-    fn requires_file_password(&self) -> bool;
 
     fn suggested_file_extension(&self) -> &'static str;
 
