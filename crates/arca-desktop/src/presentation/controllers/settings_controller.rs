@@ -15,6 +15,7 @@ use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file
 use crate::composition_root::MAXIMUM_IMPORT_FILE_SIZE_BYTES;
 use crate::platform::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
 use crate::platform::file_dialogs::{ask_file_to_open, ask_file_to_save};
+use crate::platform::system_color_scheme;
 use crate::platform::ui_preferences_store::ThemePreference;
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::background_task::{run_in_background, run_with_vault_in_background, spawn_ui_task};
@@ -136,6 +137,14 @@ pub struct SettingsController {
     preference_choices: RefCell<PreferenceChoices>,
 }
 
+/// Con el tema «Sistema», la interfaz cambia en cuanto el sistema pasa a claro u oscuro.
+fn follow_system_color_scheme(app_window: &AppWindow) {
+    let window_handle = app_window.as_weak();
+    system_color_scheme::watch_changes(move |system_is_dark| {
+        let _ = window_handle.upgrade_in_event_loop(move |app_window| app_window.global::<Theme>().set_system_is_dark(system_is_dark));
+    });
+}
+
 impl SettingsController {
     pub fn install(context: &Rc<AppContext>, app_window: &AppWindow) -> Rc<Self> {
         let controller = Rc::new(Self { context: Rc::clone(context), preference_choices: RefCell::default() });
@@ -153,6 +162,7 @@ impl SettingsController {
         });
 
         controller.apply_theme(context.ui_preferences().theme_preference);
+        follow_system_color_scheme(app_window);
         controller.publish_static_options();
         app_window.global::<Settings>().set_vault_location(context.vault_file_path.display().to_string().into());
         controller.select_export_format(0);

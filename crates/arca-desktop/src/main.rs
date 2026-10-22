@@ -16,7 +16,7 @@ use rfd::{MessageDialog, MessageLevel};
 use slint::ComponentHandle;
 
 use crate::composition_root::{ComposedApplication, StartupOutcome, compose_application};
-use crate::platform::{auto_lock_scheduler, process_hardening, system_lock_watcher};
+use crate::platform::{auto_lock_scheduler, process_hardening, system_color_scheme, system_lock_watcher};
 use crate::presentation::app_context::AppContext;
 use crate::presentation::{controllers, vault_event_bridge};
 use crate::shared_vault::VaultLocker;
@@ -38,6 +38,8 @@ fn warn_about_running_instance() {
 }
 
 fn main() -> ExitCode {
+    // El portal de escritorio deja de responder en cuanto el proceso se endurece.
+    let system_prefers_dark = system_color_scheme::read_current();
     process_hardening::apply();
 
     let vault_event_sink = vault_event_bridge::event_sink_to_ui_thread();
@@ -61,6 +63,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if let Some(system_is_dark) = system_prefers_dark {
+        app_window.global::<Theme>().set_system_is_dark(system_is_dark);
+    }
 
     let vault_locker = VaultLocker::new(shared_vault.clone(), vault_event_sink);
     system_lock_watcher::start(&vault_locker);

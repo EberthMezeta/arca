@@ -274,6 +274,7 @@ component ExportSettings inherits SettingsSection {
             label: I18n.t("transfer.plaintextAcknowledge");
             label-weight: 600;
             accent-color: Theme.danger;
+            check-color: #ffffff;
             checked: Settings.plaintext-risk-acknowledged;
             toggled => { Settings.plaintext-risk-acknowledged = !Settings.plaintext-risk-acknowledged; }
         }

@@ -7,6 +7,7 @@ pub mod file_dialogs;
 pub mod legacy_data_migration;
 pub mod process_hardening;
 pub mod single_instance_lock;
+pub mod system_color_scheme;
 pub mod system_lock_watcher;
 pub mod system_secret_clipboard;
 pub mod ui_preferences_store;

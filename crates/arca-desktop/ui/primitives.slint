@@ -461,6 +461,7 @@ export component CheckBox inherits Rectangle {
     in property <string> label;
     in property <bool> checked;
     in property <color> accent-color: Theme.accent;
+    in property <color> check-color: Theme.accent-contrast;
     in property <length> label-size: Theme.font-md;
     in property <int> label-weight: 400;
     callback toggled();
@@ -484,7 +485,7 @@ export component CheckBox inherits Rectangle {
             if root.checked: Icon {
                 size: 12px;
                 source: Icons.check;
-                colorize: #ffffff;
+                colorize: root.check-color;
             }
         }
         check-label := Text {
@@ -622,10 +623,13 @@ export component EmptyState inherits VerticalLayout {
             wrap: word-wrap;
         }
     }
+    // Acciones apiladas y del mismo ancho: caben también en la columna estrecha de la lista.
     HorizontalLayout {
         alignment: center;
-        spacing: 8px;
-        @children
+        VerticalLayout {
+            spacing: 8px;
+            @children
+        }
     }
 }
 

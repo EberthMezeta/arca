@@ -3,7 +3,7 @@
 export enum ThemeChoice { system, light, dark }
 
 export global Theme {
-    // Esquema del sistema capturado al arrancar (Fluent lo expone antes de que lo fijemos).
+    // Esquema del sistema: lo da Slint y, en Linux, el portal XDG (al arrancar y en vivo).
     in-out property <bool> system-is-dark;
     in property <ThemeChoice> choice: ThemeChoice.system;
     out property <bool> dark: choice == ThemeChoice.dark || (choice == ThemeChoice.system && system-is-dark);
@@ -15,10 +15,11 @@ export global Theme {
     out property <color> border: dark ? #2c313b : #dde1e7;
     out property <color> text: dark ? #e8eaee : #15181d;
     out property <color> text-muted: dark ? #9aa3b2 : #5b6472;
-    out property <color> accent: dark ? #5b8cff : #2563eb;
-    out property <color> accent-hover: dark ? #7aa2ff : #1d4ed8;
-    out property <color> accent-soft: dark ? #1c2a4a : #e0e9fd;
-    out property <color> accent-contrast: dark ? #0b0d12 : #ffffff;
+    // Acento ámbar, el mismo tono del logo; ambos superan 4.5:1 con su texto (WCAG AA).
+    out property <color> accent: dark ? #f59e42 : #b84d0e;
+    out property <color> accent-hover: dark ? #fbb46a : #9a3f0a;
+    out property <color> accent-soft: dark ? #3a2614 : #fdeadb;
+    out property <color> accent-contrast: dark ? #1c130c : #ffffff;
     out property <color> danger: dark ? #f07070 : #d23a3a;
     out property <color> danger-soft: dark ? #3a1c1f : #fde7e7;
     out property <color> success: dark ? #4cc38a : #198754;
