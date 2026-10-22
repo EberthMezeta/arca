@@ -2,7 +2,6 @@ use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::build_header_wrapping_vault_key;
 use crate::application::vault_session::{ActivityTimestamp, UnlockedVault, persist_vault_contents};
 use crate::domain::key_hierarchy::derive_vault_subkeys;
-use crate::domain::master_password_policy::MasterPasswordPolicy;
 use crate::domain::secret_text::SecretText;
 use crate::domain::secure_random::random_encryption_key;
 use crate::domain::vault_contents::VaultContents;
@@ -13,7 +12,7 @@ pub fn execute(vault_dependencies: &VaultDependencies, master_password: &SecretT
     if vault_dependencies.vault_repository.vault_exists() {
         return Err(VaultError::VaultAlreadyExists);
     }
-    let violations = MasterPasswordPolicy::default().find_violations(master_password);
+    let violations = vault_dependencies.master_password_policy.find_violations(master_password);
     if !violations.is_empty() {
         return Err(VaultError::WeakMasterPassword { violations });
     }

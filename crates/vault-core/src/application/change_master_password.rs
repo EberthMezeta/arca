@@ -3,7 +3,6 @@ use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::{build_header_wrapping_vault_key, unwrap_vault_key};
 use crate::application::vault_session::{UnlockedVault, seal_and_write_vault_file};
 use crate::domain::key_hierarchy::derive_vault_subkeys;
-use crate::domain::master_password_policy::MasterPasswordPolicy;
 use crate::domain::secret_text::SecretText;
 use crate::domain::secure_random::random_encryption_key;
 use crate::domain::vault_error::{VaultError, VaultResult};
@@ -21,7 +20,7 @@ pub fn execute(
     new_master_password: &SecretText,
 ) -> VaultResult<()> {
     unwrap_vault_key(vault_dependencies, current_master_password, &unlocked_vault.vault_header)?;
-    let violations = MasterPasswordPolicy::default().find_violations(new_master_password);
+    let violations = vault_dependencies.master_password_policy.find_violations(new_master_password);
     if !violations.is_empty() {
         return Err(VaultError::WeakMasterPassword { violations });
     }

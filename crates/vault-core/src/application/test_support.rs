@@ -6,9 +6,7 @@ use crate::application::vault_dependencies::{KeyDerivationPolicy, VaultDependenc
 use crate::application::vault_service::VaultService;
 use crate::domain::key_derivation_parameters::KeyDerivationParameters;
 use crate::domain::ports::clock::Clock;
-use crate::infrastructure::crypto::argon2id_key_derivation::Argon2idKeyDerivation;
-use crate::infrastructure::crypto::xchacha20_poly1305_cipher::XChaCha20Poly1305Cipher;
-use crate::infrastructure::import_export::build_default_transfer_format_registry;
+use crate::infrastructure::vault_dependencies_builder::{VaultDependenciesBuilder, VaultStorage};
 use crate::infrastructure::storage::in_memory_storage::{
     FakeSecretClipboard, InMemoryAttachmentStorage, InMemoryUnlockThrottleStore, InMemoryVaultRepository,
     InMemoryVaultRevisionStore,
@@ -100,20 +98,17 @@ pub fn build_test_vault_dependencies(
     fake_clipboard: &Arc<FakeSecretClipboard>,
 ) -> VaultDependencies {
     let SharedTestStorage { vault_repository, attachment_storage, unlock_throttle_store, vault_revision_store } = shared_storage;
-    VaultDependencies {
+    let vault_storage = VaultStorage {
         vault_repository: Box::new(Arc::clone(vault_repository)),
         attachment_storage: Box::new(Arc::clone(attachment_storage)),
-        key_derivation_function: Box::new(Argon2idKeyDerivation),
-        authenticated_cipher: Box::new(XChaCha20Poly1305Cipher),
-        secret_clipboard: Box::new(Arc::clone(fake_clipboard)),
         unlock_throttle_store: Box::new(Arc::clone(unlock_throttle_store)),
         vault_revision_store: Box::new(Arc::clone(vault_revision_store)),
-        clock: Box::new(fake_clock.clone()),
-        transfer_format_registry: Arc::new(build_default_transfer_format_registry()),
-        key_derivation_policy: KeyDerivationPolicy {
+    };
+    VaultDependenciesBuilder::new(vault_storage, Box::new(Arc::clone(fake_clipboard)), 1024)
+        .clock(Box::new(fake_clock.clone()))
+        .key_derivation_policy(KeyDerivationPolicy {
             parameters_for_new_vaults: CHEAP_TEST_KEY_DERIVATION_PARAMETERS,
             minimum_accepted_parameters: CHEAP_TEST_KEY_DERIVATION_PARAMETERS,
-        },
-        maximum_attachment_size_bytes: 1024,
-    }
+        })
+        .build()
 }

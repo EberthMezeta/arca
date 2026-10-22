@@ -34,7 +34,7 @@ use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_item::{AttachmentReference, RevealableField, VaultItem};
 use crate::domain::vault_preferences::VaultPreferences;
-use crate::domain::master_password_policy::{MasterPasswordPolicy, MasterPasswordViolation};
+use crate::domain::master_password_policy::MasterPasswordViolation;
 use crate::domain::vault_revision::VaultRollback;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -137,7 +137,7 @@ impl VaultService {
         self.session_state = VaultSessionState::Unlocked(Box::new(unlock_outcome.unlocked_vault));
         Ok(UnlockReport {
             detected_rollback: unlock_outcome.detected_rollback,
-            master_password_violations: MasterPasswordPolicy::default().find_violations(master_password),
+            master_password_violations: self.vault_dependencies.master_password_policy.find_violations(master_password),
         })
     }
 

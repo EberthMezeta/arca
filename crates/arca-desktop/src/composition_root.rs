@@ -3,19 +3,14 @@
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
-use std::sync::Arc;
 
-use vault_core::application::vault_dependencies::{KeyDerivationPolicy, VaultDependencies};
 use vault_core::application::vault_service::VaultService;
-use vault_core::domain::ports::clock::SystemClock;
-use vault_core::infrastructure::crypto::argon2id_key_derivation::Argon2idKeyDerivation;
-use vault_core::infrastructure::crypto::xchacha20_poly1305_cipher::XChaCha20Poly1305Cipher;
-use vault_core::infrastructure::import_export::build_default_transfer_format_registry;
 use vault_core::infrastructure::storage::atomic_file_vault_repository::AtomicFileVaultRepository;
 use vault_core::infrastructure::storage::directory_attachment_storage::DirectoryAttachmentStorage;
 use vault_core::infrastructure::storage::json_file_unlock_throttle_store::JsonFileUnlockThrottleStore;
 use vault_core::infrastructure::storage::json_file_vault_revision_store::JsonFileVaultRevisionStore;
 use vault_core::infrastructure::storage::owner_only_files::create_owner_only_directory;
+use vault_core::infrastructure::vault_dependencies_builder::{VaultDependenciesBuilder, VaultStorage};
 
 use crate::platform::application_paths::application_data_directory;
 use crate::platform::legacy_data_migration::{MigrationOutcome, migrate_legacy_data};
@@ -61,26 +56,22 @@ pub fn compose_application(vault_event_sink: VaultEventSink) -> io::Result<Start
     }
     let vault_file_path = application_data_directory.join(VAULT_FILE_NAME);
 
-    let vault_dependencies = VaultDependencies {
+    let vault_storage = VaultStorage {
         vault_repository: Box::new(AtomicFileVaultRepository::new(&vault_file_path)),
         attachment_storage: Box::new(DirectoryAttachmentStorage::new(
             application_data_directory.join(ATTACHMENTS_DIRECTORY_NAME),
             MAXIMUM_ATTACHMENT_SIZE_BYTES,
         )),
-        key_derivation_function: Box::new(Argon2idKeyDerivation),
-        authenticated_cipher: Box::new(XChaCha20Poly1305Cipher),
-        secret_clipboard: Box::new(SystemSecretClipboard::new(vault_event_sink)),
         unlock_throttle_store: Box::new(JsonFileUnlockThrottleStore::new(
             application_data_directory.join(UNLOCK_THROTTLE_FILE_NAME),
         )),
         vault_revision_store: Box::new(JsonFileVaultRevisionStore::new(
             application_data_directory.join(VAULT_REVISION_FILE_NAME),
         )),
-        clock: Box::new(SystemClock),
-        transfer_format_registry: Arc::new(build_default_transfer_format_registry()),
-        key_derivation_policy: KeyDerivationPolicy::default(),
-        maximum_attachment_size_bytes: MAXIMUM_ATTACHMENT_SIZE_BYTES,
     };
+    let secret_clipboard = Box::new(SystemSecretClipboard::new(vault_event_sink));
+    let vault_dependencies =
+        VaultDependenciesBuilder::new(vault_storage, secret_clipboard, MAXIMUM_ATTACHMENT_SIZE_BYTES).build();
 
     Ok(StartupOutcome::Ready(Box::new(ComposedApplication {
         shared_vault: SharedVault::new(VaultService::new(vault_dependencies)),

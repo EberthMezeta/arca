@@ -1,6 +1,8 @@
 //! Copia de seguridad portátil cifrada con una contraseña propia del archivo
 //! (Argon2id + XChaCha20-Poly1305). Formato JSON legible para facilitar futuras migraciones.
 
+use std::sync::Arc;
+
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use serde::{Deserialize, Serialize};
@@ -52,11 +54,36 @@ impl EncryptedExportEnvelope {
     }
 }
 
+/// Algoritmos, coste y política de la copia cifrada (Strategy): se inyectan para poder
+/// probarla con un Argon2id barato y cambiar de algoritmo sin tocar el formato.
+#[derive(Clone)]
+pub struct ExportCryptography {
+    pub key_derivation_function: Arc<dyn KeyDerivationFunction>,
+    pub authenticated_cipher: Arc<dyn AuthenticatedCipher>,
+    pub parameters_for_new_exports: KeyDerivationParameters,
+    pub minimum_accepted_parameters: KeyDerivationParameters,
+    pub file_password_policy: Arc<MasterPasswordPolicy>,
+}
+
+impl Default for ExportCryptography {
+    fn default() -> Self {
+        Self {
+            key_derivation_function: Arc::new(Argon2idKeyDerivation),
+            authenticated_cipher: Arc::new(XChaCha20Poly1305Cipher),
+            parameters_for_new_exports: KeyDerivationParameters::RECOMMENDED,
+            minimum_accepted_parameters: KeyDerivationParameters::MINIMUM_ACCEPTED,
+            file_password_policy: Arc::new(MasterPasswordPolicy::default()),
+        }
+    }
+}
+
 fn decode_base64(encoded_text: &str) -> VaultResult<Vec<u8>> {
     BASE64_STANDARD.decode(encoded_text).map_err(VaultError::import_failed)
 }
 
-pub struct EncryptedVaultExportExporter;
+pub struct EncryptedVaultExportExporter {
+    pub export_cryptography: ExportCryptography,
+}
 
 impl VaultExporter for EncryptedVaultExportExporter {
     fn export_format(&self) -> ExportFormat {
@@ -69,7 +96,8 @@ impl VaultExporter for EncryptedVaultExportExporter {
 
     fn serialize_vault(&self, vault_contents: &VaultContents, file_password: Option<&SecretText>) -> VaultResult<Zeroizing<Vec<u8>>> {
         let file_password = file_password.ok_or(VaultError::TransferPasswordRequired)?;
-        let violations = MasterPasswordPolicy::default().find_violations(file_password);
+        let cryptography = &self.export_cryptography;
+        let violations = cryptography.file_password_policy.find_violations(file_password);
         if !violations.is_empty() {
             return Err(VaultError::WeakMasterPassword { violations });
         }
@@ -78,20 +106,20 @@ impl VaultExporter for EncryptedVaultExportExporter {
         let mut export_envelope = EncryptedExportEnvelope {
             format_identifier: EXPORT_FORMAT_IDENTIFIER.to_string(),
             format_version: EXPORT_FORMAT_VERSION,
-            key_derivation_parameters: KeyDerivationParameters::RECOMMENDED,
+            key_derivation_parameters: cryptography.parameters_for_new_exports,
             salt_base64: BASE64_STANDARD.encode(export_salt),
             nonce_base64: String::new(),
             ciphertext_base64: String::new(),
         };
 
-        let export_key = Argon2idKeyDerivation.derive_key_encryption_key(
+        let export_key = cryptography.key_derivation_function.derive_key_encryption_key(
             &file_password.nfc_normalized(),
             &export_salt,
             &export_envelope.key_derivation_parameters,
         )?;
         let serialized_contents = serialize_secret_json(vault_contents)?;
         let sealed_contents =
-            XChaCha20Poly1305Cipher.seal(&export_key, &serialized_contents, &export_envelope.associated_data())?;
+            cryptography.authenticated_cipher.seal(&export_key, &serialized_contents, &export_envelope.associated_data())?;
 
         export_envelope.nonce_base64 = BASE64_STANDARD.encode(&sealed_contents.nonce);
         export_envelope.ciphertext_base64 = BASE64_STANDARD.encode(&sealed_contents.ciphertext_with_tag);
@@ -101,19 +129,20 @@ impl VaultExporter for EncryptedVaultExportExporter {
 
 /// Como al desbloquear: la contraseña en NFC y, si difiere, tal cual (copias anteriores a normalizar).
 fn open_with_first_matching_password(
+    cryptography: &ExportCryptography,
     file_password: &SecretText,
     export_salt: &[u8],
     export_envelope: &EncryptedExportEnvelope,
     sealed_contents: &SealedBox,
 ) -> VaultResult<Zeroizing<Vec<u8>>> {
     for password_candidate in file_password.key_derivation_candidates() {
-        let export_key = Argon2idKeyDerivation.derive_key_encryption_key(
+        let export_key = cryptography.key_derivation_function.derive_key_encryption_key(
             &password_candidate,
             export_salt,
             &export_envelope.key_derivation_parameters,
         )?;
         if let Ok(serialized_contents) =
-            XChaCha20Poly1305Cipher.open(&export_key, sealed_contents, &export_envelope.associated_data())
+            cryptography.authenticated_cipher.open(&export_key, sealed_contents, &export_envelope.associated_data())
         {
             return Ok(serialized_contents);
         }
@@ -121,7 +150,9 @@ fn open_with_first_matching_password(
     Err(VaultError::InvalidMasterPasswordOrCorruptedVault)
 }
 
-pub struct EncryptedVaultExportImporter;
+pub struct EncryptedVaultExportImporter {
+    pub export_cryptography: ExportCryptography,
+}
 
 impl VaultImporter for EncryptedVaultExportImporter {
     fn import_format(&self) -> ImportFormat {
@@ -140,7 +171,7 @@ impl VaultImporter for EncryptedVaultExportImporter {
         }
 
         let has_safe_parameters = export_envelope.key_derivation_parameters.is_within(
-            &KeyDerivationParameters::MINIMUM_ACCEPTED,
+            &self.export_cryptography.minimum_accepted_parameters,
             &KeyDerivationParameters::MAXIMUM_ACCEPTED_FOR_IMPORT,
         );
         if !has_safe_parameters {
@@ -153,6 +184,7 @@ impl VaultImporter for EncryptedVaultExportImporter {
             ciphertext_with_tag: decode_base64(&export_envelope.ciphertext_base64)?,
         };
         let serialized_contents = open_with_first_matching_password(
+            &self.export_cryptography,
             file_password,
             &export_salt,
             &export_envelope,

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::application::transfer_format_registry::TransferFormatRegistry;
 use crate::domain::key_derivation_parameters::KeyDerivationParameters;
+use crate::domain::master_password_policy::MasterPasswordPolicy;
 use crate::domain::ports::attachment_storage::AttachmentStorage;
 use crate::domain::ports::authenticated_cipher::AuthenticatedCipher;
 use crate::domain::ports::clock::Clock;
@@ -43,5 +44,7 @@ pub struct VaultDependencies {
     pub clock: Box<dyn Clock>,
     pub transfer_format_registry: Arc<TransferFormatRegistry>,
     pub key_derivation_policy: KeyDerivationPolicy,
+    /// Se exige al crear la bóveda y al cambiar la maestra; al desbloquear solo se informa.
+    pub master_password_policy: Arc<MasterPasswordPolicy>,
     pub maximum_attachment_size_bytes: u64,
 }
