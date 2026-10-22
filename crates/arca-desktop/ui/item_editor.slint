@@ -272,8 +272,8 @@ export component VaultItemEditorPanel inherits Rectangle {
                 alignment: center;
                 form := VerticalLayout {
                     // Por debajo de este ancho los campos dejan de ir en parejas.
-                    property <bool> stacks-fields: self.width < 520px;
-                    width: min(672px, scroll.visible-width - Viewport.page-gutter * 2);
+                    property <bool> stacks-fields: self.width < Theme.editor-pairs-min-width;
+                    width: min(Theme.content-width, scroll.visible-width - Viewport.page-gutter * 2);
                     padding-top: 24px;
                     padding-bottom: 32px;
                     spacing: 24px;
@@ -312,7 +312,7 @@ export component VaultItemEditorPanel inherits Rectangle {
                     FormField {
                         label: I18n.t("fields.notes");
                         TextEdit {
-                            height: ItemEditor.kind == ItemKind.secure-note ? 240px : 110px;
+                            height: ItemEditor.kind == ItemKind.secure-note ? Theme.secure-note-height : Theme.notes-height;
                             text <=> ItemEditor.notes;
                             wrap: word-wrap;
                         }

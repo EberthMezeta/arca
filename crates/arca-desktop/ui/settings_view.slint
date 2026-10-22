@@ -347,7 +347,7 @@ export component SettingsView inherits Rectangle {
             width: scroll.visible-width;
             alignment: center;
             VerticalLayout {
-                width: min(672px, scroll.visible-width - Viewport.page-gutter * 2);
+                width: min(Theme.content-width, scroll.visible-width - Viewport.page-gutter * 2);
                 padding-top: 32px;
                 padding-bottom: 32px;
                 spacing: 20px;

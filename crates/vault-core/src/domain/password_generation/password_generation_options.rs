@@ -54,10 +54,15 @@ pub enum PasswordGenerationOptions {
     },
 }
 
+/// Valores por defecto del generador (también los usa la interfaz).
+pub const DEFAULT_PASSWORD_LENGTH: usize = 20;
+pub const DEFAULT_PASSPHRASE_WORD_COUNT: usize = 5;
+pub const DEFAULT_PASSPHRASE_SEPARATOR: &str = "-";
+
 impl Default for PasswordGenerationOptions {
     fn default() -> Self {
         Self::RandomCharacters {
-            password_length: 20,
+            password_length: DEFAULT_PASSWORD_LENGTH,
             character_sets: BTreeSet::from([
                 CharacterSet::Uppercase,
                 CharacterSet::Lowercase,

@@ -5,7 +5,6 @@ use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
 
-pub const SINGLE_INSTANCE_LOCK_FILE_NAME: &str = "arca.lock";
 
 pub enum InstanceLockOutcome {
     /// El bloqueo dura lo que viva este `File`: el sistema lo libera al cerrarse la app (aunque se cuelgue).
@@ -29,6 +28,7 @@ pub fn acquire(application_data_directory: &Path, lock_file_name: &str) -> io::R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platform::data_files::SINGLE_INSTANCE_LOCK_FILE_NAME;
 
     #[test]
     fn second_instance_cannot_take_the_lock_until_the_first_releases_it() {

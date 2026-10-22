@@ -132,6 +132,8 @@ export global Sidebar {
     in property <[NavEntry]> tag-entries;
     in property <[NavEntry]> trash-entries;
     in property <[NavEntry]> tool-entries;
+    /// Sale de la tabla de atajos de Rust (`shortcuts.rs`).
+    in property <string> lock-shortcut-label;
     callback activate(entry-key: string);
     callback create-folder();
     callback rename-folder(folder-id: string);

@@ -333,7 +333,7 @@ export component VaultItemDetailsPanel inherits Rectangle {
                 width: scroll.visible-width;
                 alignment: center;
                 VerticalLayout {
-                    width: min(672px, scroll.visible-width - Viewport.page-gutter * 2);
+                    width: min(Theme.content-width, scroll.visible-width - Viewport.page-gutter * 2);
                     padding-top: 24px;
                     padding-bottom: 24px;
                     spacing: 20px;

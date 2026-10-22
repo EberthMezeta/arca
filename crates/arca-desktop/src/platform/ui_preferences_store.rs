@@ -5,6 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use vault_core::domain::password_generation::password_generation_options::{
+    DEFAULT_PASSPHRASE_SEPARATOR, DEFAULT_PASSPHRASE_WORD_COUNT, DEFAULT_PASSWORD_LENGTH,
+};
 use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,7 +42,7 @@ pub struct RandomCharactersSettings {
 impl Default for RandomCharactersSettings {
     fn default() -> Self {
         Self {
-            password_length: 20,
+            password_length: DEFAULT_PASSWORD_LENGTH,
             includes_uppercase: true,
             includes_lowercase: true,
             includes_digits: true,
@@ -60,7 +63,12 @@ pub struct PassphraseSettings {
 
 impl Default for PassphraseSettings {
     fn default() -> Self {
-        Self { word_count: 5, word_separator: "-".into(), should_capitalize_words: true, should_append_number: true }
+        Self {
+            word_count: DEFAULT_PASSPHRASE_WORD_COUNT,
+            word_separator: DEFAULT_PASSPHRASE_SEPARATOR.into(),
+            should_capitalize_words: true,
+            should_append_number: true,
+        }
     }
 }
 

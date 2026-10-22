@@ -5,15 +5,16 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+use crate::platform::data_files::{ATTACHMENTS_DIRECTORY_NAME, UNLOCK_THROTTLE_FILE_NAME, VAULT_BACKUP_FILE_NAME, VAULT_FILE_NAME};
 use crate::platform::single_instance_lock::{self, InstanceLockOutcome};
 
 const LEGACY_APPLICATION_IDENTIFIER: &str = "dev.rustvault.desktop";
 const LEGACY_SINGLE_INSTANCE_LOCK_FILE_NAME: &str = "rustvault.lock";
-const VAULT_FILE_NAME: &str = "personal.vault";
 
 /// Lo que se traslada: la bóveda, su copia, los adjuntos cifrados y el retardo de desbloqueo.
 /// Lo que dejó el `WebView` de la versión Tauri (cachés, `localStorage`) no sirve a la interfaz nativa.
-const MIGRATED_ENTRY_NAMES: [&str; 4] = ["personal.vault", "personal.vault.bak", "personal.vault.d", "unlock-throttle.json"];
+const MIGRATED_ENTRY_NAMES: [&str; 4] =
+    [VAULT_FILE_NAME, VAULT_BACKUP_FILE_NAME, ATTACHMENTS_DIRECTORY_NAME, UNLOCK_THROTTLE_FILE_NAME];
 
 pub enum MigrationOutcome {
     NothingToMigrate,

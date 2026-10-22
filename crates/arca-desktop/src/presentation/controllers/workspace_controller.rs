@@ -14,8 +14,8 @@ use vault_core::domain::vault_item::RevealableField;
 
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::item_kinds::definition_for_ui_kind;
-use crate::presentation::shortcuts::shortcut_for_control_key;
-use crate::{AppWindow, ItemPanel, ListState, Sidebar, VaultSection, Workspace};
+use crate::presentation::shortcuts::{self, shortcut_for_control_key};
+use crate::{AppWindow, ItemPanel, ListState, Shortcut, Sidebar, VaultSection, Workspace};
 
 #[derive(Clone)]
 enum NavigationTarget {
@@ -48,6 +48,7 @@ impl WorkspaceController {
 
     fn bind_sidebar(self: &Rc<Self>, app_window: &AppWindow) {
         let sidebar = app_window.global::<Sidebar>();
+        sidebar.set_lock_shortcut_label(shortcuts::label_for(Shortcut::Lock).into());
         let activating_controller = Rc::clone(self);
         sidebar.on_activate(move |entry_key| activating_controller.activate_entry(&entry_key));
         let creating_controller = Rc::clone(self);

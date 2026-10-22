@@ -20,6 +20,9 @@ pub const VAULT_FILE_MAGIC: &[u8; 4] = b"RVLT";
 pub const CURRENT_VAULT_FORMAT_VERSION: u16 = 1;
 pub const MASTER_KEY_SALT_LENGTH_BYTES: usize = 32;
 const ARGON2ID_ALGORITHM_IDENTIFIER: u8 = 1;
+/// Magia + versión + algoritmo + tres parámetros u32 + salt.
+const KEY_WRAPPING_ASSOCIATED_DATA_LENGTH_BYTES: usize =
+    VAULT_FILE_MAGIC.len() + size_of::<u16>() + size_of::<u8>() + 3 * size_of::<u32>() + MASTER_KEY_SALT_LENGTH_BYTES;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VaultFileHeader {
@@ -38,7 +41,7 @@ pub struct DecodedVaultFile {
 impl VaultFileHeader {
     /// Bytes autenticados al envolver la clave de bóveda (todo lo anterior a la clave envuelta).
     pub fn key_wrapping_associated_data(&self) -> Vec<u8> {
-        let mut associated_data = Vec::with_capacity(64);
+        let mut associated_data = Vec::with_capacity(KEY_WRAPPING_ASSOCIATED_DATA_LENGTH_BYTES);
         associated_data.extend_from_slice(VAULT_FILE_MAGIC);
         associated_data.extend_from_slice(&CURRENT_VAULT_FORMAT_VERSION.to_le_bytes());
         associated_data.push(ARGON2ID_ALGORITHM_IDENTIFIER);
@@ -67,7 +70,7 @@ pub fn encode_vault_file(encoded_header_bytes: &[u8], encrypted_contents: &Seale
 pub fn decode_vault_file(vault_file_bytes: &[u8]) -> VaultResult<DecodedVaultFile> {
     let mut byte_reader = ByteReader::new(vault_file_bytes);
 
-    let file_magic = byte_reader.read_array::<4>()?;
+    let file_magic = byte_reader.read_array::<{ VAULT_FILE_MAGIC.len() }>()?;
     if &file_magic != VAULT_FILE_MAGIC {
         return Err(VaultError::corrupted_file("no es un archivo de bóveda"));
     }
@@ -88,20 +91,29 @@ pub fn decode_vault_file(vault_file_bytes: &[u8]) -> VaultResult<DecodedVaultFil
     let wrapped_vault_key = read_sealed_box_u8_u16(&mut byte_reader)?;
     let encoded_header_bytes = vault_file_bytes[..byte_reader.read_position()].to_vec();
 
-    let contents_nonce_length = usize::from(byte_reader.read_u8()?);
-    let contents_nonce = byte_reader.read_slice(contents_nonce_length)?.to_vec();
-    let contents_ciphertext = byte_reader.read_remaining().to_vec();
+    let encrypted_contents = read_sealed_box_to_end(&mut byte_reader)?;
 
     Ok(DecodedVaultFile {
         vault_header: VaultFileHeader { key_derivation_parameters, master_key_salt, wrapped_vault_key },
         encoded_header_bytes,
-        encrypted_contents: SealedBox { nonce: contents_nonce, ciphertext_with_tag: contents_ciphertext },
+        encrypted_contents,
     })
 }
 
-fn read_sealed_box_u8_u16(byte_reader: &mut ByteReader<'_>) -> VaultResult<SealedBox> {
+/// `len u8 + nonce`, común a todas las cajas cifradas del formato.
+fn read_nonce(byte_reader: &mut ByteReader<'_>) -> VaultResult<Vec<u8>> {
     let nonce_length = usize::from(byte_reader.read_u8()?);
-    let nonce = byte_reader.read_slice(nonce_length)?.to_vec();
+    Ok(byte_reader.read_slice(nonce_length)?.to_vec())
+}
+
+/// `len u8 + nonce | texto cifrado hasta el final`.
+fn read_sealed_box_to_end(byte_reader: &mut ByteReader<'_>) -> VaultResult<SealedBox> {
+    let nonce = read_nonce(byte_reader)?;
+    Ok(SealedBox { nonce, ciphertext_with_tag: byte_reader.read_remaining().to_vec() })
+}
+
+fn read_sealed_box_u8_u16(byte_reader: &mut ByteReader<'_>) -> VaultResult<SealedBox> {
+    let nonce = read_nonce(byte_reader)?;
     let ciphertext_length = usize::from(byte_reader.read_u16_le()?);
     let ciphertext_with_tag = byte_reader.read_slice(ciphertext_length)?.to_vec();
     Ok(SealedBox { nonce, ciphertext_with_tag })
@@ -130,10 +142,7 @@ pub fn encode_standalone_sealed_box(sealed_box: &SealedBox) -> VaultResult<Vec<u
 }
 
 pub fn decode_standalone_sealed_box(encoded_bytes: &[u8]) -> VaultResult<SealedBox> {
-    let mut byte_reader = ByteReader::new(encoded_bytes);
-    let nonce_length = usize::from(byte_reader.read_u8()?);
-    let nonce = byte_reader.read_slice(nonce_length)?.to_vec();
-    Ok(SealedBox { nonce, ciphertext_with_tag: byte_reader.read_remaining().to_vec() })
+    read_sealed_box_to_end(&mut ByteReader::new(encoded_bytes))
 }
 
 #[cfg(test)]

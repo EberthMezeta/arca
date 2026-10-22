@@ -1,4 +1,3 @@
-use std::fs;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
@@ -7,7 +6,7 @@ use uuid::Uuid;
 use crate::domain::ports::attachment_storage::AttachmentStorage;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::infrastructure::storage::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
-use crate::infrastructure::storage::owner_only_files::{create_owner_only_directory, write_owner_only_file};
+use crate::infrastructure::storage::owner_only_files::{create_owner_only_directory, remove_file_if_exists, write_owner_only_file};
 
 /// Un archivo `<uuid>.bin` por adjunto cifrado; el nombre no revela nada del contenido.
 /// Lo que el cifrado añade a cada adjunto (longitud y nonce, etiqueta), con margen.
@@ -51,10 +50,6 @@ impl AttachmentStorage for DirectoryAttachmentStorage {
     }
 
     fn delete_encrypted_attachment(&self, attachment_id: Uuid) -> VaultResult<()> {
-        match fs::remove_file(self.attachment_file_path(attachment_id)) {
-            Ok(()) => Ok(()),
-            Err(delete_error) if delete_error.kind() == ErrorKind::NotFound => Ok(()),
-            Err(delete_error) => Err(VaultError::storage(delete_error)),
-        }
+        remove_file_if_exists(&self.attachment_file_path(attachment_id))
     }
 }

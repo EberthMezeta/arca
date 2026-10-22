@@ -68,7 +68,7 @@ component GeneratorView inherits Rectangle {
             width: scroll.visible-width;
             alignment: center;
             VerticalLayout {
-                width: min(576px, scroll.visible-width - Viewport.page-gutter * 2);
+                width: min(Theme.content-width-narrow, scroll.visible-width - Viewport.page-gutter * 2);
                 padding-top: 32px;
                 padding-bottom: 32px;
                 spacing: 20px;
@@ -156,7 +156,7 @@ component SidebarDrawer inherits Rectangle {
         width: root.drawer-width;
         height: root.height;
         drop-shadow-blur: 24px;
-        drop-shadow-color: #00000050;
+        drop-shadow-color: Theme.shadow-xl;
     }
 }
 

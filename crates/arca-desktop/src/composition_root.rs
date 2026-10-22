@@ -19,17 +19,16 @@ use vault_core::infrastructure::storage::owner_only_files::create_owner_only_dir
 
 use crate::platform::application_paths::application_data_directory;
 use crate::platform::legacy_data_migration::{MigrationOutcome, migrate_legacy_data};
-use crate::platform::single_instance_lock::{self, InstanceLockOutcome, SINGLE_INSTANCE_LOCK_FILE_NAME};
+use crate::platform::data_files::{
+    ATTACHMENTS_DIRECTORY_NAME, SINGLE_INSTANCE_LOCK_FILE_NAME, UI_PREFERENCES_FILE_NAME, UNLOCK_THROTTLE_FILE_NAME,
+    VAULT_FILE_NAME, VAULT_REVISION_FILE_NAME,
+};
+use crate::platform::single_instance_lock::{self, InstanceLockOutcome};
 use crate::platform::system_secret_clipboard::SystemSecretClipboard;
 use crate::platform::ui_preferences_store::UiPreferencesStore;
 use crate::shared_vault::SharedVault;
 use crate::vault_events::VaultEventSink;
 
-const VAULT_FILE_NAME: &str = "personal.vault";
-const ATTACHMENTS_DIRECTORY_NAME: &str = "personal.vault.d";
-const UNLOCK_THROTTLE_FILE_NAME: &str = "unlock-throttle.json";
-const VAULT_REVISION_FILE_NAME: &str = "vault-revision.json";
-const UI_PREFERENCES_FILE_NAME: &str = "ui-preferences.json";
 pub const MAXIMUM_ATTACHMENT_SIZE_BYTES: u64 = 50 * 1024 * 1024;
 /// Ningún export real de un gestor de contraseñas se acerca a esto.
 pub const MAXIMUM_IMPORT_FILE_SIZE_BYTES: u64 = 64 * 1024 * 1024;

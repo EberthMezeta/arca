@@ -53,6 +53,15 @@ pub fn create_owner_only_directory(directory_path: &Path) -> VaultResult<()> {
     Ok(())
 }
 
+/// Borra el archivo; que ya no exista no es un error (el resultado es el mismo).
+pub fn remove_file_if_exists(file_path: &Path) -> VaultResult<()> {
+    match fs::remove_file(file_path) {
+        Ok(()) => Ok(()),
+        Err(remove_error) if remove_error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(remove_error) => Err(VaultError::storage(remove_error)),
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use std::os::unix::fs::PermissionsExt;
