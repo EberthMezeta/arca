@@ -1,0 +1,364 @@
+// Pantallas fuera de la bóveda: carga, asistente de creación y desbloqueo.
+
+import { Theme, Icons } from "theme.slint";
+import { I18n, Session } from "bridge.slint";
+import { Button, ButtonVariant, TextField, FormField, CheckBox, StrengthMeter, Icon, Banner, BusySpinner } from "primitives.slint";
+import { PasswordStrengths } from "bridge.slint";
+
+export component LoadingScreen inherits Rectangle {
+    background: Theme.canvas;
+    VerticalLayout {
+        alignment: center;
+        spacing: 16px;
+        HorizontalLayout {
+            alignment: center;
+            Image { width: 48px; height: 48px; source: Icons.logo; }
+        }
+        HorizontalLayout {
+            alignment: center;
+            BusySpinner { }
+        }
+    }
+}
+
+// ── Desbloqueo ───────────────────────────────────────────────────────────────
+
+export component UnlockScreen inherits Rectangle {
+    property <bool> is-waiting-for-retry: Session.retry-countdown-seconds > 0;
+    property <int> attempts: Session.unlock-attempts;
+    background: Theme.canvas;
+
+    function submit() {
+        if Session.unlock-password == "" || Session.is-unlocking || is-waiting-for-retry {
+            return;
+        }
+        Session.unlock();
+    }
+
+    init => { password-field.focus(); }
+    changed attempts => {
+        password-field.focus();
+        password-field.select-all-text();
+    }
+
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                width: min(360px, root.width - 48px);
+                spacing: 24px;
+                HorizontalLayout {
+                    alignment: center;
+                    Image {
+                        width: 72px;
+                        height: 72px;
+                        source: Icons.logo;
+                        accessible-role: none;
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: I18n.t("unlock.title");
+                        font-size: Theme.font-2xl;
+                        font-weight: 700;
+                        color: Theme.text;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: I18n.t(Session.unlock-subtitle-key);
+                        font-size: Theme.font-md;
+                        color: Theme.text-muted;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                    }
+                }
+                VerticalLayout {
+                    spacing: 12px;
+                    password-field := TextField {
+                        text <=> Session.unlock-password;
+                        is-password: true;
+                        placeholder: I18n.t("unlock.placeholder");
+                        accessible-name: I18n.t("setup.masterPassword");
+                        enabled: !Session.is-unlocking;
+                        has-error: Session.unlock-error != "";
+                        field-height: 44px;
+                        font-size: Theme.font-lg;
+                        accepted => { root.submit(); }
+                    }
+                    if Session.unlock-error != "": Text {
+                        text: root.is-waiting-for-retry
+                            ? I18n.with("errors.unlockTemporarilyBlocked", "retryAfterSeconds", Session.retry-countdown-seconds)
+                            : Session.unlock-error;
+                        color: Theme.danger;
+                        font-size: Theme.font-md;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                        accessible-role: text;
+                    }
+                    Button {
+                        label: I18n.t(Session.is-unlocking ? "unlock.unlocking" : "unlock.submit");
+                        variant: ButtonVariant.primary;
+                        has-icon: true;
+                        icon: Icons.lock-keyhole;
+                        button-height: 44px;
+                        label-size: Theme.font-lg;
+                        horizontal-stretch: 1;
+                        is-busy: Session.is-unlocking;
+                        enabled: Session.unlock-password != "" && !root.is-waiting-for-retry;
+                        clicked => { root.submit(); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Asistente de creación ────────────────────────────────────────────────────
+
+component WelcomeStep inherits VerticalLayout {
+    spacing: 24px;
+    VerticalLayout {
+        spacing: 8px;
+        Text {
+            text: I18n.t("setup.welcomeTitle");
+            font-size: Theme.font-2xl;
+            font-weight: 700;
+            color: Theme.text;
+            wrap: word-wrap;
+        }
+        Text {
+            text: I18n.t("setup.welcomeText");
+            font-size: Theme.font-md;
+            color: Theme.text-muted;
+            wrap: word-wrap;
+        }
+    }
+    for reassurance in [
+        { icon: Icons.lock, key: "setup.pointLocal" },
+        { icon: Icons.shield-check, key: "setup.pointEncryption" },
+        { icon: Icons.key-round, key: "setup.pointMasterPassword" },
+    ]: HorizontalLayout {
+        spacing: 12px;
+        Icon {
+            source: reassurance.icon;
+            colorize: Theme.accent;
+        }
+        Text {
+            text: I18n.t(reassurance.key);
+            font-size: Theme.font-md;
+            color: Theme.text;
+            wrap: word-wrap;
+        }
+    }
+    HorizontalLayout {
+        alignment: end;
+        Button {
+            label: I18n.t("setup.getStarted");
+            variant: ButtonVariant.primary;
+            has-icon: true;
+            icon: Icons.arrow-right;
+            clicked => { Session.setup-step = 1; }
+        }
+    }
+}
+
+component WarningStep inherits VerticalLayout {
+    property <bool> has-understood;
+    spacing: 24px;
+    Banner {
+        VerticalLayout {
+            spacing: 4px;
+            Text {
+                text: I18n.t("setup.noRecoveryTitle");
+                font-weight: 700;
+                color: Theme.warning;
+                wrap: word-wrap;
+            }
+            Text {
+                text: I18n.t("setup.noRecoveryText");
+                color: Theme.text;
+                wrap: word-wrap;
+            }
+        }
+    }
+    VerticalLayout {
+        spacing: 8px;
+        Text {
+            text: I18n.t("setup.tipsTitle");
+            font-weight: 700;
+            color: Theme.text;
+        }
+        for tip-key in ["setup.tipPassphrase", "setup.tipUnique", "setup.tipWriteDown"]: Text {
+            text: "•  " + I18n.t(tip-key);
+            color: Theme.text-muted;
+            wrap: word-wrap;
+        }
+    }
+    CheckBox {
+        label: I18n.t("setup.understood");
+        label-weight: 600;
+        checked: root.has-understood;
+        toggled => { root.has-understood = !root.has-understood; }
+    }
+    HorizontalLayout {
+        Button {
+            label: I18n.t("actions.back");
+            variant: ButtonVariant.ghost;
+            has-icon: true;
+            icon: Icons.arrow-left;
+            clicked => { Session.setup-step = 0; }
+        }
+        Rectangle { }
+        Button {
+            label: I18n.t("actions.continue");
+            variant: ButtonVariant.primary;
+            enabled: root.has-understood;
+            clicked => { Session.setup-step = 2; }
+        }
+    }
+}
+
+component CreatePasswordStep inherits VerticalLayout {
+    // Misma política que `MasterPasswordPolicy` en Rust (que vuelve a comprobarla al crear).
+    property <int> minimum-length: 12;
+    property <int> strength-score: PasswordStrengths.score-of(Session.setup-password);
+    property <bool> is-too-short: Session.setup-password.character-count < minimum-length;
+    property <bool> is-too-weak: strength-score < 3;
+    property <bool> passwords-match: Session.setup-password == Session.setup-confirmation;
+    property <bool> can-create: !is-too-short && !is-too-weak && passwords-match && Session.setup-confirmation != "";
+
+    function submit() {
+        if can-create && !Session.is-creating-vault {
+            Session.create-vault();
+        }
+    }
+
+    init => { master-field.focus(); }
+    spacing: 20px;
+
+    VerticalLayout {
+        spacing: 4px;
+        Text {
+            text: I18n.t("setup.createTitle");
+            font-size: Theme.font-xl;
+            font-weight: 700;
+            color: Theme.text;
+        }
+        Text {
+            text: I18n.t("setup.createText");
+            font-size: Theme.font-md;
+            color: Theme.text-muted;
+            wrap: word-wrap;
+        }
+    }
+    FormField {
+        label: I18n.t("setup.masterPassword");
+        master-field := TextField {
+            text <=> Session.setup-password;
+            is-password: true;
+            accessible-name: I18n.t("setup.masterPassword");
+            accepted => { confirmation-field.focus(); }
+        }
+        StrengthMeter { score: root.strength-score; }
+    }
+    if Session.setup-password != "" && (root.is-too-short || root.is-too-weak): VerticalLayout {
+        spacing: 2px;
+        if root.is-too-short: Text {
+            text: "•  " + I18n.count("setup.violationTooShort", root.minimum-length);
+            font-size: Theme.font-sm;
+            color: Theme.text-muted;
+        }
+        if root.is-too-weak: Text {
+            text: "•  " + I18n.t("setup.violationTooWeak");
+            font-size: Theme.font-sm;
+            color: Theme.text-muted;
+            wrap: word-wrap;
+        }
+    }
+    FormField {
+        label: I18n.t("setup.confirmMasterPassword");
+        error: Session.setup-confirmation != "" && !root.passwords-match ? I18n.t("setup.passwordsDoNotMatch") : "";
+        confirmation-field := TextField {
+            text <=> Session.setup-confirmation;
+            is-password: true;
+            accessible-name: I18n.t("setup.confirmMasterPassword");
+            has-error: Session.setup-confirmation != "" && !root.passwords-match;
+            accepted => { root.submit(); }
+        }
+    }
+    if Session.setup-error != "": Text {
+        text: Session.setup-error;
+        color: Theme.danger;
+        wrap: word-wrap;
+    }
+    HorizontalLayout {
+        Button {
+            label: I18n.t("actions.back");
+            variant: ButtonVariant.ghost;
+            has-icon: true;
+            icon: Icons.arrow-left;
+            enabled: !Session.is-creating-vault;
+            clicked => { Session.setup-step = 1; }
+        }
+        Rectangle { }
+        Button {
+            label: I18n.t(Session.is-creating-vault ? "setup.creating" : "setup.createVault");
+            variant: ButtonVariant.primary;
+            is-busy: Session.is-creating-vault;
+            enabled: root.can-create;
+            clicked => { root.submit(); }
+        }
+    }
+}
+
+export component SetupScreen inherits Rectangle {
+    // Pasos del asistente en orden: añadir uno es añadirlo aquí y en el `if` del panel.
+    property <int> step-count: 3;
+    background: Theme.canvas;
+
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                width: min(460px, root.width - 48px);
+                spacing: 24px;
+                HorizontalLayout {
+                    Image {
+                        width: 40px;
+                        height: 40px;
+                        source: Icons.logo;
+                    }
+                    Rectangle { }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: end;
+                        accessible-role: text;
+                        accessible-label: I18n.with-two("setup.progress", "current", Session.setup-step + 1, "total", root.step-count);
+                        for step-position in root.step-count: Rectangle {
+                            y: (parent.height - self.height) / 2;
+                            width: 32px;
+                            height: 6px;
+                            border-radius: 3px;
+                            background: step-position <= Session.setup-step ? Theme.accent : Theme.surface-hover;
+                        }
+                    }
+                }
+                Rectangle {
+                    background: Theme.surface;
+                    border-radius: Theme.radius-xl;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    VerticalLayout {
+                        padding: 28px;
+                        if Session.setup-step == 0: WelcomeStep { }
+                        if Session.setup-step == 1: WarningStep { }
+                        if Session.setup-step == 2: CreatePasswordStep { }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,32 +1,27 @@
 # Arca
 
 Gestor de contraseñas **100 % local** (sin nube ni cuentas) con un diseño criptográfico inspirado en Bitwarden.
-Backend en **Rust**, escritorio con **Tauri 2** e interfaz en **React + TypeScript** (español / inglés).
+Todo en **Rust**: núcleo criptográfico y una interfaz nativa con **Slint** (español / inglés), sin navegador embebido
+ni JavaScript.
 
 ## Puesta en marcha (Linux)
 
 ```bash
-# 1. Dependencias del sistema para Tauri (una sola vez)
-sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev \
-  libssl-dev libayatana-appindicator3-dev librsvg2-dev
+# 1. Dependencias del sistema (una sola vez)
+sudo apt install build-essential pkg-config libfontconfig1-dev libxkbcommon-dev libdbus-1-dev
 
-# 2. Dependencias JS
-pnpm install
+# 2. Desarrollo
+cargo run -p arca
 
-# 3. Desarrollo
-pnpm tauri dev
-
-# 4. Instalable (.deb / .AppImage / .rpm en target/release/bundle)
-pnpm tauri build
+# 3. Binario optimizado (target/release/arca)
+cargo build -p arca --release
 ```
 
 Tests:
 
 ```bash
-cargo test -p vault-core          # núcleo: cripto, formato, casos de uso, import/export
+cargo test --workspace            # núcleo (cripto, formato, casos de uso, import/export) y presentación
 cargo clippy --workspace --all-targets
-pnpm test                         # frontend (Vitest)
-pnpm typecheck
 ```
 
 ## Seguridad
@@ -43,8 +38,8 @@ pnpm typecheck
 | Fuerza bruta | Retardo exponencial tras 3 intentos fallidos (máx. 5 min), guardado en disco para que reiniciar la app no lo borre. Se aplica también a cambiar la contraseña y a exportar. Frente a un ataque con el archivo copiado protege el coste de Argon2id |
 | Reautenticación | Exportar y guardar un adjunto descifrado piden la contraseña maestra aunque la bóveda esté desbloqueada |
 | Contraseña | Se normaliza a Unicode NFC antes de Argon2id: «é» compuesto o descompuesto (macOS) abre igual en cualquier sistema. Las bóvedas y copias creadas antes de normalizar se siguen abriendo |
-| Frontend | La clave nunca sale de Rust; la UI (también el editor) recibe secretos enmascarados y solo pide el valor real al pulsar «Mostrar» / «Copiar»; lo revelado se vuelve a ocultar a los 30 s. Al guardar, un secreto enmascarado sin tocar conserva su valor |
-| Tauri | CSP estricta, sin plugins `shell`/`fs`/`http`; los diálogos de archivo se abren desde Rust (la UI no envía rutas) |
+| Interfaz | Slint nativo en el mismo proceso: sin WebView, sin JavaScript y sin superficie web (ni CSP que configurar). La interfaz solo lee propiedades y emite callbacks; los controladores Rust son los únicos que tocan la bóveda. Los secretos llegan enmascarados (también al editor) y el valor real solo se publica al pulsar «Mostrar»; lo revelado se vuelve a ocultar a los 30 s. Al guardar, un secreto enmascarado sin tocar conserva su valor |
+| Campos sensibles | Las contraseñas maestras se vacían del campo en cuanto Rust las lee; al bloquear se vacían el editor, los diálogos, los formularios de ajustes, el generador y los detalles revelados |
 | Portapapeles | Se marca como sensible para que los gestores de historial no lo guarden, y se vacía a los 30 s (por defecto), al bloquear la bóveda y al cerrar la app, si sigue conteniendo el secreto |
 | Bloqueo | Por inactividad, al minimizar (opcional), al suspender el equipo y, en Linux, al bloquear la pantalla (señales de D-Bus del salvapantallas y de logind, solo de la sesión propia) |
 | Exportación | Las celdas de CSV que empiezan por `=`, `+`, `-` o `@` se exportan como texto (evita la *CSV injection*); contraseña y TOTP se exportan intactos |
@@ -61,12 +56,12 @@ Archivos: `~/.local/share/dev.arca.desktop/personal.vault`, los adjuntos cifrado
 
 Lo que Arca **no** puede garantizar, y por qué:
 
-- **Memoria del WebView.** La UI corre en WebKit, un proceso aparte. Lo que escribes en la pantalla de desbloqueo y lo
-  que revelas con «Mostrar» pasa por JavaScript, donde no se puede borrar de memoria (lo libera el recolector de
-  basura cuando quiere), y ese proceso no queda protegido por `PR_SET_DUMPABLE`. Se reduce el tiempo de exposición
-  (lo revelado se oculta a los 30 s y los diálogos vacían su estado al cerrarse), pero un malware que corra con tu
-  usuario podría leerlo. Ese mismo malware podría también instalar un keylogger: contra un equipo comprometido
-  ningún gestor de contraseñas protege.
+- **Texto de la interfaz.** Lo que escribes y lo que revelas con «Mostrar» pasa por cadenas de Slint (`SharedString`),
+  que se liberan sin sobrescribirse, y el campo de texto puede guardar copias propias (historial de deshacer). Al ir
+  todo en el mismo proceso, ya no hay un proceso aparte sin protección: `PR_SET_DUMPABLE` cubre también la interfaz.
+  Se reduce además el tiempo de exposición (los campos se vacían al leerlos y al bloquear, lo revelado se oculta a los
+  30 s), pero un malware que corra con tu usuario y privilegios para leer memoria podría encontrar restos. Ese mismo
+  malware podría también instalar un keylogger: contra un equipo comprometido ningún gestor de contraseñas protege.
 - **`zeroize` es best-effort.** El compilador o el sistema pueden haber copiado memoria (registros, swap) antes de
   borrarla. Cifrar la swap del sistema lo mitiga.
 - **Borrar en un SSD no sobrescribe.** El `.bak` y los adjuntos borrados pueden seguir en bloques libres del disco,
@@ -83,22 +78,26 @@ Lo que Arca **no** puede garantizar, y por qué:
 ## Arquitectura
 
 ```
-crates/vault-core/        Núcleo sin Tauri (testeable de forma aislada)
+crates/vault-core/        Núcleo sin interfaz (testeable de forma aislada)
   domain/                 Entidades, valores, políticas y puertos (traits)
   application/            Casos de uso + fachada VaultService
   infrastructure/         Adaptadores: Argon2id, XChaCha20, ficheros, import/export
-src-tauri/                Capa de presentación: comandos finos, eventos, raíz de composición
-src/                      React: domain → infrastructure (vaultApiClient) → application (stores/hooks) → presentation
+crates/arca-desktop/      Aplicación de escritorio
+  ui/                     Interfaz Slint; bridge.slint es el contrato (globals) con Rust
+  src/presentation/       Un controlador por zona de la interfaz, conectados por un bus de eventos
+  src/platform/           Portapapeles, bloqueo de pantalla, diálogos de archivo, instancia única, endurecimiento
+  src/composition_root.rs Raíz de composición
+  i18n/                   Catálogos es / en
 ```
 
 Patrones usados para evitar cadenas de `if`:
 
-- **State**: `VaultSessionState { Locked, Unlocked }` en Rust y `SCREEN_COMPONENTS` en React.
+- **State**: `VaultSessionState { Locked, Unlocked }` en el núcleo y `AppScreen` en la interfaz.
 - **Strategy**: generación de contraseñas, KDF y cifrado detrás de traits.
-- **Registry**: formatos de import/export (`TransferFormatRegistry`), tipos de elemento (`ITEM_CONTENT_TYPE_REGISTRY`), secciones de la UI.
+- **Registry**: formatos de import/export (`TransferFormatRegistry`), tipos de elemento (`ITEM_KIND_DEFINITIONS`), idiomas (`SUPPORTED_LANGUAGES`).
 - **Reglas en lista**: política de contraseña maestra y salud de contraseñas (`PasswordHealthRule`).
 - **Repository / Ports & Adapters**: almacenamiento, portapapeles y reloj inyectados → tests con dobles en memoria.
-- **Observer**: eventos `vault-locked` y `clipboard-cleared` del backend a la UI.
+- **Observer**: `VaultEvent` (bloqueo, portapapeles vaciado) desde otros hilos, y `AppEvent` entre controladores.
 
 ## Atajos de teclado
 

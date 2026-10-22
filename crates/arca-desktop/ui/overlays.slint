@@ -1,0 +1,166 @@
+// Capas que flotan sobre cualquier pantalla: avisos (toasts) y diálogos de texto/confirmación.
+
+import { Theme, Icons } from "theme.slint";
+import { I18n, Toasts, ToastData, ToastTone, Dialogs } from "bridge.slint";
+import { Button, ButtonVariant, Icon, IconButton, TextField, FormField, ModalOverlay } from "primitives.slint";
+
+/// Apariencia por tono de aviso (tabla en vez de condicionales repartidos).
+global ToastAppearance {
+    public pure function icon(tone: ToastTone) -> image {
+        return tone == ToastTone.success ? Icons.circle-check : tone == ToastTone.error ? Icons.circle-alert : Icons.info;
+    }
+    public pure function tint(tone: ToastTone) -> color {
+        return tone == ToastTone.success ? Theme.success : tone == ToastTone.error ? Theme.danger : Theme.accent;
+    }
+}
+
+component ToastCard inherits Rectangle {
+    in property <ToastData> toast;
+    width: 360px;
+    height: toast-layout.preferred-height;
+    background: Theme.surface;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.border;
+    drop-shadow-blur: 16px;
+    drop-shadow-color: #00000030;
+    accessible-role: text;
+    accessible-label: toast.message;
+
+    toast-layout := VerticalLayout {
+        HorizontalLayout {
+            padding: 12px;
+            padding-left: 14px;
+            spacing: 10px;
+            Icon {
+                y: (parent.height - self.height) / 2;
+                size: 18px;
+                source: ToastAppearance.icon(root.toast.tone);
+                colorize: ToastAppearance.tint(root.toast.tone);
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.toast.message;
+                font-size: Theme.font-md;
+                color: Theme.text;
+                vertical-alignment: center;
+                wrap: word-wrap;
+            }
+            if root.toast.action-label != "": Button {
+                y: (parent.height - self.height) / 2;
+                label: root.toast.action-label;
+                variant: ButtonVariant.ghost;
+                button-height: 28px;
+                label-size: Theme.font-sm;
+                clicked => { Toasts.run-action(root.toast.toast-id); }
+            }
+            IconButton {
+                y: (parent.height - self.height) / 2;
+                size: 24px;
+                icon-size: 14px;
+                icon: Icons.close;
+                label: I18n.t("actions.close");
+                clicked => { Toasts.dismiss(root.toast.toast-id); }
+            }
+        }
+        // Barra que se vacía hasta que se borre el portapapeles.
+        if root.toast.countdown-seconds > 0: Rectangle {
+            height: 3px;
+            countdown-bar := Rectangle {
+                x: 0;
+                height: 100%;
+                width: 0;
+                background: ToastAppearance.tint(root.toast.tone);
+                animate width { duration: root.toast.countdown-seconds * 1s; easing: linear; }
+            }
+            init => {
+                countdown-bar.width = self.width;
+                countdown-bar.width = 0;
+            }
+        }
+    }
+}
+
+export component ToastViewport inherits Rectangle {
+    for toast[position] in Toasts.visible-toasts: ToastCard {
+        toast: toast;
+        x: root.width - self.width - 16px;
+        y: root.height - (Toasts.visible-toasts.length - position) * (self.height + 8px) - 8px;
+    }
+}
+
+component PromptDialog inherits ModalOverlay {
+    function submit() {
+        if Dialogs.prompt-value != "" && !Dialogs.prompt-busy {
+            Dialogs.prompt-submitted(Dialogs.prompt-value);
+        }
+    }
+    title: Dialogs.prompt-title;
+    panel-width: 400px;
+    dismissed => { Dialogs.prompt-cancelled(); }
+    init => { value-field.focus(); }
+
+    FormField {
+        label: Dialogs.prompt-label;
+        hint: Dialogs.prompt-hint;
+        error: Dialogs.prompt-error;
+        value-field := TextField {
+            text <=> Dialogs.prompt-value;
+            is-password: Dialogs.prompt-is-secret;
+            accessible-name: Dialogs.prompt-label;
+            has-error: Dialogs.prompt-error != "";
+            enabled: !Dialogs.prompt-busy;
+            accepted => { root.submit(); }
+        }
+    }
+    Rectangle { height: 12px; }
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: end;
+        Button {
+            label: I18n.t("actions.cancel");
+            enabled: !Dialogs.prompt-busy;
+            clicked => { Dialogs.prompt-cancelled(); }
+        }
+        Button {
+            label: Dialogs.prompt-confirm-label;
+            variant: ButtonVariant.primary;
+            is-busy: Dialogs.prompt-busy;
+            enabled: Dialogs.prompt-value != "";
+            clicked => { root.submit(); }
+        }
+    }
+}
+
+component ConfirmDialog inherits ModalOverlay {
+    title: Dialogs.confirm-title;
+    description: Dialogs.confirm-text;
+    panel-width: 420px;
+    dismissed => { Dialogs.confirm-cancelled(); }
+    init => { cancel-button.focus(); }
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: end;
+        cancel-button := Button {
+            label: I18n.t("actions.cancel");
+            clicked => { Dialogs.confirm-cancelled(); }
+        }
+        Button {
+            label: Dialogs.confirm-label;
+            variant: Dialogs.confirm-destructive ? ButtonVariant.danger : ButtonVariant.primary;
+            clicked => { Dialogs.confirmed(); }
+        }
+    }
+}
+
+export component DialogLayer inherits Rectangle {
+    if Dialogs.prompt-open: PromptDialog {
+        width: root.width;
+        height: root.height;
+    }
+    if Dialogs.confirm-open: ConfirmDialog {
+        width: root.width;
+        height: root.height;
+    }
+}

@@ -1,0 +1,373 @@
+// Contrato entre la interfaz y los controladores Rust (capa de presentación).
+// La interfaz solo lee estas propiedades y emite estos callbacks: nunca toca la bóveda.
+// Los secretos llegan enmascarados; el valor real solo cruza al pulsar «Mostrar» o al editar.
+
+export enum AppScreen { loading, setup, unlock, vault }
+export enum VaultSection { items, generator, health, settings }
+export enum ItemKind { login, secure-note, payment-card, identity }
+export enum ToastTone { success, info, error }
+export enum ItemPanel { nothing-selected, loading, details, editor }
+export enum ListState { loading, vault-empty, no-matches, item-list }
+export enum NavIcon { layers, star, login, secure-note, payment-card, identity, folder, folder-muted, hash, trash, generator, health, settings, lock }
+export enum DetailRowKind { plain, secret, totp }
+export enum HealthIssueKind { weak, reused, old }
+
+// ── Servicios transversales ──────────────────────────────────────────────────
+
+export global I18n {
+    // Se incrementa al cambiar de idioma: todas las cadenas dependen de ella y se recalculan.
+    in property <int> revision;
+    pure callback lookup(key: string) -> string;
+    pure callback lookup-count(key: string, count: int) -> string;
+    pure callback lookup-with(key: string, placeholder: string, value: string) -> string;
+    pure callback lookup-with-two(key: string, first-placeholder: string, first-value: string, second-placeholder: string, second-value: string) -> string;
+
+    public pure function t(key: string) -> string {
+        return revision >= 0 ? lookup(key) : "";
+    }
+    public pure function count(key: string, value: int) -> string {
+        return revision >= 0 ? lookup-count(key, value) : "";
+    }
+    public pure function with(key: string, placeholder: string, value: string) -> string {
+        return revision >= 0 ? lookup-with(key, placeholder, value) : "";
+    }
+    public pure function with-two(key: string, first-placeholder: string, first-value: string, second-placeholder: string, second-value: string) -> string {
+        return revision >= 0 ? lookup-with-two(key, first-placeholder, first-value, second-placeholder, second-value) : "";
+    }
+}
+
+/// Cada interacción retrasa el auto-bloqueo (el controlador limita la frecuencia).
+export global UserActivity {
+    callback reported();
+}
+
+export global PasswordStrengths {
+    /// 0-4 (zxcvbn) o -1 si no hay nada que evaluar.
+    pure callback score-of(candidate: string) -> int;
+}
+
+export struct ToastData {
+    toast-id: int,
+    message: string,
+    tone: ToastTone,
+    action-label: string,
+    countdown-seconds: int,
+}
+
+export global Toasts {
+    in property <[ToastData]> visible-toasts;
+    callback dismiss(toast-id: int);
+    callback run-action(toast-id: int);
+}
+
+export global Dialogs {
+    // Pedir un texto corto (nombre de carpeta) o un secreto (contraseña maestra antes de descifrar un adjunto).
+    in property <bool> prompt-open;
+    in property <string> prompt-title;
+    in property <string> prompt-label;
+    in property <string> prompt-hint;
+    in property <bool> prompt-is-secret;
+    in property <string> prompt-confirm-label;
+    in-out property <string> prompt-value;
+    in property <string> prompt-error;
+    in property <bool> prompt-busy;
+    callback prompt-submitted(value: string);
+    callback prompt-cancelled();
+    // Confirmar una acción.
+    in property <bool> confirm-open;
+    in property <string> confirm-title;
+    in property <string> confirm-text;
+    in property <string> confirm-label;
+    in property <bool> confirm-destructive;
+    callback confirmed();
+    callback confirm-cancelled();
+}
+
+// ── Sesión ───────────────────────────────────────────────────────────────────
+
+export global Session {
+    in property <AppScreen> screen: AppScreen.loading;
+    // Desbloqueo
+    in property <string> unlock-subtitle-key: "unlock.subtitle";
+    in property <string> unlock-error;
+    in property <bool> is-unlocking;
+    in property <int> retry-countdown-seconds;
+    in property <int> unlock-attempts;
+    // Rust vacía los campos de contraseña maestra en cuanto los lee.
+    in-out property <string> unlock-password;
+    callback unlock();
+    // Asistente de creación
+    in-out property <int> setup-step;
+    in property <bool> is-creating-vault;
+    in property <string> setup-error;
+    in-out property <string> setup-password;
+    in-out property <string> setup-confirmation;
+    callback create-vault();
+
+    callback lock-now();
+}
+
+// ── Espacio de trabajo ───────────────────────────────────────────────────────
+
+export struct NavEntry {
+    entry-key: string,
+    label: string,
+    icon: NavIcon,
+    item-count: string,
+    is-active: bool,
+    folder-id: string,
+}
+
+export global Sidebar {
+    in property <[NavEntry]> library-entries;
+    in property <[NavEntry]> type-entries;
+    in property <[NavEntry]> folder-entries;
+    in property <[NavEntry]> tag-entries;
+    in property <[NavEntry]> trash-entries;
+    in property <[NavEntry]> tool-entries;
+    callback activate(entry-key: string);
+    callback create-folder();
+    callback rename-folder(folder-id: string);
+    callback delete-folder(folder-id: string);
+}
+
+export struct ItemRow {
+    title: string,
+    subtitle: string,
+    kind: ItemKind,
+    is-favorite: bool,
+    has-attachments: bool,
+    can-copy-username: bool,
+    can-copy-password: bool,
+}
+
+export global Workspace {
+    in property <VaultSection> section: VaultSection.items;
+    in property <ItemPanel> item-panel: ItemPanel.nothing-selected;
+    in property <string> list-title;
+    in property <ListState> list-state: ListState.loading;
+    in property <[ItemRow]> item-rows;
+    in property <int> selected-row: -1;
+    in property <string> result-count;
+    in property <string> no-matches-headline;
+    in property <string> no-matches-text;
+    in property <bool> no-matches-is-trash;
+    in-out property <string> search-text;
+    in property <int> focus-search-requests;
+    callback search-edited(text: string);
+    callback select-row(row: int);
+    callback move-selection(offset: int);
+    callback copy-username(row: int);
+    callback copy-password(row: int);
+    callback create-item(kind: ItemKind);
+    callback open-section(section: VaultSection);
+    callback request-import();
+    /// Atajos de teclado globales: "palette", "new", "lock", "find", "save", "escape".
+    callback shortcut(name: string) -> bool;
+}
+
+export struct DetailRow {
+    row-index: int,
+    kind: DetailRowKind,
+    label: string,
+    value: string,
+    is-revealed: bool,
+}
+
+export struct AttachmentRow {
+    file-name: string,
+    size-text: string,
+}
+
+export global ItemDetails {
+    in property <string> title;
+    in property <string> kind-label;
+    in property <ItemKind> kind;
+    in property <bool> is-favorite;
+    in property <bool> is-in-trash;
+    in property <[DetailRow]> main-rows;
+    in property <[DetailRow]> custom-rows;
+    in property <string> notes;
+    in property <bool> notes-in-main-section;
+    in property <[AttachmentRow]> attachments;
+    in property <bool> is-adding-attachment;
+    in property <[string]> tag-names;
+    in property <string> updated-text;
+    in property <string> created-text;
+    in property <string> history-text;
+    in property <string> totp-code;
+    in property <int> totp-seconds-left;
+    in property <int> totp-period-seconds: 30;
+    callback toggle-reveal(row-index: int);
+    callback copy-row(row-index: int);
+    callback toggle-favorite();
+    callback move-to-trash();
+    callback restore();
+    callback delete-forever();
+    callback edit();
+    callback add-attachment();
+    callback save-attachment(attachment-index: int);
+    callback delete-attachment(attachment-index: int);
+}
+
+export struct WebsiteRow { url: string }
+
+/// Campo de tarjeta o identidad. `grid-row`/`column` los calcula el controlador (rejilla de 2 columnas).
+export struct DescriptorField {
+    label: string,
+    value: string,
+    is-secret: bool,
+    is-wide: bool,
+    grid-row: int,
+    column: int,
+}
+
+export struct CustomFieldRow {
+    label: string,
+    value: string,
+    is-hidden: bool,
+}
+
+/// El formulario vive aquí (enlaces bidireccionales); el controlador lo lee al guardar.
+export global ItemEditor {
+    in property <string> header-title;
+    in property <ItemKind> kind;
+    in property <bool> is-saving;
+    in property <string> save-error;
+    in property <bool> can-reveal-sealed;
+    in-out property <string> title;
+    in-out property <bool> is-favorite;
+    in-out property <string> username;
+    in-out property <string> password;
+    in-out property <string> totp-secret;
+    in-out property <string> notes;
+    in-out property <string> tags-text;
+    in-out property <[WebsiteRow]> website-rows;
+    in property <[string]> folder-names;
+    in-out property <int> folder-index;
+    in-out property <[DescriptorField]> descriptor-fields;
+    in-out property <[CustomFieldRow]> custom-fields;
+    in property <int> focus-title-requests;
+    in-out property <bool> is-generator-open;
+    callback save();
+    callback cancel();
+    /// "password", "totpSecret", "descriptor:<n>" o "custom:<n>": el controlador sustituye el marcador por el valor real.
+    callback reveal-sealed(field-key: string);
+    callback add-website();
+    callback remove-website(row: int);
+    callback add-custom-field();
+    callback remove-custom-field(row: int);
+}
+
+// ── Herramientas ─────────────────────────────────────────────────────────────
+
+export global Generator {
+    in property <string> generated-password;
+    in property <int> strength-score: -1;
+    in-out property <bool> is-passphrase;
+    in-out property <int> password-length: 20;
+    in property <bool> includes-uppercase: true;
+    in property <bool> includes-lowercase: true;
+    in property <bool> includes-digits: true;
+    in property <bool> includes-symbols: true;
+    in-out property <bool> excludes-ambiguous;
+    in-out property <int> word-count: 5;
+    in-out property <string> word-separator: "-";
+    in-out property <bool> capitalizes-words: true;
+    in-out property <bool> appends-number: true;
+    callback settings-changed();
+    /// 0 mayúsculas, 1 minúsculas, 2 números, 3 símbolos (siempre queda al menos uno).
+    callback toggle-character-set(character-set: int);
+    callback regenerate();
+    callback copy-generated();
+    callback use-generated();
+}
+
+export struct HealthFinding {
+    item-id: string,
+    item-title: string,
+    detail: string,
+}
+
+export struct HealthGroup {
+    issue-kind: HealthIssueKind,
+    title: string,
+    explanation: string,
+    finding-count: int,
+    findings: [HealthFinding],
+}
+
+export global PasswordHealth {
+    in property <bool> is-loading: true;
+    in property <bool> has-logins;
+    in property <int> overall-score;
+    in property <string> summary;
+    in property <[HealthGroup]> issue-groups;
+    callback change-now(item-id: string);
+}
+
+export global Settings {
+    in property <[string]> language-names;
+    in-out property <int> language-index;
+    in property <[string]> theme-names;
+    in-out property <int> theme-index;
+    callback language-selected(index: int);
+    callback theme-selected(index: int);
+
+    in property <bool> preferences-loaded;
+    in property <[string]> auto-lock-labels;
+    in-out property <int> auto-lock-index;
+    in property <[string]> clipboard-clear-labels;
+    in-out property <int> clipboard-clear-index;
+    in property <[string]> history-limit-labels;
+    in-out property <int> history-limit-index;
+    in-out property <bool> locks-on-minimize;
+    callback preferences-changed();
+
+    in-out property <string> current-master-password;
+    in-out property <string> new-master-password;
+    in-out property <string> confirmed-master-password;
+    in property <string> master-password-error;
+    in property <bool> is-changing-master-password;
+    callback change-master-password();
+
+    in property <[string]> import-format-names;
+    in-out property <int> import-format-index;
+    in property <string> import-hint;
+    in property <bool> import-requires-password;
+    in-out property <string> import-file-password;
+    in property <bool> is-importing;
+    callback import-format-selected(index: int);
+    callback import-file();
+
+    in property <[string]> export-format-names;
+    in-out property <int> export-format-index;
+    in property <bool> export-requires-password;
+    in property <bool> export-is-plaintext;
+    in-out property <string> export-file-password;
+    in-out property <string> export-confirmed-password;
+    in-out property <string> export-master-password;
+    in-out property <bool> plaintext-risk-acknowledged;
+    in property <bool> is-exporting;
+    callback export-format-selected(index: int);
+    callback export-file();
+
+    in property <string> vault-location;
+}
+
+export struct PaletteEntry {
+    label: string,
+    hint: string,
+    icon: NavIcon,
+    shortcut: string,
+}
+
+export global CommandPalette {
+    in property <bool> is-open;
+    in-out property <string> query;
+    in property <[PaletteEntry]> entries;
+    in-out property <int> highlighted;
+    callback query-edited(query: string);
+    callback execute(entry: int);
+    callback close();
+}

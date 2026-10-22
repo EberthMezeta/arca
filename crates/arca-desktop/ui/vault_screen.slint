@@ -1,0 +1,90 @@
+// Pantalla principal con la bóveda abierta: barra lateral + sección activa.
+
+import { Theme } from "theme.slint";
+import { I18n, Workspace, VaultSection, ItemPanel } from "bridge.slint";
+import { BusySpinner, Card } from "primitives.slint";
+import { VaultSidebar } from "sidebar.slint";
+import { VaultItemList } from "item_list.slint";
+import { VaultItemDetailsPanel, NothingSelectedPanel } from "item_details.slint";
+import { VaultItemEditorPanel } from "item_editor.slint";
+import { GeneratorPanel } from "generator_panel.slint";
+import { PasswordHealthView } from "health_view.slint";
+import { SettingsView } from "settings_view.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component VerticalDivider inherits Rectangle {
+    width: 1px;
+    background: Theme.border;
+}
+
+/// Panel derecho del espacio de elementos (patrón State: un componente por estado).
+component ItemPanelHost inherits Rectangle {
+    background: Theme.canvas;
+    if Workspace.item-panel == ItemPanel.nothing-selected: NothingSelectedPanel { }
+    if Workspace.item-panel == ItemPanel.loading: VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            BusySpinner { }
+        }
+    }
+    if Workspace.item-panel == ItemPanel.details: VaultItemDetailsPanel { }
+    if Workspace.item-panel == ItemPanel.editor: VaultItemEditorPanel { }
+}
+
+component ItemsWorkspace inherits HorizontalLayout {
+    VaultItemList {
+        min-width: 260px;
+        max-width: 340px;
+        horizontal-stretch: 0.35;
+    }
+    VerticalDivider { }
+    ItemPanelHost { horizontal-stretch: 1; }
+}
+
+component GeneratorView inherits Rectangle {
+    background: Theme.canvas;
+    scroll := ScrollView {
+        content-width: scroll.visible-width;
+        content-height: content.preferred-height;
+        content := HorizontalLayout {
+            width: scroll.visible-width;
+            alignment: center;
+            VerticalLayout {
+                width: min(576px, scroll.visible-width - 64px);
+                padding-top: 32px;
+                padding-bottom: 32px;
+                spacing: 20px;
+                VerticalLayout {
+                    spacing: 4px;
+                    Text {
+                        text: I18n.t("generator.title");
+                        font-size: Theme.font-2xl;
+                        font-weight: 700;
+                        color: Theme.text;
+                    }
+                    Text {
+                        text: I18n.t("generator.subtitle");
+                        color: Theme.text-muted;
+                        wrap: word-wrap;
+                    }
+                }
+                Card {
+                    GeneratorPanel { }
+                }
+            }
+        }
+    }
+}
+
+export component VaultScreen inherits HorizontalLayout {
+    VaultSidebar { width: 230px; }
+    VerticalDivider { }
+    Rectangle {
+        horizontal-stretch: 1;
+        if Workspace.section == VaultSection.items: ItemsWorkspace { }
+        if Workspace.section == VaultSection.generator: GeneratorView { }
+        if Workspace.section == VaultSection.health: PasswordHealthView { }
+        if Workspace.section == VaultSection.settings: SettingsView { }
+    }
+}

@@ -1,0 +1,286 @@
+// Panel derecho en modo edición. El formulario está enlazado a `ItemEditor`; los secretos
+// llegan enmascarados y el ojo pide el valor real al controlador.
+
+import { Theme, Icons } from "theme.slint";
+import { I18n, ItemEditor, ItemKind, WebsiteRow, DescriptorField, CustomFieldRow, PasswordStrengths, Generator } from "bridge.slint";
+import { Button, ButtonVariant, Icon, IconButton, ItemKindBadge, SectionLabel, LinkButton, TextField, FormField, CheckBox, StrengthMeter, ModalOverlay, SealedSecret } from "primitives.slint";
+import { GeneratorPanel } from "generator_panel.slint";
+import { ScrollView, ComboBox, TextEdit } from "std-widgets.slint";
+
+component LoginEditor inherits VerticalLayout {
+    property <int> password-score: ItemEditor.password == SealedSecret.placeholder ? -1 : PasswordStrengths.score-of(ItemEditor.password);
+    spacing: 16px;
+
+    FormField {
+        label: I18n.t("fields.username");
+        TextField {
+            text <=> ItemEditor.username;
+            accessible-name: I18n.t("fields.username");
+        }
+    }
+    FormField {
+        label: I18n.t("fields.password");
+        HorizontalLayout {
+            spacing: 8px;
+            TextField {
+                text <=> ItemEditor.password;
+                is-password: true;
+                accessible-name: I18n.t("fields.password");
+                reveal-requested => { ItemEditor.reveal-sealed("password"); }
+            }
+            Button {
+                label: I18n.t("generator.generate");
+                has-icon: true;
+                icon: Icons.wand;
+                clicked => { ItemEditor.is-generator-open = true; }
+            }
+        }
+        StrengthMeter { score: root.password-score; }
+    }
+    FormField {
+        label: I18n.t("fields.websiteUrls");
+        for website-row[url-position] in ItemEditor.website-rows: HorizontalLayout {
+            spacing: 4px;
+            TextField {
+                text <=> website-row.url;
+                placeholder: "https://";
+                accessible-name: I18n.t("fields.website");
+            }
+            if ItemEditor.website-rows.length > 1: IconButton {
+                y: (parent.height - self.height) / 2;
+                icon: Icons.trash;
+                label: I18n.t("actions.remove");
+                clicked => { ItemEditor.remove-website(url-position); }
+            }
+        }
+        LinkButton {
+            label: I18n.t("editor.addWebsite");
+            clicked => { ItemEditor.add-website(); }
+        }
+    }
+    FormField {
+        label: I18n.t("fields.totpSecret");
+        hint: I18n.t("editor.totpHint");
+        TextField {
+            text <=> ItemEditor.totp-secret;
+            is-password: true;
+            placeholder: "otpauth://… / JBSWY3DPEHPK3PXP";
+            accessible-name: I18n.t("fields.totpSecret");
+            reveal-requested => { ItemEditor.reveal-sealed("totpSecret"); }
+        }
+    }
+}
+
+/// Rejilla de 2 columnas generada a partir de los descriptores (tarjeta, identidad).
+component DescriptorEditor inherits Rectangle {
+    property <length> column-gap: 16px;
+    property <length> row-height: 64px;
+    property <length> row-gap: 16px;
+    property <int> row-count: ItemEditor.descriptor-fields.length == 0 ? 0
+        : ItemEditor.descriptor-fields[ItemEditor.descriptor-fields.length - 1].grid-row + 1;
+    height: row-count * (row-height + row-gap) - (row-count > 0 ? row-gap : 0);
+
+    for descriptor-field[field-position] in ItemEditor.descriptor-fields: FormField {
+        x: descriptor-field.column * (root.width + root.column-gap) / 2;
+        y: descriptor-field.grid-row * (root.row-height + root.row-gap);
+        width: descriptor-field.is-wide ? root.width : (root.width - root.column-gap) / 2;
+        height: root.row-height;
+        label: descriptor-field.label;
+        TextField {
+            text <=> descriptor-field.value;
+            is-password: descriptor-field.is-secret;
+            accessible-name: descriptor-field.label;
+            reveal-requested => { ItemEditor.reveal-sealed("descriptor:" + field-position); }
+        }
+    }
+}
+
+component CustomFieldsEditor inherits VerticalLayout {
+    spacing: 12px;
+    SectionLabel { text: I18n.t("editor.customFields"); }
+    for custom-field[field-position] in ItemEditor.custom-fields: HorizontalLayout {
+        spacing: 8px;
+        TextField {
+            width: 160px;
+            horizontal-stretch: 0;
+            text <=> custom-field.label;
+            placeholder: I18n.t("editor.customFieldLabel");
+            accessible-name: I18n.t("editor.customFieldLabel");
+        }
+        TextField {
+            text <=> custom-field.value;
+            is-password: custom-field.is-hidden;
+            placeholder: I18n.t("editor.customFieldValue");
+            accessible-name: I18n.t("editor.customFieldValue");
+            reveal-requested => { ItemEditor.reveal-sealed("custom:" + field-position); }
+        }
+        CheckBox {
+            y: (parent.height - self.height) / 2;
+            horizontal-stretch: 0;
+            label: I18n.t("editor.hiddenField");
+            label-size: Theme.font-sm;
+            checked: custom-field.is-hidden;
+            toggled => { custom-field.is-hidden = !custom-field.is-hidden; }
+        }
+        IconButton {
+            y: (parent.height - self.height) / 2;
+            icon: Icons.trash;
+            label: I18n.t("actions.remove");
+            clicked => { ItemEditor.remove-custom-field(field-position); }
+        }
+    }
+    LinkButton {
+        label: I18n.t("editor.addCustomField");
+        clicked => { ItemEditor.add-custom-field(); }
+    }
+}
+
+component EditorHeader inherits Rectangle {
+    background: Theme.surface;
+    height: 76px;
+    HorizontalLayout {
+        padding-left: 24px;
+        padding-right: 24px;
+        spacing: 12px;
+        ItemKindBadge {
+            y: (parent.height - self.height) / 2;
+            size: 44px;
+            kind: ItemEditor.kind;
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            Text {
+                text: ItemEditor.header-title;
+                font-size: Theme.font-xl;
+                font-weight: 700;
+                color: Theme.text;
+                overflow: elide;
+            }
+            Text {
+                text: I18n.t("editor.shortcutsHint");
+                font-size: Theme.font-sm;
+                color: Theme.text-muted;
+                overflow: elide;
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: end;
+            IconButton {
+                y: (parent.height - self.height) / 2;
+                icon: ItemEditor.is-favorite ? Icons.star-filled : Icons.star;
+                tint: ItemEditor.is-favorite ? Theme.warning : Theme.text-muted;
+                label: I18n.t(ItemEditor.is-favorite ? "actions.unfavorite" : "actions.favorite");
+                clicked => { ItemEditor.is-favorite = !ItemEditor.is-favorite; }
+            }
+            Button {
+                y: (parent.height - self.height) / 2;
+                label: I18n.t("actions.cancel");
+                has-icon: true;
+                icon: Icons.close;
+                clicked => { ItemEditor.cancel(); }
+            }
+            Button {
+                y: (parent.height - self.height) / 2;
+                label: I18n.t("actions.save");
+                variant: ButtonVariant.primary;
+                has-icon: true;
+                icon: Icons.save;
+                is-busy: ItemEditor.is-saving;
+                clicked => { ItemEditor.save(); }
+            }
+        }
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Theme.border;
+    }
+}
+
+export component VaultItemEditorPanel inherits Rectangle {
+    property <int> focus-title-requests: ItemEditor.focus-title-requests;
+    background: Theme.canvas;
+    changed focus-title-requests => { title-field.focus(); }
+    init => { title-field.focus(); }
+
+    VerticalLayout {
+        EditorHeader { }
+        scroll := ScrollView {
+            vertical-stretch: 1;
+            content-width: scroll.visible-width;
+            content-height: content.preferred-height;
+            content := HorizontalLayout {
+                width: scroll.visible-width;
+                alignment: center;
+                VerticalLayout {
+                    width: min(672px, scroll.visible-width - 48px);
+                    padding-top: 24px;
+                    padding-bottom: 32px;
+                    spacing: 24px;
+                    if ItemEditor.save-error != "": Rectangle {
+                        background: Theme.danger-soft;
+                        border-radius: Theme.radius-md;
+                        VerticalLayout {
+                            padding: 12px;
+                            padding-left: 16px;
+                            Text {
+                                text: ItemEditor.save-error;
+                                color: Theme.danger;
+                                wrap: word-wrap;
+                                accessible-role: text;
+                            }
+                        }
+                    }
+                    FormField {
+                        label: I18n.t("fields.title");
+                        title-field := TextField {
+                            text <=> ItemEditor.title;
+                            placeholder: I18n.t("editor.titlePlaceholder");
+                            accessible-name: I18n.t("fields.title");
+                            accepted => { ItemEditor.save(); }
+                        }
+                    }
+                    if ItemEditor.kind == ItemKind.login: LoginEditor { }
+                    if ItemEditor.kind == ItemKind.payment-card || ItemEditor.kind == ItemKind.identity: DescriptorEditor { }
+                    HorizontalLayout {
+                        spacing: 16px;
+                        FormField {
+                            width: (parent.width - 16px) / 2;
+                            label: I18n.t("fields.folder");
+                            ComboBox {
+                                model: ItemEditor.folder-names;
+                                current-index <=> ItemEditor.folder-index;
+                            }
+                        }
+                        FormField {
+                            label: I18n.t("fields.tags");
+                            hint: I18n.t("editor.tagsHint");
+                            TextField {
+                                text <=> ItemEditor.tags-text;
+                                placeholder: I18n.t("editor.tagsPlaceholder");
+                                accessible-name: I18n.t("fields.tags");
+                            }
+                        }
+                    }
+                    FormField {
+                        label: I18n.t("fields.notes");
+                        TextEdit {
+                            height: ItemEditor.kind == ItemKind.secure-note ? 240px : 110px;
+                            text <=> ItemEditor.notes;
+                            wrap: word-wrap;
+                        }
+                    }
+                    CustomFieldsEditor { }
+                }
+            }
+        }
+    }
+
+    if ItemEditor.is-generator-open: ModalOverlay {
+        title: I18n.t("generator.title");
+        dismissed => { ItemEditor.is-generator-open = false; }
+        GeneratorPanel { offers-use-button: true; }
+    }
+}

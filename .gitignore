@@ -1,8 +1,4 @@
-node_modules
-dist
 target
-src-tauri/gen
 *.vault
 *.vault.bak
 *.vault.tmp
-*.tsbuildinfo

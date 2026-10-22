@@ -1,0 +1,359 @@
+// Ajustes: apariencia, seguridad, contraseña maestra, importar/exportar y ubicación de la bóveda.
+
+import { Theme, Icons } from "theme.slint";
+import { I18n, Settings, PasswordStrengths } from "bridge.slint";
+import { Button, ButtonVariant, Icon, TextField, FormField, ToggleRow, CheckBox, StrengthMeter, Banner } from "primitives.slint";
+import { ScrollView, ComboBox } from "std-widgets.slint";
+
+component SettingsSection inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> description;
+    background: Theme.surface;
+    border-radius: Theme.radius-xl;
+    border-width: 1px;
+    border-color: Theme.border;
+    VerticalLayout {
+        padding: 24px;
+        spacing: 20px;
+        HorizontalLayout {
+            spacing: 12px;
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: Theme.radius-md;
+                background: Theme.surface-muted;
+                Icon {
+                    size: 18px;
+                    source: root.icon;
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                Text {
+                    text: root.title;
+                    font-weight: 700;
+                    color: Theme.text;
+                }
+                if root.description != "": Text {
+                    text: root.description;
+                    font-size: Theme.font-sm;
+                    color: Theme.text-muted;
+                    wrap: word-wrap;
+                }
+            }
+        }
+        @children
+    }
+}
+
+/// Dos controles en columnas iguales.
+component TwoColumns inherits HorizontalLayout {
+    spacing: 16px;
+    @children
+}
+
+component AppearanceSettings inherits SettingsSection {
+    icon: Icons.palette;
+    title: I18n.t("settings.appearanceTitle");
+    TwoColumns {
+        FormField {
+            label: I18n.t("settings.language");
+            ComboBox {
+                model: Settings.language-names;
+                current-index <=> Settings.language-index;
+                selected => { Settings.language-selected(self.current-index); }
+            }
+        }
+        FormField {
+            label: I18n.t("settings.themeLabel");
+            ComboBox {
+                model: Settings.theme-names;
+                current-index <=> Settings.theme-index;
+                selected => { Settings.theme-selected(self.current-index); }
+            }
+        }
+    }
+}
+
+component SecuritySettings inherits SettingsSection {
+    icon: Icons.lock;
+    title: I18n.t("settings.securityTitle");
+    description: I18n.t("settings.securityDescription");
+    TwoColumns {
+        FormField {
+            label: I18n.t("settings.autoLock");
+            ComboBox {
+                model: Settings.auto-lock-labels;
+                current-index <=> Settings.auto-lock-index;
+                selected => { Settings.preferences-changed(); }
+            }
+        }
+        FormField {
+            label: I18n.t("settings.clipboardClear");
+            ComboBox {
+                model: Settings.clipboard-clear-labels;
+                current-index <=> Settings.clipboard-clear-index;
+                selected => { Settings.preferences-changed(); }
+            }
+        }
+    }
+    TwoColumns {
+        FormField {
+            label: I18n.t("settings.historyLimit");
+            ComboBox {
+                model: Settings.history-limit-labels;
+                current-index <=> Settings.history-limit-index;
+                selected => { Settings.preferences-changed(); }
+            }
+        }
+        Rectangle { }
+    }
+    ToggleRow {
+        label: I18n.t("settings.lockOnMinimize");
+        description: I18n.t("settings.lockOnMinimizeHint");
+        checked: Settings.locks-on-minimize;
+        toggled => {
+            Settings.locks-on-minimize = !Settings.locks-on-minimize;
+            Settings.preferences-changed();
+        }
+    }
+}
+
+component MasterPasswordSettings inherits SettingsSection {
+    property <bool> passwords-match: Settings.new-master-password == Settings.confirmed-master-password;
+    property <bool> can-submit: Settings.current-master-password != "" && Settings.new-master-password != "" && passwords-match;
+
+    function submit() {
+        if can-submit && !Settings.is-changing-master-password {
+            Settings.change-master-password();
+        }
+    }
+
+    icon: Icons.key-round;
+    title: I18n.t("settings.masterPasswordTitle");
+    description: I18n.t("settings.masterPasswordDescription");
+    FormField {
+        label: I18n.t("settings.currentMasterPassword");
+        TextField {
+            text <=> Settings.current-master-password;
+            is-password: true;
+            accessible-name: I18n.t("settings.currentMasterPassword");
+        }
+    }
+    FormField {
+        label: I18n.t("settings.newMasterPassword");
+        TextField {
+            text <=> Settings.new-master-password;
+            is-password: true;
+            accessible-name: I18n.t("settings.newMasterPassword");
+        }
+        StrengthMeter { score: PasswordStrengths.score-of(Settings.new-master-password); }
+    }
+    FormField {
+        label: I18n.t("settings.confirmMasterPassword");
+        error: Settings.confirmed-master-password != "" && !root.passwords-match ? I18n.t("setup.passwordsDoNotMatch") : "";
+        TextField {
+            text <=> Settings.confirmed-master-password;
+            is-password: true;
+            accessible-name: I18n.t("settings.confirmMasterPassword");
+            has-error: Settings.confirmed-master-password != "" && !root.passwords-match;
+            accepted => { root.submit(); }
+        }
+    }
+    if Settings.master-password-error != "": Text {
+        text: Settings.master-password-error;
+        color: Theme.danger;
+        wrap: word-wrap;
+        accessible-role: text;
+    }
+    HorizontalLayout {
+        alignment: start;
+        Button {
+            label: I18n.t("settings.changeMasterPassword");
+            variant: ButtonVariant.primary;
+            is-busy: Settings.is-changing-master-password;
+            enabled: root.can-submit;
+            clicked => { root.submit(); }
+        }
+    }
+}
+
+component ImportSettings inherits SettingsSection {
+    icon: Icons.upload;
+    title: I18n.t("transfer.importTitle");
+    description: I18n.t("transfer.importDescription");
+    FormField {
+        label: I18n.t("transfer.format");
+        hint: Settings.import-hint;
+        ComboBox {
+            model: Settings.import-format-names;
+            current-index <=> Settings.import-format-index;
+            selected => { Settings.import-format-selected(self.current-index); }
+        }
+    }
+    if Settings.import-requires-password: FormField {
+        label: I18n.t("transfer.filePassword");
+        TextField {
+            text <=> Settings.import-file-password;
+            is-password: true;
+            accessible-name: I18n.t("transfer.filePassword");
+        }
+    }
+    HorizontalLayout {
+        alignment: start;
+        Button {
+            label: I18n.t("transfer.chooseAndImport");
+            variant: ButtonVariant.primary;
+            has-icon: true;
+            icon: Icons.upload;
+            is-busy: Settings.is-importing;
+            enabled: !Settings.import-requires-password || Settings.import-file-password != "";
+            clicked => { Settings.import-file(); }
+        }
+    }
+}
+
+component ExportSettings inherits SettingsSection {
+    property <bool> file-passwords-match: Settings.export-file-password == Settings.export-confirmed-password;
+    property <bool> is-password-ready: !Settings.export-requires-password || (Settings.export-file-password != "" && file-passwords-match);
+    property <bool> is-risk-acknowledged: !Settings.export-is-plaintext || Settings.plaintext-risk-acknowledged;
+
+    icon: Icons.download;
+    title: I18n.t("transfer.exportTitle");
+    description: I18n.t("transfer.exportDescription");
+    FormField {
+        label: I18n.t("transfer.format");
+        ComboBox {
+            model: Settings.export-format-names;
+            current-index <=> Settings.export-format-index;
+            selected => { Settings.export-format-selected(self.current-index); }
+        }
+    }
+    if Settings.export-requires-password: TwoColumns {
+        FormField {
+            label: I18n.t("transfer.filePassword");
+            hint: I18n.t("transfer.filePasswordHint");
+            TextField {
+                text <=> Settings.export-file-password;
+                is-password: true;
+                accessible-name: I18n.t("transfer.filePassword");
+            }
+        }
+        FormField {
+            label: I18n.t("transfer.confirmFilePassword");
+            error: Settings.export-confirmed-password != "" && !root.file-passwords-match ? I18n.t("setup.passwordsDoNotMatch") : "";
+            TextField {
+                text <=> Settings.export-confirmed-password;
+                is-password: true;
+                accessible-name: I18n.t("transfer.confirmFilePassword");
+                has-error: Settings.export-confirmed-password != "" && !root.file-passwords-match;
+            }
+        }
+    }
+    FormField {
+        label: I18n.t("transfer.masterPasswordForExport");
+        hint: I18n.t("transfer.masterPasswordForExportHint");
+        TextField {
+            text <=> Settings.export-master-password;
+            is-password: true;
+            accessible-name: I18n.t("transfer.masterPasswordForExport");
+        }
+    }
+    if Settings.export-is-plaintext: Banner {
+        icon: Icons.shield-alert;
+        tone: Theme.danger;
+        tone-soft: Theme.danger-soft;
+        Text {
+            text: I18n.t("transfer.plaintextWarning");
+            color: Theme.danger;
+            wrap: word-wrap;
+        }
+        CheckBox {
+            label: I18n.t("transfer.plaintextAcknowledge");
+            label-weight: 600;
+            accent-color: Theme.danger;
+            checked: Settings.plaintext-risk-acknowledged;
+            toggled => { Settings.plaintext-risk-acknowledged = !Settings.plaintext-risk-acknowledged; }
+        }
+    }
+    HorizontalLayout {
+        alignment: start;
+        Button {
+            label: I18n.t("transfer.exportAndSave");
+            variant: Settings.export-is-plaintext ? ButtonVariant.danger : ButtonVariant.primary;
+            has-icon: true;
+            icon: Icons.download;
+            is-busy: Settings.is-exporting;
+            enabled: Settings.export-master-password != "" && root.is-password-ready && root.is-risk-acknowledged;
+            clicked => { Settings.export-file(); }
+        }
+    }
+}
+
+component AboutSettings inherits SettingsSection {
+    icon: Icons.info;
+    title: I18n.t("settings.aboutTitle");
+    VerticalLayout {
+        spacing: 12px;
+        for about-entry in [
+            { label-key: "settings.vaultLocation", value: Settings.vault-location, is-monospace: true },
+            { label-key: "settings.encryption", value: "XChaCha20-Poly1305 · Argon2id (256 MiB, 3, 4) · HKDF-SHA256", is-monospace: false },
+        ]: HorizontalLayout {
+            spacing: 24px;
+            Text {
+                width: 140px;
+                text: I18n.t(about-entry.label-key);
+                font-size: Theme.font-sm;
+                color: Theme.text-muted;
+            }
+            TextInput {
+                text: about-entry.value;
+                read-only: true;
+                wrap: char-wrap;
+                single-line: false;
+                font-size: Theme.font-sm;
+                font-family: about-entry.is-monospace ? Theme.monospace-font : "";
+                color: Theme.text;
+                selection-background-color: Theme.accent-soft;
+            }
+        }
+    }
+    Text {
+        text: I18n.t("settings.backupAdvice");
+        font-size: Theme.font-sm;
+        color: Theme.text-muted;
+        wrap: word-wrap;
+    }
+}
+
+export component SettingsView inherits Rectangle {
+    background: Theme.canvas;
+    scroll := ScrollView {
+        content-width: scroll.visible-width;
+        content-height: content.preferred-height;
+        content := HorizontalLayout {
+            width: scroll.visible-width;
+            alignment: center;
+            VerticalLayout {
+                width: min(672px, scroll.visible-width - 64px);
+                padding-top: 32px;
+                padding-bottom: 32px;
+                spacing: 20px;
+                Text {
+                    text: I18n.t("navigation.settings");
+                    font-size: Theme.font-2xl;
+                    font-weight: 700;
+                    color: Theme.text;
+                }
+                AppearanceSettings { }
+                if Settings.preferences-loaded: SecuritySettings { }
+                MasterPasswordSettings { }
+                ImportSettings { }
+                ExportSettings { }
+                AboutSettings { }
+            }
+        }
+    }
+}

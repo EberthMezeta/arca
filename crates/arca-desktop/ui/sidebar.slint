@@ -1,0 +1,188 @@
+// Barra lateral: biblioteca, tipos, carpetas, etiquetas, papelera y herramientas.
+
+import { Theme, Icons } from "theme.slint";
+import { I18n, Sidebar, NavEntry, NavIcon, Session } from "bridge.slint";
+import { Icon, IconButton, SectionLabel, Kbd, VisualRegistry } from "primitives.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component NavButton inherits Rectangle {
+    in property <NavEntry> entry;
+    property <bool> has-folder-actions: entry.folder-id != "";
+    height: 32px;
+    border-radius: Theme.radius-md;
+    background: entry.is-active ? Theme.accent-soft : touch.has-hover ? Theme.surface-hover : transparent;
+    accessible-role: button;
+    accessible-label: entry.label;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { Sidebar.activate(root.entry.entry-key); }
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 6px;
+            spacing: 10px;
+            Icon {
+                y: (parent.height - self.height) / 2;
+                source: VisualRegistry.nav-icon(root.entry.icon);
+                colorize: root.entry.is-active ? Theme.accent : Theme.text-muted;
+                opacity: root.entry.icon == NavIcon.folder-muted ? 0.5 : 1;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.entry.label;
+                font-size: Theme.font-md;
+                font-weight: root.entry.is-active ? 600 : 400;
+                color: root.entry.is-active ? Theme.accent : Theme.text;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            if root.has-folder-actions && touch.has-hover: HorizontalLayout {
+                IconButton {
+                    y: (parent.height - self.height) / 2;
+                    size: 24px;
+                    icon-size: 14px;
+                    icon: Icons.pencil;
+                    label: I18n.t("folders.rename");
+                    clicked => { Sidebar.rename-folder(root.entry.folder-id); }
+                }
+                IconButton {
+                    y: (parent.height - self.height) / 2;
+                    size: 24px;
+                    icon-size: 14px;
+                    icon: Icons.close;
+                    label: I18n.t("folders.delete");
+                    clicked => { Sidebar.delete-folder(root.entry.folder-id); }
+                }
+            }
+            if root.entry.item-count != "" && !(root.has-folder-actions && touch.has-hover): Text {
+                text: root.entry.item-count;
+                font-size: Theme.font-sm;
+                color: Theme.text-muted;
+                vertical-alignment: center;
+            }
+            Rectangle { width: 4px; }
+        }
+    }
+}
+
+component NavGroup inherits VerticalLayout {
+    in property <string> title;
+    in property <[NavEntry]> entries;
+    in property <bool> offers-folder-creation;
+    spacing: 2px;
+    if root.title != "": HorizontalLayout {
+        height: 28px;
+        padding-left: 10px;
+        padding-right: 2px;
+        SectionLabel {
+            text: root.title;
+            vertical-alignment: center;
+        }
+        Rectangle { }
+        if root.offers-folder-creation: IconButton {
+            y: (parent.height - self.height) / 2;
+            size: 24px;
+            icon-size: 14px;
+            icon: Icons.folder-plus;
+            label: I18n.t("folders.create");
+            clicked => { Sidebar.create-folder(); }
+        }
+    }
+    for entry in root.entries: NavButton { entry: entry; }
+}
+
+export component VaultSidebar inherits Rectangle {
+    background: Theme.canvas;
+    VerticalLayout {
+        HorizontalLayout {
+            padding-left: 16px;
+            padding-top: 16px;
+            padding-bottom: 12px;
+            spacing: 10px;
+            Image {
+                width: 32px;
+                height: 32px;
+                source: Icons.logo;
+                accessible-role: none;
+            }
+            Text {
+                text: "Arca";
+                font-size: Theme.font-lg;
+                font-weight: 700;
+                color: Theme.text;
+                vertical-alignment: center;
+            }
+        }
+        scroll := ScrollView {
+            vertical-stretch: 1;
+            content-width: scroll.visible-width;
+            content-height: groups.preferred-height;
+            groups := VerticalLayout {
+                width: scroll.visible-width;
+                padding-left: 8px;
+                padding-right: 8px;
+                padding-bottom: 12px;
+                spacing: 16px;
+                alignment: start;
+                NavGroup { entries: Sidebar.library-entries; }
+                NavGroup {
+                    title: I18n.t("navigation.types");
+                    entries: Sidebar.type-entries;
+                }
+                NavGroup {
+                    title: I18n.t("navigation.folders");
+                    entries: Sidebar.folder-entries;
+                    offers-folder-creation: true;
+                }
+                if Sidebar.tag-entries.length > 0: NavGroup {
+                    title: I18n.t("navigation.tags");
+                    entries: Sidebar.tag-entries;
+                }
+                NavGroup { entries: Sidebar.trash-entries; }
+                NavGroup {
+                    title: I18n.t("navigation.tools");
+                    entries: Sidebar.tool-entries;
+                }
+            }
+        }
+        Rectangle {
+            height: 1px;
+            background: Theme.border;
+        }
+        VerticalLayout {
+            padding: 8px;
+            lock-button := Rectangle {
+                height: 36px;
+                border-radius: Theme.radius-md;
+                background: lock-touch.has-hover ? Theme.surface-hover : transparent;
+                accessible-role: button;
+                accessible-label: I18n.t("actions.lock");
+                lock-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Session.lock-now(); }
+                }
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    spacing: 10px;
+                    Icon {
+                        y: (parent.height - self.height) / 2;
+                        source: Icons.lock;
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: I18n.t("actions.lock");
+                        font-weight: 600;
+                        color: Theme.text;
+                        vertical-alignment: center;
+                    }
+                    Kbd {
+                        y: (parent.height - self.height) / 2;
+                        label: "Ctrl L";
+                    }
+                }
+            }
+        }
+    }
+}

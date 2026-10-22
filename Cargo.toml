@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/vault-core", "src-tauri"]
+members = ["crates/vault-core", "crates/arca-desktop"]
 
-# Argon2 sin optimizar es lentísimo; así el desbloqueo en `tauri dev` tarda lo mismo que en release.
+# Argon2 sin optimizar es lentísimo; así el desbloqueo en `cargo run` tarda lo mismo que en release.
 [profile.dev.package.argon2]
 opt-level = 3
 

@@ -1,0 +1,87 @@
+// Tokens de diseño: un único lugar para colores claro/oscuro, radios y tipografía.
+
+export enum ThemeChoice { system, light, dark }
+
+export global Theme {
+    // Esquema del sistema capturado al arrancar (Fluent lo expone antes de que lo fijemos).
+    in-out property <bool> system-is-dark;
+    in property <ThemeChoice> choice: ThemeChoice.system;
+    out property <bool> dark: choice == ThemeChoice.dark || (choice == ThemeChoice.system && system-is-dark);
+
+    out property <color> canvas: dark ? #0f1115 : #f5f6f8;
+    out property <color> surface: dark ? #171a20 : #ffffff;
+    out property <color> surface-muted: dark ? #1f232b : #eef0f3;
+    out property <color> surface-hover: dark ? #262b34 : #e6e9ee;
+    out property <color> border: dark ? #2c313b : #dde1e7;
+    out property <color> text: dark ? #e8eaee : #15181d;
+    out property <color> text-muted: dark ? #9aa3b2 : #5b6472;
+    out property <color> accent: dark ? #5b8cff : #2563eb;
+    out property <color> accent-hover: dark ? #7aa2ff : #1d4ed8;
+    out property <color> accent-soft: dark ? #1c2a4a : #e0e9fd;
+    out property <color> accent-contrast: dark ? #0b0d12 : #ffffff;
+    out property <color> danger: dark ? #f07070 : #d23a3a;
+    out property <color> danger-soft: dark ? #3a1c1f : #fde7e7;
+    out property <color> success: dark ? #4cc38a : #198754;
+    out property <color> success-soft: dark ? #16301f : #def5e8;
+    out property <color> warning: dark ? #f0b45a : #b86e00;
+    out property <color> warning-soft: dark ? #352713 : #fdf0d9;
+    out property <color> overlay: dark ? #000000a0 : #00000060;
+
+    out property <length> radius-sm: 6px;
+    out property <length> radius-md: 8px;
+    out property <length> radius-lg: 12px;
+    out property <length> radius-xl: 16px;
+
+    out property <length> font-xs: 11px;
+    out property <length> font-sm: 12px;
+    out property <length> font-md: 14px;
+    out property <length> font-lg: 16px;
+    out property <length> font-xl: 19px;
+    out property <length> font-2xl: 23px;
+    out property <string> monospace-font: "monospace";
+}
+
+export global Icons {
+    out property <image> lock: @image-url("icons/lock.svg");
+    out property <image> lock-keyhole: @image-url("icons/lock-keyhole.svg");
+    out property <image> shield-check: @image-url("icons/shield-check.svg");
+    out property <image> shield-alert: @image-url("icons/shield-alert.svg");
+    out property <image> key-round: @image-url("icons/key-round.svg");
+    out property <image> star: @image-url("icons/star.svg");
+    out property <image> star-filled: @image-url("icons/star-filled.svg");
+    out property <image> trash: @image-url("icons/trash.svg");
+    out property <image> pencil: @image-url("icons/pencil.svg");
+    out property <image> copy: @image-url("icons/copy.svg");
+    out property <image> eye: @image-url("icons/eye.svg");
+    out property <image> eye-off: @image-url("icons/eye-off.svg");
+    out property <image> search: @image-url("icons/search.svg");
+    out property <image> plus: @image-url("icons/plus.svg");
+    out property <image> close: @image-url("icons/x.svg");
+    out property <image> folder: @image-url("icons/folder.svg");
+    out property <image> folder-plus: @image-url("icons/folder-plus.svg");
+    out property <image> hash: @image-url("icons/hash.svg");
+    out property <image> layers: @image-url("icons/layers.svg");
+    out property <image> settings: @image-url("icons/settings.svg");
+    out property <image> wand: @image-url("icons/wand.svg");
+    out property <image> sticky-note: @image-url("icons/sticky-note.svg");
+    out property <image> credit-card: @image-url("icons/credit-card.svg");
+    out property <image> id-card: @image-url("icons/id-card.svg");
+    out property <image> paperclip: @image-url("icons/paperclip.svg");
+    out property <image> download: @image-url("icons/download.svg");
+    out property <image> upload: @image-url("icons/upload.svg");
+    out property <image> rotate-ccw: @image-url("icons/rotate-ccw.svg");
+    out property <image> refresh: @image-url("icons/refresh.svg");
+    out property <image> check: @image-url("icons/check.svg");
+    out property <image> circle-check: @image-url("icons/circle-check.svg");
+    out property <image> circle-alert: @image-url("icons/circle-alert.svg");
+    out property <image> info: @image-url("icons/info.svg");
+    out property <image> triangle-alert: @image-url("icons/triangle-alert.svg");
+    out property <image> calendar-clock: @image-url("icons/calendar-clock.svg");
+    out property <image> history: @image-url("icons/history.svg");
+    out property <image> arrow-left: @image-url("icons/arrow-left.svg");
+    out property <image> arrow-right: @image-url("icons/arrow-right.svg");
+    out property <image> pointer: @image-url("icons/pointer.svg");
+    out property <image> palette: @image-url("icons/palette.svg");
+    out property <image> save: @image-url("icons/save.svg");
+    out property <image> logo: @image-url("icons/arca-logo.svg");
+}

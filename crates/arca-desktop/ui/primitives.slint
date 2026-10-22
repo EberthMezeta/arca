@@ -1,0 +1,750 @@
+// Componentes base reutilizables (equivalen a las primitivas de la UI anterior).
+
+import { Spinner } from "std-widgets.slint";
+import { Theme, Icons } from "theme.slint";
+import { ItemKind, NavIcon, I18n, UserActivity } from "bridge.slint";
+
+// ── Registros visuales ───────────────────────────────────────────────────────
+
+/// Única tabla de icono/colores por tipo de elemento y por icono de navegación.
+export global VisualRegistry {
+    public pure function kind-icon(kind: ItemKind) -> image {
+        return kind == ItemKind.login ? Icons.key-round
+            : kind == ItemKind.secure-note ? Icons.sticky-note
+            : kind == ItemKind.payment-card ? Icons.credit-card
+            : Icons.id-card;
+    }
+    public pure function kind-background(kind: ItemKind) -> color {
+        return kind == ItemKind.login ? Theme.accent-soft
+            : kind == ItemKind.secure-note ? Theme.warning-soft
+            : kind == ItemKind.payment-card ? Theme.success-soft
+            : Theme.danger-soft;
+    }
+    public pure function kind-foreground(kind: ItemKind) -> color {
+        return kind == ItemKind.login ? Theme.accent
+            : kind == ItemKind.secure-note ? Theme.warning
+            : kind == ItemKind.payment-card ? Theme.success
+            : Theme.danger;
+    }
+    public pure function nav-icon(icon: NavIcon) -> image {
+        return icon == NavIcon.layers ? Icons.layers
+            : icon == NavIcon.star ? Icons.star
+            : icon == NavIcon.login ? Icons.key-round
+            : icon == NavIcon.secure-note ? Icons.sticky-note
+            : icon == NavIcon.payment-card ? Icons.credit-card
+            : icon == NavIcon.identity ? Icons.id-card
+            : icon == NavIcon.folder || icon == NavIcon.folder-muted ? Icons.folder
+            : icon == NavIcon.hash ? Icons.hash
+            : icon == NavIcon.trash ? Icons.trash
+            : icon == NavIcon.generator ? Icons.wand
+            : icon == NavIcon.health ? Icons.shield-check
+            : icon == NavIcon.settings ? Icons.settings
+            : Icons.lock;
+    }
+    public pure function nav-kind(icon: NavIcon) -> ItemKind {
+        return icon == NavIcon.secure-note ? ItemKind.secure-note
+            : icon == NavIcon.payment-card ? ItemKind.payment-card
+            : icon == NavIcon.identity ? ItemKind.identity
+            : ItemKind.login;
+    }
+    public pure function is-kind-icon(icon: NavIcon) -> bool {
+        return icon == NavIcon.login || icon == NavIcon.secure-note || icon == NavIcon.payment-card || icon == NavIcon.identity;
+    }
+}
+
+// ── Iconos y textos ──────────────────────────────────────────────────────────
+
+export component Icon inherits Image {
+    in property <length> size: 16px;
+    width: size;
+    height: size;
+    colorize: Theme.text-muted;
+    image-fit: contain;
+    accessible-role: none;
+}
+
+export component ItemKindBadge inherits Rectangle {
+    in property <ItemKind> kind;
+    in property <length> size: 36px;
+    width: size;
+    height: size;
+    border-radius: size > 40px ? Theme.radius-lg : Theme.radius-md;
+    background: VisualRegistry.kind-background(kind);
+    Icon {
+        size: root.size * 0.55;
+        source: VisualRegistry.kind-icon(root.kind);
+        colorize: VisualRegistry.kind-foreground(root.kind);
+    }
+}
+
+export component SectionLabel inherits Text {
+    font-size: Theme.font-xs;
+    font-weight: 700;
+    color: Theme.text-muted;
+    letter-spacing: 0.6px;
+}
+
+export component Kbd inherits Rectangle {
+    in property <string> label;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: Theme.border;
+    width: kbd-text.preferred-width + 10px;
+    height: 18px;
+    kbd-text := Text {
+        text: root.label;
+        font-size: 10px;
+        color: Theme.text-muted;
+    }
+}
+
+export component BusySpinner inherits Spinner {
+    indeterminate: true;
+    width: 18px;
+    height: 18px;
+}
+
+// ── Botones ──────────────────────────────────────────────────────────────────
+
+export enum ButtonVariant { primary, secondary, ghost, danger }
+
+export component Button inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> has-icon: false;
+    in property <ButtonVariant> variant: ButtonVariant.secondary;
+    in property <bool> enabled: true;
+    in property <bool> is-busy;
+    in property <length> button-height: 36px;
+    in property <length> label-size: Theme.font-md;
+    callback clicked();
+
+    property <bool> is-interactive: root.enabled && !root.is-busy;
+    property <color> foreground: variant == ButtonVariant.primary ? Theme.accent-contrast
+        : variant == ButtonVariant.danger ? #ffffff
+        : Theme.text;
+
+    height: button-height;
+    min-width: content.preferred-width + 28px;
+    horizontal-stretch: 0;
+    border-radius: Theme.radius-md;
+    opacity: is-interactive ? 1 : 0.5;
+    border-width: variant == ButtonVariant.secondary ? 1px : 0px;
+    border-color: Theme.border;
+    background: variant == ButtonVariant.primary ? (touch.has-hover && is-interactive ? Theme.accent-hover : Theme.accent)
+        : variant == ButtonVariant.danger ? (touch.has-hover && is-interactive ? Theme.danger.darker(0.1) : Theme.danger)
+        : variant == ButtonVariant.secondary ? (touch.has-hover && is-interactive ? Theme.surface-hover : Theme.surface)
+        : (touch.has-hover && is-interactive ? Theme.surface-hover : transparent);
+    animate background { duration: 120ms; }
+
+    accessible-role: button;
+    accessible-label: label;
+    accessible-enabled: is-interactive;
+    accessible-action-default => { if (is-interactive) { root.clicked(); } }
+    forward-focus: focus-scope;
+
+    content := HorizontalLayout {
+        alignment: center;
+        spacing: 8px;
+        padding-left: 14px;
+        padding-right: 14px;
+        if root.is-busy: BusySpinner {
+            y: (parent.height - self.height) / 2;
+        }
+        if root.has-icon && !root.is-busy: Icon {
+            y: (parent.height - self.height) / 2;
+            source: root.icon;
+            colorize: root.foreground;
+        }
+        if root.label != "": Text {
+            text: root.label;
+            color: root.foreground;
+            font-size: root.label-size;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+
+    focus-scope := FocusScope {
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") && root.is-interactive {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    Rectangle {
+        border-radius: parent.border-radius;
+        border-width: focus-scope.has-focus ? 2px : 0px;
+        border-color: Theme.accent;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: root.is-interactive ? pointer : not-allowed;
+        clicked => {
+            if root.is-interactive {
+                UserActivity.reported();
+                root.clicked();
+            }
+        }
+    }
+}
+
+/// Botón solo con icono: siempre lleva etiqueta accesible y un tooltip al pasar por encima.
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <length> size: 32px;
+    in property <length> icon-size: 16px;
+    in property <color> tint: Theme.text-muted;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    width: size;
+    height: size;
+    border-radius: Theme.radius-sm;
+    background: touch.has-hover && enabled ? Theme.surface-hover : transparent;
+    opacity: enabled ? 1 : 0.4;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { if (enabled) { root.clicked(); } }
+
+    Icon {
+        size: root.icon-size;
+        source: root.icon;
+        colorize: touch.has-hover && root.enabled ? Theme.text : root.tint;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            if root.enabled {
+                UserActivity.reported();
+                root.clicked();
+            }
+        }
+    }
+
+    // Tooltip: aparece tras una breve pausa sobre el botón.
+    tooltip := PopupWindow {
+        x: (root.width - self.width) / 2;
+        y: root.height + 6px;
+        close-policy: no-auto-close;
+        Rectangle {
+            background: Theme.text;
+            border-radius: Theme.radius-sm;
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                padding-top: 4px;
+                padding-bottom: 4px;
+                Text {
+                    text: root.label;
+                    color: Theme.canvas;
+                    font-size: Theme.font-sm;
+                    font-weight: 600;
+                }
+            }
+        }
+    }
+
+    tooltip-timer := Timer {
+        interval: 600ms;
+        running: touch.has-hover && root.label != "";
+        triggered => {
+            self.running = false;
+            tooltip.show();
+        }
+    }
+
+    changed width => { tooltip.close(); }
+    property <bool> is-hovered: touch.has-hover;
+    changed is-hovered => {
+        if !self.is-hovered {
+            tooltip.close();
+        }
+    }
+}
+
+/// Enlace de acción pequeño ("Añadir sitio web", "Adjuntar archivo").
+export component LinkButton inherits Rectangle {
+    in property <string> label;
+    in property <image> icon: Icons.plus;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 22px;
+    width: link-row.preferred-width;
+    opacity: enabled ? 1 : 0.5;
+    accessible-role: button;
+    accessible-label: label;
+    link-row := HorizontalLayout {
+        spacing: 4px;
+        Icon {
+            y: (parent.height - self.height) / 2;
+            size: 14px;
+            source: root.icon;
+            colorize: Theme.accent;
+        }
+        Text {
+            text: root.label;
+            color: Theme.accent;
+            font-size: Theme.font-sm;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            if root.enabled {
+                UserActivity.reported();
+                root.clicked();
+            }
+        }
+    }
+}
+
+// ── Campos ───────────────────────────────────────────────────────────────────
+
+/// Mismo valor que `REDACTED_SECRET_PLACEHOLDER` en Rust.
+export global SealedSecret {
+    out property <string> placeholder: "••••••••";
+}
+
+/// Campo de una línea. Con `is-password`, el ojo muestra/oculta el valor; si el valor es el
+/// marcador enmascarado, pide antes el valor real (`reveal-requested`) y, al enfocarlo, se
+/// selecciona entero para que escribir lo reemplace.
+export component TextField inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <bool> is-password;
+    in property <bool> is-monospace: is-password;
+    in property <bool> enabled: true;
+    in property <bool> has-error;
+    in property <length> font-size: Theme.font-md;
+    in property <length> field-height: 36px;
+    in property <string> accessible-name;
+    in property <TextHorizontalAlignment> text-alignment: left;
+    in-out property <bool> is-revealed;
+    out property <bool> has-focus: input.has-focus;
+    out property <bool> is-sealed: text == SealedSecret.placeholder;
+    callback edited(text: string);
+    callback accepted(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback reveal-requested();
+
+    public function select-all-text() {
+        input.select-all();
+    }
+
+    height: field-height;
+    min-width: 60px;
+    horizontal-stretch: 1;
+    border-radius: Theme.radius-md;
+    background: enabled ? Theme.surface : Theme.surface-muted;
+    border-width: 1px;
+    border-color: has-error ? Theme.danger : input.has-focus ? Theme.accent : Theme.border;
+    forward-focus: input;
+    accessible-role: text-input;
+    accessible-label: accessible-name;
+    accessible-placeholder-text: placeholder;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: root.is-password ? 2px : 12px;
+        spacing: 2px;
+
+        viewport := Rectangle {
+            clip: true;
+            horizontal-stretch: 1;
+            min-width: 1px;
+
+            Text {
+                width: 100%;
+                height: 100%;
+                vertical-alignment: center;
+                horizontal-alignment: root.text-alignment;
+                text: root.text == "" && input.preedit-text == "" ? root.placeholder : "";
+                font-size: root.font-size;
+                color: Theme.text-muted;
+                overflow: elide;
+                accessible-role: none;
+            }
+
+            input := TextInput {
+                property <length> scroll-offset;
+                x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.scroll-offset));
+                width: max(parent.width - self.text-cursor-width, self.preferred-width);
+                height: 100%;
+                vertical-alignment: center;
+                horizontal-alignment: root.text-alignment;
+                single-line: true;
+                text <=> root.text;
+                enabled: root.enabled;
+                font-size: root.font-size;
+                font-family: root.is-monospace ? Theme.monospace-font : "";
+                color: Theme.text;
+                selection-background-color: Theme.accent-soft;
+                selection-foreground-color: Theme.text;
+                input-type: root.is-password && !root.is-revealed ? InputType.password : InputType.text;
+                accessible-role: none;
+
+                cursor-position-changed(cursor-position) => {
+                    if cursor-position.x + self.scroll-offset < 0px {
+                        self.scroll-offset = -cursor-position.x;
+                    } else if cursor-position.x + self.scroll-offset > parent.width - self.text-cursor-width {
+                        self.scroll-offset = parent.width - cursor-position.x - self.text-cursor-width;
+                    }
+                }
+                changed has-focus => {
+                    if self.has-focus && root.is-sealed {
+                        self.select-all();
+                    }
+                }
+                edited => {
+                    UserActivity.reported();
+                    root.edited(self.text);
+                }
+                accepted => {
+                    root.accepted(self.text);
+                }
+                key-pressed(event) => {
+                    return root.key-pressed(event);
+                }
+            }
+        }
+
+        if root.is-password: IconButton {
+            y: (parent.height - self.height) / 2;
+            icon: root.is-revealed ? Icons.eye-off : Icons.eye;
+            label: root.is-revealed ? I18n.t("actions.hide") : I18n.t("actions.show");
+            clicked => {
+                if !root.is-revealed && root.is-sealed {
+                    root.reveal-requested();
+                }
+                root.is-revealed = !root.is-revealed;
+            }
+        }
+    }
+}
+
+/// Etiqueta + control + ayuda o error, en columna.
+export component FormField inherits VerticalLayout {
+    in property <string> label;
+    in property <string> hint;
+    in property <string> error;
+    spacing: 6px;
+    if root.label != "": Text {
+        text: root.label;
+        font-size: Theme.font-sm;
+        font-weight: 600;
+        color: Theme.text;
+    }
+    @children
+    if root.error != "": Text {
+        text: root.error;
+        font-size: Theme.font-sm;
+        color: Theme.danger;
+        wrap: word-wrap;
+    }
+    if root.hint != "" && root.error == "": Text {
+        text: root.hint;
+        font-size: Theme.font-sm;
+        color: Theme.text-muted;
+        wrap: word-wrap;
+    }
+}
+
+export component CheckBox inherits Rectangle {
+    in property <string> label;
+    in property <bool> checked;
+    in property <color> accent-color: Theme.accent;
+    in property <length> label-size: Theme.font-md;
+    in property <int> label-weight: 400;
+    callback toggled();
+    height: max(22px, check-label.preferred-height);
+    min-width: check-row.preferred-width;
+    accessible-role: checkbox;
+    accessible-checked: checked;
+    accessible-label: label;
+    accessible-action-default => { root.toggled(); }
+
+    check-row := HorizontalLayout {
+        spacing: 8px;
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border-width: root.checked ? 0px : 1.5px;
+            border-color: Theme.text-muted;
+            background: root.checked ? root.accent-color : Theme.surface;
+            if root.checked: Icon {
+                size: 12px;
+                source: Icons.check;
+                colorize: #ffffff;
+            }
+        }
+        check-label := Text {
+            text: root.label;
+            font-size: root.label-size;
+            font-weight: root.label-weight;
+            color: Theme.text;
+            vertical-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            UserActivity.reported();
+            root.toggled();
+        }
+    }
+}
+
+/// Interruptor con título y descripción opcional a la izquierda.
+export component ToggleRow inherits Rectangle {
+    in property <string> label;
+    in property <string> description;
+    in property <bool> checked;
+    callback toggled();
+    min-height: toggle-layout.preferred-height;
+    accessible-role: switch;
+    accessible-checked: checked;
+    accessible-label: label;
+    accessible-action-default => { root.toggled(); }
+
+    toggle-layout := HorizontalLayout {
+        spacing: 16px;
+        VerticalLayout {
+            spacing: 2px;
+            alignment: start;
+            Text {
+                text: root.label;
+                font-size: Theme.font-md;
+                font-weight: 600;
+                color: Theme.text;
+                wrap: word-wrap;
+            }
+            if root.description != "": Text {
+                text: root.description;
+                font-size: Theme.font-sm;
+                color: Theme.text-muted;
+                wrap: word-wrap;
+            }
+        }
+        Rectangle {
+            width: 36px;
+            height: 20px;
+            y: 2px;
+            border-radius: 10px;
+            background: root.checked ? Theme.accent : Theme.surface-hover;
+            animate background { duration: 150ms; }
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                y: 2px;
+                x: root.checked ? 18px : 2px;
+                border-radius: 8px;
+                background: #ffffff;
+                drop-shadow-blur: 2px;
+                drop-shadow-color: #00000040;
+                animate x { duration: 150ms; easing: ease-out; }
+            }
+        }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            UserActivity.reported();
+            root.toggled();
+        }
+    }
+}
+
+// ── Contenedores ─────────────────────────────────────────────────────────────
+
+export component Card inherits Rectangle {
+    in property <length> card-padding: 24px;
+    background: Theme.surface;
+    border-radius: Theme.radius-xl;
+    border-width: 1px;
+    border-color: Theme.border;
+    VerticalLayout {
+        padding: root.card-padding;
+        spacing: 20px;
+        @children
+    }
+}
+
+/// Mensaje de estado vacío con icono, titular, explicación y acciones opcionales.
+export component EmptyState inherits VerticalLayout {
+    in property <image> icon;
+    in property <color> icon-tint: Theme.text-muted;
+    in property <string> headline;
+    in property <string> explanation;
+    alignment: center;
+    spacing: 12px;
+    padding: 32px;
+    HorizontalLayout {
+        alignment: center;
+        Rectangle {
+            width: 56px;
+            height: 56px;
+            border-radius: Theme.radius-xl;
+            background: Theme.surface-muted;
+            Icon {
+                size: 28px;
+                source: root.icon;
+                colorize: root.icon-tint;
+            }
+        }
+    }
+    Text {
+        text: root.headline;
+        font-size: Theme.font-lg;
+        font-weight: 700;
+        color: Theme.text;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+    if root.explanation != "": HorizontalLayout {
+        alignment: center;
+        Text {
+            max-width: 380px;
+            text: root.explanation;
+            font-size: Theme.font-md;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 8px;
+        @children
+    }
+}
+
+/// Aviso coloreado (advertencia, peligro).
+export component Banner inherits Rectangle {
+    in property <image> icon: Icons.triangle-alert;
+    in property <color> tone: Theme.warning;
+    in property <color> tone-soft: Theme.warning-soft;
+    background: tone-soft;
+    border-radius: Theme.radius-lg;
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 12px;
+        Icon {
+            size: 20px;
+            source: root.icon;
+            colorize: root.tone;
+        }
+        VerticalLayout {
+            spacing: 6px;
+            @children
+        }
+    }
+}
+
+// ── Fortaleza de contraseña ──────────────────────────────────────────────────
+
+/// Apariencia por puntuación zxcvbn (0-4).
+export global StrengthAppearance {
+    public pure function label-key(score: int) -> string {
+        return score <= 0 ? "strength.veryWeak" : score == 1 ? "strength.weak" : score == 2 ? "strength.fair" : score == 3 ? "strength.strong" : "strength.veryStrong";
+    }
+    public pure function tone(score: int) -> color {
+        return score <= 1 ? Theme.danger : score == 2 ? Theme.warning : Theme.success;
+    }
+}
+
+export component StrengthMeter inherits Rectangle {
+    /// -1: no hay nada que evaluar (se reserva el hueco para que el formulario no salte).
+    in property <int> score: -1;
+    height: 20px;
+    if root.score >= 0: HorizontalLayout {
+        spacing: 12px;
+        HorizontalLayout {
+            spacing: 4px;
+            for segment-index in 4: Rectangle {
+                y: (parent.height - self.height) / 2;
+                height: 6px;
+                border-radius: 3px;
+                background: segment-index < max(1, root.score) ? StrengthAppearance.tone(root.score) : Theme.surface-hover;
+                animate background { duration: 150ms; }
+            }
+        }
+        Text {
+            horizontal-stretch: 0;
+            text: I18n.t(StrengthAppearance.label-key(root.score));
+            font-size: Theme.font-sm;
+            font-weight: 700;
+            color: StrengthAppearance.tone(root.score);
+            vertical-alignment: center;
+        }
+    }
+}
+
+// ── Diálogo modal ────────────────────────────────────────────────────────────
+
+/// Capa modal: oscurece el fondo, bloquea los clics y centra el panel.
+export component ModalOverlay inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <length> panel-width: 440px;
+    callback dismissed();
+    background: Theme.overlay;
+
+    TouchArea {
+        clicked => { root.dismissed(); }
+    }
+
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.dismissed();
+                return accept;
+            }
+            return reject;
+        }
+
+        panel := Rectangle {
+            width: min(root.panel-width, root.width - 32px);
+            height: min(panel-layout.preferred-height, root.height - 32px);
+            background: Theme.surface;
+            border-radius: Theme.radius-xl;
+            border-width: 1px;
+            border-color: Theme.border;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: #00000050;
+
+            // Absorbe los clics para que no cierren el diálogo.
+            TouchArea { }
+
+            panel-layout := VerticalLayout {
+                padding: 24px;
+                spacing: 6px;
+                Text {
+                    text: root.title;
+                    font-size: Theme.font-xl;
+                    font-weight: 700;
+                    color: Theme.text;
+                    wrap: word-wrap;
+                }
+                if root.description != "": Text {
+                    text: root.description;
+                    font-size: Theme.font-md;
+                    color: Theme.text-muted;
+                    wrap: word-wrap;
+                }
+                Rectangle { height: 14px; }
+                @children
+            }
+        }
+    }
+}

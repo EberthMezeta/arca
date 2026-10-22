@@ -1,0 +1,235 @@
+// Generador de contraseñas: se usa en su propia sección y dentro del editor.
+
+import { Theme, Icons } from "theme.slint";
+import { I18n, Generator } from "bridge.slint";
+import { Button, ButtonVariant, IconButton, TextField, CheckBox, ToggleRow, StrengthMeter } from "primitives.slint";
+import { Slider } from "std-widgets.slint";
+
+component ValueSlider inherits VerticalLayout {
+    in property <string> label;
+    in property <int> minimum;
+    in property <int> maximum;
+    in-out property <int> current-value;
+    callback value-changed();
+    spacing: 8px;
+    HorizontalLayout {
+        Text {
+            text: root.label;
+            font-weight: 600;
+            color: Theme.text;
+        }
+        Rectangle { }
+        Text {
+            text: root.current-value;
+            font-family: Theme.monospace-font;
+            font-weight: 700;
+            color: Theme.accent;
+        }
+    }
+    Slider {
+        minimum: root.minimum;
+        maximum: root.maximum;
+        step: 1;
+        value: root.current-value;
+        changed(new-value) => {
+            if round(new-value) != root.current-value {
+                root.current-value = round(new-value);
+                root.value-changed();
+            }
+        }
+    }
+}
+
+component StrategyTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> is-active;
+    callback activated();
+    height: 32px;
+    border-radius: Theme.radius-sm;
+    background: is-active ? Theme.surface : transparent;
+    drop-shadow-blur: is-active ? 2px : 0px;
+    drop-shadow-color: #00000020;
+    accessible-role: tab;
+    accessible-label: label;
+    accessible-item-selected: is-active;
+    Text {
+        text: root.label;
+        font-weight: 600;
+        color: root.is-active ? Theme.text : Theme.text-muted;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.activated(); }
+    }
+}
+
+export component GeneratorPanel inherits VerticalLayout {
+    in property <bool> offers-use-button;
+    spacing: 20px;
+
+    Rectangle {
+        background: Theme.surface-muted;
+        border-radius: Theme.radius-lg;
+        border-width: 1px;
+        border-color: Theme.border;
+        VerticalLayout {
+            padding: 16px;
+            spacing: 12px;
+            TextInput {
+                min-height: 48px;
+                text: Generator.generated-password;
+                read-only: true;
+                wrap: char-wrap;
+                single-line: false;
+                font-family: Theme.monospace-font;
+                font-size: Theme.font-lg + 2px;
+                color: Theme.text;
+                selection-background-color: Theme.accent-soft;
+                accessible-label: I18n.t("generator.generatedPassword");
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                StrengthMeter {
+                    y: (parent.height - self.height) / 2;
+                    score: Generator.strength-score;
+                }
+                IconButton {
+                    icon: Icons.refresh;
+                    label: I18n.t("generator.regenerate");
+                    clicked => { Generator.regenerate(); }
+                }
+                IconButton {
+                    icon: Icons.copy;
+                    label: I18n.t("actions.copy");
+                    clicked => { Generator.copy-generated(); }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        background: Theme.surface-muted;
+        border-radius: Theme.radius-md;
+        HorizontalLayout {
+            padding: 4px;
+            spacing: 4px;
+            StrategyTab {
+                label: I18n.t("generator.randomCharacters");
+                is-active: !Generator.is-passphrase;
+                activated => {
+                    Generator.is-passphrase = false;
+                    Generator.settings-changed();
+                }
+            }
+            StrategyTab {
+                label: I18n.t("generator.passphrase");
+                is-active: Generator.is-passphrase;
+                activated => {
+                    Generator.is-passphrase = true;
+                    Generator.settings-changed();
+                }
+            }
+        }
+    }
+
+    if !Generator.is-passphrase: VerticalLayout {
+        spacing: 16px;
+        ValueSlider {
+            label: I18n.t("generator.length");
+            minimum: 8;
+            maximum: 64;
+            current-value <=> Generator.password-length;
+            value-changed => { Generator.settings-changed(); }
+        }
+        for character-set-row in [
+            { first-key: "generator.uppercase", first-set: 0, second-key: "generator.lowercase", second-set: 1 },
+            { first-key: "generator.digits", first-set: 2, second-key: "generator.symbols", second-set: 3 },
+        ]: HorizontalLayout {
+            spacing: 8px;
+            for character-set in [
+                { key: character-set-row.first-key, set: character-set-row.first-set },
+                { key: character-set-row.second-key, set: character-set-row.second-set },
+            ]: Rectangle {
+                height: 38px;
+                border-radius: Theme.radius-md;
+                border-width: 1px;
+                border-color: Theme.border;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    CheckBox {
+                        y: (parent.height - self.height) / 2;
+                        label: I18n.t(character-set.key);
+                        checked: character-set.set == 0 ? Generator.includes-uppercase
+                            : character-set.set == 1 ? Generator.includes-lowercase
+                            : character-set.set == 2 ? Generator.includes-digits
+                            : Generator.includes-symbols;
+                        toggled => { Generator.toggle-character-set(character-set.set); }
+                    }
+                }
+            }
+        }
+        ToggleRow {
+            label: I18n.t("generator.excludeAmbiguous");
+            description: I18n.t("generator.excludeAmbiguousHint");
+            checked: Generator.excludes-ambiguous;
+            toggled => {
+                Generator.excludes-ambiguous = !Generator.excludes-ambiguous;
+                Generator.settings-changed();
+            }
+        }
+    }
+
+    if Generator.is-passphrase: VerticalLayout {
+        spacing: 16px;
+        ValueSlider {
+            label: I18n.t("generator.wordCount");
+            minimum: 3;
+            maximum: 12;
+            current-value <=> Generator.word-count;
+            value-changed => { Generator.settings-changed(); }
+        }
+        HorizontalLayout {
+            Text {
+                text: I18n.t("generator.separator");
+                font-weight: 600;
+                color: Theme.text;
+                vertical-alignment: center;
+            }
+            Rectangle { }
+            TextField {
+                width: 64px;
+                horizontal-stretch: 0;
+                text <=> Generator.word-separator;
+                is-monospace: true;
+                text-alignment: center;
+                accessible-name: I18n.t("generator.separator");
+                edited => { Generator.settings-changed(); }
+            }
+        }
+        ToggleRow {
+            label: I18n.t("generator.capitalize");
+            checked: Generator.capitalizes-words;
+            toggled => {
+                Generator.capitalizes-words = !Generator.capitalizes-words;
+                Generator.settings-changed();
+            }
+        }
+        ToggleRow {
+            label: I18n.t("generator.appendNumber");
+            checked: Generator.appends-number;
+            toggled => {
+                Generator.appends-number = !Generator.appends-number;
+                Generator.settings-changed();
+            }
+        }
+    }
+
+    if root.offers-use-button: Button {
+        label: I18n.t("generator.useThisPassword");
+        variant: ButtonVariant.primary;
+        has-icon: true;
+        icon: Icons.check;
+        horizontal-stretch: 1;
+        clicked => { Generator.use-generated(); }
+    }
+}

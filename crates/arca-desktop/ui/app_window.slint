@@ -1,0 +1,77 @@
+// Ventana principal: elige la pantalla según la sesión y superpone paleta, diálogos y avisos.
+// Los globales se reexportan aquí para que los controladores Rust puedan usarlos.
+
+import { Theme } from "theme.slint";
+import { AppScreen, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette } from "bridge.slint";
+import { LoadingScreen, SetupScreen, UnlockScreen } from "session_screens.slint";
+import { VaultScreen } from "vault_screen.slint";
+import { CommandPaletteOverlay } from "command_palette.slint";
+import { ToastViewport, DialogLayer } from "overlays.slint";
+import { Palette } from "std-widgets.slint";
+
+export { Theme, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette }
+
+export component AppWindow inherits Window {
+    property <bool> uses-dark-theme: Theme.dark;
+
+    title: "Arca";
+    icon: @image-url("../icons/arca.png");
+    preferred-width: 1200px;
+    preferred-height: 780px;
+    min-width: 900px;
+    min-height: 580px;
+    background: Theme.canvas;
+    default-font-size: Theme.font-md;
+    forward-focus: shortcut-scope;
+
+    /// Atajos globales: Ctrl + letra se intercepta antes que los campos de texto.
+    function shortcut-for(event: KeyEvent) -> string {
+        if !event.modifiers.control || event.modifiers.alt {
+            return "";
+        }
+        if event.text.to-lowercase() == "k" { return "palette"; }
+        if event.text.to-lowercase() == "n" { return "new"; }
+        if event.text.to-lowercase() == "l" { return "lock"; }
+        if event.text.to-lowercase() == "f" { return "find"; }
+        if event.text.to-lowercase() == "s" { return "save"; }
+        return "";
+    }
+
+    // Los widgets estándar (ComboBox, ScrollView…) siguen el tema elegido, no solo el del sistema.
+    init => {
+        Theme.system-is-dark = Palette.color-scheme == ColorScheme.dark;
+        Palette.color-scheme = Theme.dark ? ColorScheme.dark : ColorScheme.light;
+    }
+    changed uses-dark-theme => {
+        Palette.color-scheme = self.uses-dark-theme ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    shortcut-scope := FocusScope {
+        capture-key-pressed(event) => {
+            if Session.screen != AppScreen.vault || Dialogs.prompt-open || Dialogs.confirm-open {
+                return reject;
+            }
+            UserActivity.reported();
+            if root.shortcut-for(event) != "" && Workspace.shortcut(root.shortcut-for(event)) {
+                return accept;
+            }
+            return reject;
+        }
+        // Esc llega aquí solo si ningún control lo usó (paleta y diálogos lo gestionan antes).
+        key-pressed(event) => {
+            if event.text == Key.Escape && Session.screen == AppScreen.vault && Workspace.shortcut("escape") {
+                return accept;
+            }
+            return reject;
+        }
+
+        if Session.screen == AppScreen.loading: LoadingScreen { width: 100%; height: 100%; }
+        if Session.screen == AppScreen.setup: SetupScreen { width: 100%; height: 100%; }
+        if Session.screen == AppScreen.unlock: UnlockScreen { width: 100%; height: 100%; }
+        if Session.screen == AppScreen.vault: VaultScreen { width: 100%; height: 100%; }
+
+        if CommandPalette.is-open && Session.screen == AppScreen.vault: CommandPaletteOverlay { width: 100%; height: 100%; }
+        DialogLayer { width: 100%; height: 100%; }
+        ToastViewport { width: 100%; height: 100%; }
+    }
+}

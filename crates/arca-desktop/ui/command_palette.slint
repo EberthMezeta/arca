@@ -1,0 +1,169 @@
+// Paleta de comandos (Ctrl K): busca elementos y ejecuta acciones sin soltar el teclado.
+
+import { Theme, Icons } from "theme.slint";
+import { I18n, CommandPalette, PaletteEntry } from "bridge.slint";
+import { Icon, Kbd, ItemKindBadge, TextField, VisualRegistry } from "primitives.slint";
+import { ListView } from "std-widgets.slint";
+
+component PaletteRow inherits Rectangle {
+    in property <PaletteEntry> entry;
+    in property <bool> is-highlighted;
+    callback hovered();
+    callback chosen();
+    height: 40px;
+    border-radius: Theme.radius-md;
+    background: is-highlighted ? Theme.accent-soft : transparent;
+    accessible-role: list-item;
+    accessible-label: entry.label;
+    accessible-item-selected: is-highlighted;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        moved => { root.hovered(); }
+        clicked => { root.chosen(); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+        if VisualRegistry.is-kind-icon(root.entry.icon): ItemKindBadge {
+            y: (parent.height - self.height) / 2;
+            size: 24px;
+            kind: VisualRegistry.nav-kind(root.entry.icon);
+        }
+        if !VisualRegistry.is-kind-icon(root.entry.icon): Rectangle {
+            width: 24px;
+            Icon { source: VisualRegistry.nav-icon(root.entry.icon); }
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.entry.label;
+            color: Theme.text;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if root.entry.hint != "": Text {
+            horizontal-stretch: 0;
+            max-width: 160px;
+            text: root.entry.hint;
+            font-size: Theme.font-sm;
+            color: Theme.text-muted;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if root.entry.shortcut != "": Kbd {
+            y: (parent.height - self.height) / 2;
+            label: root.entry.shortcut;
+        }
+    }
+}
+
+export component CommandPaletteOverlay inherits Rectangle {
+    property <length> row-height: 40px;
+    property <int> highlighted: CommandPalette.highlighted;
+    background: Theme.overlay;
+
+    function move-highlight(offset: int) {
+        CommandPalette.highlighted = max(0, min(CommandPalette.entries.length - 1, CommandPalette.highlighted + offset));
+    }
+
+    // Mantiene visible la entrada resaltada al moverse con el teclado.
+    changed highlighted => {
+        if self.highlighted * self.row-height + entry-list.content-y < 0 {
+            entry-list.content-y = -self.highlighted * self.row-height;
+        } else if (self.highlighted + 1) * self.row-height + entry-list.content-y > entry-list.visible-height {
+            entry-list.content-y = entry-list.visible-height - (self.highlighted + 1) * self.row-height;
+        }
+    }
+
+    init => { query-field.focus(); }
+
+    TouchArea {
+        clicked => { CommandPalette.close(); }
+    }
+
+    panel := Rectangle {
+        x: (root.width - self.width) / 2;
+        y: root.height * 0.15;
+        width: min(512px, root.width - 32px);
+        height: panel-layout.preferred-height;
+        background: Theme.surface;
+        border-radius: Theme.radius-xl;
+        border-width: 1px;
+        border-color: Theme.border;
+        drop-shadow-blur: 32px;
+        drop-shadow-color: #00000050;
+        clip: true;
+        accessible-role: groupbox;
+        accessible-label: I18n.t("palette.title");
+        accessible-description: I18n.t("palette.description");
+
+        // Absorbe los clics para que no cierren la paleta.
+        TouchArea { }
+
+        panel-layout := VerticalLayout {
+            HorizontalLayout {
+                height: 52px;
+                padding-left: 16px;
+                padding-right: 12px;
+                spacing: 8px;
+                Icon {
+                    y: (parent.height - self.height) / 2;
+                    source: Icons.search;
+                }
+                query-field := TextField {
+                    y: (parent.height - self.height) / 2;
+                    text <=> CommandPalette.query;
+                    placeholder: I18n.t("palette.placeholder");
+                    accessible-name: I18n.t("palette.placeholder");
+                    edited(text) => { CommandPalette.query-edited(text); }
+                    accepted => { CommandPalette.execute(CommandPalette.highlighted); }
+                    key-pressed(event) => {
+                        if event.text == Key.DownArrow {
+                            root.move-highlight(1);
+                            return accept;
+                        }
+                        if event.text == Key.UpArrow {
+                            root.move-highlight(-1);
+                            return accept;
+                        }
+                        if event.text == Key.Escape {
+                            CommandPalette.close();
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+                Kbd {
+                    y: (parent.height - self.height) / 2;
+                    label: "Esc";
+                }
+            }
+            Rectangle {
+                height: 1px;
+                background: Theme.border;
+            }
+            if CommandPalette.entries.length == 0: Text {
+                height: 72px;
+                text: I18n.t("palette.noResults");
+                color: Theme.text-muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            entry-list := ListView {
+                height: min(CommandPalette.entries.length * root.row-height + 12px, 320px);
+                visible: CommandPalette.entries.length > 0;
+                for entry[position] in CommandPalette.entries: VerticalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    PaletteRow {
+                        entry: entry;
+                        is-highlighted: position == CommandPalette.highlighted;
+                        hovered => { CommandPalette.highlighted = position; }
+                        chosen => { CommandPalette.execute(position); }
+                    }
+                }
+            }
+        }
+    }
+}

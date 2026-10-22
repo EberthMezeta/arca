@@ -1,0 +1,201 @@
+// Salud de las contraseñas: puntuación global y problemas agrupados por tipo.
+
+import { Theme, Icons } from "theme.slint";
+import { I18n, PasswordHealth, HealthGroup, HealthIssueKind } from "bridge.slint";
+import { Button, Icon, EmptyState, BusySpinner, Card } from "primitives.slint";
+import { ScrollView } from "std-widgets.slint";
+
+/// Apariencia por tipo de problema (tabla en vez de condicionales repartidos).
+global IssueAppearance {
+    public pure function icon(issue-kind: HealthIssueKind) -> image {
+        return issue-kind == HealthIssueKind.weak ? Icons.triangle-alert : issue-kind == HealthIssueKind.reused ? Icons.copy : Icons.calendar-clock;
+    }
+    public pure function tint(issue-kind: HealthIssueKind) -> color {
+        return issue-kind == HealthIssueKind.weak ? Theme.danger : issue-kind == HealthIssueKind.reused ? Theme.warning : Theme.accent;
+    }
+    public pure function background(issue-kind: HealthIssueKind) -> color {
+        return issue-kind == HealthIssueKind.weak ? Theme.danger-soft : issue-kind == HealthIssueKind.reused ? Theme.warning-soft : Theme.accent-soft;
+    }
+    /// Umbrales de color de la puntuación global, de mayor a menor.
+    public pure function score-tint(score: int) -> color {
+        return score >= 80 ? Theme.success : score >= 50 ? Theme.warning : Theme.danger;
+    }
+}
+
+component IssueCounter inherits Rectangle {
+    in property <HealthGroup> group;
+    background: Theme.surface;
+    border-radius: Theme.radius-lg;
+    border-width: 1px;
+    border-color: Theme.border;
+    VerticalLayout {
+        padding: 16px;
+        spacing: 4px;
+        Rectangle {
+            width: 36px;
+            height: 36px;
+            border-radius: Theme.radius-md;
+            background: IssueAppearance.background(root.group.issue-kind);
+            Icon {
+                size: 20px;
+                source: IssueAppearance.icon(root.group.issue-kind);
+                colorize: IssueAppearance.tint(root.group.issue-kind);
+            }
+        }
+        Rectangle { height: 8px; }
+        Text {
+            text: root.group.finding-count;
+            font-size: Theme.font-2xl;
+            font-weight: 700;
+            color: Theme.text;
+        }
+        Text {
+            text: root.group.title;
+            font-size: Theme.font-sm;
+            color: Theme.text-muted;
+        }
+    }
+}
+
+component IssueSection inherits VerticalLayout {
+    in property <HealthGroup> group;
+    spacing: 8px;
+    VerticalLayout {
+        spacing: 2px;
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            Icon {
+                y: (parent.height - self.height) / 2;
+                source: Icons.shield-alert;
+            }
+            Text {
+                text: root.group.title;
+                font-weight: 700;
+                color: Theme.text;
+            }
+        }
+        Text {
+            text: root.group.explanation;
+            font-size: Theme.font-sm;
+            color: Theme.text-muted;
+            wrap: word-wrap;
+        }
+    }
+    Rectangle {
+        background: Theme.surface;
+        border-radius: Theme.radius-lg;
+        border-width: 1px;
+        border-color: Theme.border;
+        clip: true;
+        VerticalLayout {
+            for finding[position] in root.group.findings: VerticalLayout {
+                if position > 0: Rectangle {
+                    height: 1px;
+                    background: Theme.border;
+                }
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 12px;
+                    padding-top: 10px;
+                    padding-bottom: 10px;
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text {
+                            text: finding.item-title;
+                            font-weight: 600;
+                            color: Theme.text;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: finding.detail;
+                            font-size: Theme.font-sm;
+                            color: Theme.text-muted;
+                        }
+                    }
+                    Button {
+                        y: (parent.height - self.height) / 2;
+                        label: I18n.t("health.changeNow");
+                        clicked => { PasswordHealth.change-now(finding.item-id); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component PasswordHealthView inherits Rectangle {
+    background: Theme.canvas;
+
+    if PasswordHealth.is-loading: VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            BusySpinner { }
+        }
+    }
+    if !PasswordHealth.is-loading && !PasswordHealth.has-logins: EmptyState {
+        icon: Icons.shield-check;
+        headline: I18n.t("health.noLoginsTitle");
+        explanation: I18n.t("health.noLoginsText");
+    }
+    if !PasswordHealth.is-loading && PasswordHealth.has-logins: scroll := ScrollView {
+        content-width: scroll.visible-width;
+        content-height: content.preferred-height;
+        content := HorizontalLayout {
+            width: scroll.visible-width;
+            alignment: center;
+            VerticalLayout {
+                width: min(768px, scroll.visible-width - 64px);
+                padding-top: 32px;
+                padding-bottom: 32px;
+                spacing: 24px;
+                Card {
+                    HorizontalLayout {
+                        spacing: 24px;
+                        Text {
+                            text: PasswordHealth.overall-score;
+                            font-size: 48px;
+                            font-weight: 700;
+                            color: IssueAppearance.score-tint(PasswordHealth.overall-score);
+                            vertical-alignment: center;
+                            accessible-role: text;
+                            accessible-label: PasswordHealth.overall-score + " / 100";
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 4px;
+                            Text {
+                                text: I18n.t("health.title");
+                                font-size: Theme.font-xl;
+                                font-weight: 700;
+                                color: Theme.text;
+                            }
+                            Text {
+                                text: PasswordHealth.summary;
+                                font-size: Theme.font-md;
+                                color: Theme.text-muted;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    for group in PasswordHealth.issue-groups: IssueCounter { group: group; }
+                }
+                if PasswordHealth.issue-groups.length > 0 && PasswordHealth.overall-score == 100: EmptyState {
+                    icon: Icons.shield-check;
+                    icon-tint: Theme.success;
+                    headline: I18n.t("health.allGoodTitle");
+                    explanation: I18n.t("health.allGoodText");
+                }
+                for group in PasswordHealth.issue-groups: VerticalLayout {
+                    if group.finding-count > 0: IssueSection { group: group; }
+                }
+            }
+        }
+    }
+}
