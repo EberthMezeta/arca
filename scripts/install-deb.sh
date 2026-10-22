@@ -10,7 +10,9 @@ cd "$repository_root"
 
 package_path="$(cargo deb -p arca | tail -n 1)"
 temporary_package="/tmp/$(basename "$package_path")"
+# La copia se borra al salir, también si apt falla o se cancela: el script no deja nada en /tmp.
+trap 'rm -f "$temporary_package"' EXIT
 cp "$package_path" "$temporary_package"
 
+# --reinstall: sirve igual para instalar la primera vez que para volver a instalar la misma versión.
 sudo apt install --reinstall "$temporary_package"
-rm -f "$temporary_package"
