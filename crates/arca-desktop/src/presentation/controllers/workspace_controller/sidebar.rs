@@ -12,6 +12,9 @@ use crate::{NavEntry, NavIcon, Sidebar, VaultSection};
 
 use super::{NavigationTarget, WorkspaceController};
 
+/// Biblioteca, tipos, carpetas, etiquetas, papelera y herramientas (un modelo de Slint por grupo).
+const NAVIGATION_GROUP_COUNT: usize = 6;
+
 /// Una entrada de la barra lateral antes de convertirse en `NavEntry` (la clave se asigna al publicarla).
 struct NavigationEntry {
     label: String,
@@ -74,7 +77,11 @@ impl WorkspaceController {
 
     #[allow(clippy::too_many_lines)]
     /// Grupos en el orden en que los publica `refresh_sidebar`: biblioteca, tipos, carpetas, etiquetas, papelera, herramientas.
-    fn build_navigation_groups(&self, overview: Option<&VaultOverview>, workspace_state: &WorkspaceState) -> [Vec<NavigationEntry>; 6] {
+    fn build_navigation_groups(
+        &self,
+        overview: Option<&VaultOverview>,
+        workspace_state: &WorkspaceState,
+    ) -> [Vec<NavigationEntry>; NAVIGATION_GROUP_COUNT] {
         let item_filter = &workspace_state.item_filter;
         let is_items_section = workspace_state.section == VaultSection::Items;
         let is_active = |matches_filter: bool| is_items_section && matches_filter;

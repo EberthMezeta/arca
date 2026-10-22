@@ -10,9 +10,9 @@ use zeroize::Zeroizing;
 use crate::domain::secret_text::SecretText;
 use crate::domain::vault_error::{VaultError, VaultResult};
 
-const DEFAULT_DIGIT_COUNT: u32 = 6;
-const DEFAULT_PERIOD_SECONDS: u64 = 30;
-const SUPPORTED_DIGIT_COUNTS: std::ops::RangeInclusive<u32> = 6..=8;
+pub const DEFAULT_DIGIT_COUNT: u32 = 6;
+pub const DEFAULT_PERIOD_SECONDS: u64 = 30;
+pub const SUPPORTED_DIGIT_COUNTS: std::ops::RangeInclusive<u32> = DEFAULT_DIGIT_COUNT..=8;
 const OTPAUTH_SCHEME: &str = "otpauth://";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

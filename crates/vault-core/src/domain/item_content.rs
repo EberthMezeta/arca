@@ -187,13 +187,17 @@ impl ItemContent {
     }
 }
 
+/// Dígitos finales de la tarjeta que se muestran en la lista (como en el propio extracto del banco).
+const VISIBLE_CARD_DIGIT_COUNT: usize = 4;
+
+/// Sin copiar el número entero: solo se recorren sus dígitos y se toman los últimos.
 fn masked_card_number(card_number: &SecretText) -> String {
-    let digits: Vec<char> = card_number.expose_secret().chars().filter(char::is_ascii_digit).collect();
-    if digits.len() < 4 {
+    let card_digits = || card_number.expose_secret().chars().filter(char::is_ascii_digit);
+    let Some(hidden_digit_count) = card_digits().count().checked_sub(VISIBLE_CARD_DIGIT_COUNT) else {
         return String::new();
-    }
-    let last_four_digits: String = digits[digits.len() - 4..].iter().collect();
-    format!("•••• {last_four_digits}")
+    };
+    let visible_digits: String = card_digits().skip(hidden_digit_count).collect();
+    format!("•••• {visible_digits}")
 }
 
 #[cfg(test)]

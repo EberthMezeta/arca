@@ -5,6 +5,8 @@ use std::time::Duration;
 
 use slint::{ComponentHandle, TimerMode};
 
+use vault_core::domain::totp_configuration::SUPPORTED_DIGIT_COUNTS;
+
 use super::ItemDetailsController;
 use super::detail_rows::RowValueSource;
 use crate::ItemDetails;
@@ -40,7 +42,7 @@ impl ItemDetailsController {
             let item_details = app_window.global::<ItemDetails>();
             item_details.set_totp_code(group_totp_digits(&totp_code.current_code).into());
             item_details.set_totp_seconds_left(i32::try_from(totp_code.seconds_until_refresh).unwrap_or(0));
-            item_details.set_totp_period_seconds(i32::try_from(totp_code.period_seconds).unwrap_or(30));
+            item_details.set_totp_period_seconds(i32::try_from(totp_code.period_seconds).unwrap_or(i32::MAX));
         });
     }
 }
@@ -48,7 +50,8 @@ impl ItemDetailsController {
 /// "123456" → "123 456": más fácil de leer y teclear.
 fn group_totp_digits(totp_code: &str) -> String {
     let split_position = totp_code.len() / 2;
-    if totp_code.len() < 6 || !totp_code.is_char_boundary(split_position) {
+    let shortest_code_length = usize::try_from(*SUPPORTED_DIGIT_COUNTS.start()).unwrap_or(usize::MAX);
+    if totp_code.len() < shortest_code_length || !totp_code.is_char_boundary(split_position) {
         return totp_code.to_string();
     }
     format!("{} {}", &totp_code[..split_position], &totp_code[split_position..])

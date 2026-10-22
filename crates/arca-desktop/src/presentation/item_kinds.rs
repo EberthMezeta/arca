@@ -134,14 +134,12 @@ pub const ITEM_KIND_DEFINITIONS: [ItemKindDefinition; 4] = [
     },
 ];
 
+/// Búsqueda por tipo (no por posición): reordenar la tabla no puede devolver otra definición.
 pub fn definition_for(content_type: ItemContentType) -> &'static ItemKindDefinition {
-    let definition_position = match content_type {
-        ItemContentType::Login => 0,
-        ItemContentType::SecureNote => 1,
-        ItemContentType::PaymentCard => 2,
-        ItemContentType::Identity => 3,
-    };
-    &ITEM_KIND_DEFINITIONS[definition_position]
+    ITEM_KIND_DEFINITIONS
+        .iter()
+        .find(|definition| definition.content_type == content_type)
+        .unwrap_or(&ITEM_KIND_DEFINITIONS[0])
 }
 
 pub fn definition_for_ui_kind(ui_kind: ItemKind) -> &'static ItemKindDefinition {
@@ -154,6 +152,19 @@ pub fn definition_for_ui_kind(ui_kind: ItemKind) -> &'static ItemKindDefinition 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Lo que antes garantizaba el `match` de `definition_for`: cada tipo tiene su entrada.
+    #[test]
+    fn every_content_type_has_a_definition() {
+        let all_content_types = [ItemContentType::Login, ItemContentType::SecureNote, ItemContentType::PaymentCard, ItemContentType::Identity];
+        for content_type in all_content_types {
+            // Sin comodín: si se añade un tipo, este `match` deja de compilar hasta incluirlo arriba.
+            match content_type {
+                ItemContentType::Login | ItemContentType::SecureNote | ItemContentType::PaymentCard | ItemContentType::Identity => {}
+            }
+            assert!(ITEM_KIND_DEFINITIONS.iter().any(|definition| definition.content_type == content_type), "{content_type:?}");
+        }
+    }
 
     #[test]
     fn every_content_type_maps_to_its_own_definition() {

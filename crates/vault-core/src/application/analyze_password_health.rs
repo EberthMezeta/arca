@@ -144,9 +144,12 @@ pub fn execute(vault_contents: &VaultContents, now: DateTime<Utc>) -> PasswordHe
     }
 }
 
+/// Puntuación de una bóveda sin ningún problema (o sin inicios de sesión que analizar).
+const PERFECT_HEALTH_SCORE: u8 = 100;
+
 fn percentage(part_count: usize, total_count: usize) -> u8 {
     if total_count == 0 {
-        return 100;
+        return PERFECT_HEALTH_SCORE;
     }
-    u8::try_from(part_count * 100 / total_count).unwrap_or(100)
+    u8::try_from(part_count * usize::from(PERFECT_HEALTH_SCORE) / total_count).unwrap_or(PERFECT_HEALTH_SCORE)
 }
