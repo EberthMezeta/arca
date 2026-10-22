@@ -17,7 +17,7 @@ use crate::presentation::error_messages::describe_error;
 use crate::presentation::item_drafts::save_request_from_item;
 use crate::presentation::item_kinds::{ContentFieldDescriptor, definition_for};
 use crate::ui_error::UiResult;
-use crate::{AppWindow, CustomFieldRow, DescriptorField, ItemEditor, WebsiteRow};
+use crate::{AppWindow, CustomFieldRow, DescriptorField, ItemEditor, SealedField, WebsiteRow};
 
 /// Lo que el formulario no puede guardar por sí mismo.
 struct OpenDraft {
@@ -92,7 +92,11 @@ impl ItemEditorController {
         let cancelling_controller = Rc::clone(self);
         item_editor.on_cancel(move || cancelling_controller.context.navigator.close_item_editor());
         let revealing_controller = Rc::clone(self);
-        item_editor.on_reveal_sealed(move |field_key| revealing_controller.reveal_sealed(&field_key));
+        item_editor.on_reveal_sealed(move |sealed_field, field_position| {
+            if let Ok(field_position) = usize::try_from(field_position) {
+                revealing_controller.reveal_sealed(sealed_field, field_position);
+            }
+        });
         let website_controller = Rc::clone(self);
         item_editor.on_add_website(move || {
             website_controller.with_draft(|open_draft| open_draft.website_rows.push(WebsiteRow { url: SharedString::new() }));
@@ -260,7 +264,7 @@ impl ItemEditorController {
     }
 
     /// Sustituye el marcador enmascarado por el valor real (el usuario pulsó el ojo).
-    fn reveal_sealed(&self, field_key: &str) {
+    fn reveal_sealed(&self, sealed_field: SealedField, field_position: usize) {
         let Some(app_window) = self.context.window() else {
             return;
         };
@@ -273,20 +277,16 @@ impl ItemEditorController {
             return;
         };
         let kind_definition = definition_for(open_draft.item_content.content_type());
-        let (field_kind, field_position) = field_key.split_once(':').map_or((field_key, None), |(field_kind, position_text)| {
-            (field_kind, position_text.parse::<usize>().ok())
-        });
-        let requested_field = match (field_kind, field_position) {
-            ("password", _) => Some(RevealableField::Password),
-            ("totpSecret", _) => Some(RevealableField::TotpSecret),
-            ("descriptor", Some(position)) => kind_definition.descriptor_fields.get(position).and_then(|descriptor| descriptor.revealable_field),
-            ("custom", Some(position)) => open_draft
+        let requested_field = match sealed_field {
+            SealedField::Password => Some(RevealableField::Password),
+            SealedField::TotpSecret => Some(RevealableField::TotpSecret),
+            SealedField::Descriptor => kind_definition.descriptor_fields.get(field_position).and_then(|descriptor| descriptor.revealable_field),
+            SealedField::Custom => open_draft
                 .custom_field_sources
-                .get(position)
+                .get(field_position)
                 .copied()
                 .flatten()
                 .map(|field_index| RevealableField::CustomField { field_index }),
-            _ => None,
         };
         let Some(requested_field) = requested_field else {
             return;
@@ -297,22 +297,21 @@ impl ItemEditorController {
             return;
         };
         let revealed_text = SharedString::from(revealed_value.expose_secret());
-        match (field_kind, field_position) {
-            ("password", _) => item_editor.set_password(revealed_text),
-            ("totpSecret", _) => item_editor.set_totp_secret(revealed_text),
-            ("descriptor", Some(position)) => {
-                if let Some(mut descriptor_field) = open_draft.descriptor_fields.row_data(position) {
+        match sealed_field {
+            SealedField::Password => item_editor.set_password(revealed_text),
+            SealedField::TotpSecret => item_editor.set_totp_secret(revealed_text),
+            SealedField::Descriptor => {
+                if let Some(mut descriptor_field) = open_draft.descriptor_fields.row_data(field_position) {
                     descriptor_field.value = revealed_text;
-                    open_draft.descriptor_fields.set_row_data(position, descriptor_field);
+                    open_draft.descriptor_fields.set_row_data(field_position, descriptor_field);
                 }
             }
-            ("custom", Some(position)) => {
-                if let Some(mut custom_field) = open_draft.custom_fields.row_data(position) {
+            SealedField::Custom => {
+                if let Some(mut custom_field) = open_draft.custom_fields.row_data(field_position) {
                     custom_field.value = revealed_text;
-                    open_draft.custom_fields.set_row_data(position, custom_field);
+                    open_draft.custom_fields.set_row_data(field_position, custom_field);
                 }
             }
-            _ => {}
         }
     }
 

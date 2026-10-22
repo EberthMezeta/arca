@@ -9,7 +9,8 @@ use vault_core::domain::item_content::ItemContentType;
 
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::item_kinds::{ITEM_KIND_DEFINITIONS, definition_for};
-use crate::{AppWindow, CommandPalette, NavIcon, PaletteEntry, VaultSection};
+use crate::presentation::shortcuts;
+use crate::{AppWindow, CommandPalette, NavIcon, PaletteEntry, Shortcut, VaultSection};
 
 const MAXIMUM_ITEM_RESULTS: usize = 6;
 
@@ -75,7 +76,7 @@ impl CommandPaletteController {
                 command(
                     self.context.text_with("palette.newItem", &[("itemType", &item_type_label)]),
                     definition.nav_icon,
-                    if content_type == ItemContentType::Login { "Ctrl N" } else { "" },
+                    if content_type == ItemContentType::Login { shortcuts::label_for(Shortcut::NewLogin) } else { "" },
                     Rc::new(move |context: &AppContext| context.navigator.start_creating_item(content_type)),
                 )
             })
@@ -94,7 +95,7 @@ impl CommandPaletteController {
         static_commands.push(command(
             self.context.text("actions.lock"),
             NavIcon::Lock,
-            "Ctrl L",
+            shortcuts::label_for(Shortcut::Lock),
             Rc::new(|context: &AppContext| context.events.publish(AppEvent::LockRequested)),
         ));
         static_commands

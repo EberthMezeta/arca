@@ -108,6 +108,29 @@ export component BusySpinner inherits Spinner {
 
 export enum ButtonVariant { primary, secondary, ghost, danger }
 
+/// Apariencia por variante de botón (tabla en vez de ternarios repartidos por el componente).
+global ButtonAppearance {
+    public pure function background(variant: ButtonVariant) -> brush {
+        return variant == ButtonVariant.primary ? Theme.accent
+            : variant == ButtonVariant.danger ? Theme.danger
+            : variant == ButtonVariant.secondary ? Theme.surface
+            : transparent;
+    }
+    public pure function hover-background(variant: ButtonVariant) -> brush {
+        return variant == ButtonVariant.primary ? Theme.accent-hover
+            : variant == ButtonVariant.danger ? Theme.danger.darker(0.1)
+            : Theme.surface-hover;
+    }
+    public pure function foreground(variant: ButtonVariant) -> color {
+        return variant == ButtonVariant.primary ? Theme.accent-contrast
+            : variant == ButtonVariant.danger ? #ffffff
+            : Theme.text;
+    }
+    public pure function border-width(variant: ButtonVariant) -> length {
+        return variant == ButtonVariant.secondary ? 1px : 0px;
+    }
+}
+
 export component Button inherits Rectangle {
     in property <string> label;
     in property <image> icon;
@@ -120,21 +143,16 @@ export component Button inherits Rectangle {
     callback clicked();
 
     property <bool> is-interactive: root.enabled && !root.is-busy;
-    property <color> foreground: variant == ButtonVariant.primary ? Theme.accent-contrast
-        : variant == ButtonVariant.danger ? #ffffff
-        : Theme.text;
+    property <color> foreground: ButtonAppearance.foreground(variant);
 
     height: button-height;
     min-width: content.preferred-width + 28px;
     horizontal-stretch: 0;
     border-radius: Theme.radius-md;
     opacity: is-interactive ? 1 : 0.5;
-    border-width: variant == ButtonVariant.secondary ? 1px : 0px;
+    border-width: ButtonAppearance.border-width(variant);
     border-color: Theme.border;
-    background: variant == ButtonVariant.primary ? (touch.has-hover && is-interactive ? Theme.accent-hover : Theme.accent)
-        : variant == ButtonVariant.danger ? (touch.has-hover && is-interactive ? Theme.danger.darker(0.1) : Theme.danger)
-        : variant == ButtonVariant.secondary ? (touch.has-hover && is-interactive ? Theme.surface-hover : Theme.surface)
-        : (touch.has-hover && is-interactive ? Theme.surface-hover : transparent);
+    background: touch.has-hover && is-interactive ? ButtonAppearance.hover-background(variant) : ButtonAppearance.background(variant);
     animate background { duration: 120ms; }
 
     accessible-role: button;

@@ -2,7 +2,7 @@
 // llegan enmascarados y el ojo pide el valor real al controlador.
 
 import { Theme, Icons } from "theme.slint";
-import { I18n, ItemEditor, ItemKind, WebsiteRow, DescriptorField, CustomFieldRow, PasswordStrengths, Generator } from "bridge.slint";
+import { I18n, ItemEditor, ItemKind, SealedField, WebsiteRow, DescriptorField, CustomFieldRow, PasswordStrengths, Generator } from "bridge.slint";
 import { Button, ButtonVariant, Icon, IconButton, ItemKindBadge, SectionLabel, LinkButton, TextField, FormField, CheckBox, StrengthMeter, ModalOverlay, SealedSecret } from "primitives.slint";
 import { Viewport } from "viewport.slint";
 import { GeneratorPanel } from "generator_panel.slint";
@@ -27,7 +27,7 @@ component LoginEditor inherits VerticalLayout {
                 text <=> ItemEditor.password;
                 is-password: true;
                 accessible-name: I18n.t("fields.password");
-                reveal-requested => { ItemEditor.reveal-sealed("password"); }
+                reveal-requested => { ItemEditor.reveal-sealed(SealedField.password, 0); }
             }
             Button {
                 label: I18n.t("generator.generate");
@@ -67,7 +67,7 @@ component LoginEditor inherits VerticalLayout {
             is-password: true;
             placeholder: "otpauth://… / JBSWY3DPEHPK3PXP";
             accessible-name: I18n.t("fields.totpSecret");
-            reveal-requested => { ItemEditor.reveal-sealed("totpSecret"); }
+            reveal-requested => { ItemEditor.reveal-sealed(SealedField.totp-secret, 0); }
         }
     }
 }
@@ -94,8 +94,31 @@ component DescriptorEditor inherits Rectangle {
             text <=> descriptor-field.value;
             is-password: descriptor-field.is-secret;
             accessible-name: descriptor-field.label;
-            reveal-requested => { ItemEditor.reveal-sealed("descriptor:" + field-position); }
+            reveal-requested => { ItemEditor.reveal-sealed(SealedField.descriptor, field-position); }
         }
+    }
+}
+
+/// Valor y casilla «oculto» de un campo personalizado (en la fila o en la segunda línea si está apilado).
+component CustomFieldValue inherits HorizontalLayout {
+    in-out property <string> value;
+    in-out property <bool> is-hidden;
+    in property <int> field-position;
+    spacing: 8px;
+    TextField {
+        text <=> root.value;
+        is-password: root.is-hidden;
+        placeholder: I18n.t("editor.customFieldValue");
+        accessible-name: I18n.t("editor.customFieldValue");
+        reveal-requested => { ItemEditor.reveal-sealed(SealedField.custom, root.field-position); }
+    }
+    CheckBox {
+        y: (parent.height - self.height) / 2;
+        horizontal-stretch: 0;
+        label: I18n.t("editor.hiddenField");
+        label-size: Theme.font-sm;
+        checked: root.is-hidden;
+        toggled => { root.is-hidden = !root.is-hidden; }
     }
 }
 
@@ -115,20 +138,10 @@ component CustomFieldsEditor inherits VerticalLayout {
                 placeholder: I18n.t("editor.customFieldLabel");
                 accessible-name: I18n.t("editor.customFieldLabel");
             }
-            if !root.is-stacked: TextField {
-                text <=> custom-field.value;
-                is-password: custom-field.is-hidden;
-                placeholder: I18n.t("editor.customFieldValue");
-                accessible-name: I18n.t("editor.customFieldValue");
-                reveal-requested => { ItemEditor.reveal-sealed("custom:" + field-position); }
-            }
-            if !root.is-stacked: CheckBox {
-                y: (parent.height - self.height) / 2;
-                horizontal-stretch: 0;
-                label: I18n.t("editor.hiddenField");
-                label-size: Theme.font-sm;
-                checked: custom-field.is-hidden;
-                toggled => { custom-field.is-hidden = !custom-field.is-hidden; }
+            if !root.is-stacked: CustomFieldValue {
+                value <=> custom-field.value;
+                is-hidden <=> custom-field.is-hidden;
+                field-position: field-position;
             }
             IconButton {
                 y: (parent.height - self.height) / 2;
@@ -139,20 +152,10 @@ component CustomFieldsEditor inherits VerticalLayout {
         }
         if root.is-stacked: HorizontalLayout {
             spacing: 8px;
-            TextField {
-                text <=> custom-field.value;
-                is-password: custom-field.is-hidden;
-                placeholder: I18n.t("editor.customFieldValue");
-                accessible-name: I18n.t("editor.customFieldValue");
-                reveal-requested => { ItemEditor.reveal-sealed("custom:" + field-position); }
-            }
-            CheckBox {
-                y: (parent.height - self.height) / 2;
-                horizontal-stretch: 0;
-                label: I18n.t("editor.hiddenField");
-                label-size: Theme.font-sm;
-                checked: custom-field.is-hidden;
-                toggled => { custom-field.is-hidden = !custom-field.is-hidden; }
+            CustomFieldValue {
+                value <=> custom-field.value;
+                is-hidden <=> custom-field.is-hidden;
+                field-position: field-position;
             }
             Rectangle { width: 32px; }
         }
@@ -160,6 +163,24 @@ component CustomFieldsEditor inherits VerticalLayout {
     LinkButton {
         label: I18n.t("editor.addCustomField");
         clicked => { ItemEditor.add-custom-field(); }
+    }
+}
+
+component FolderField inherits FormField {
+    label: I18n.t("fields.folder");
+    ComboBox {
+        model: ItemEditor.folder-names;
+        current-index <=> ItemEditor.folder-index;
+    }
+}
+
+component TagsField inherits FormField {
+    label: I18n.t("fields.tags");
+    hint: I18n.t("editor.tagsHint");
+    TextField {
+        text <=> ItemEditor.tags-text;
+        placeholder: I18n.t("editor.tagsPlaceholder");
+        accessible-name: I18n.t("fields.tags");
     }
 }
 
@@ -281,41 +302,12 @@ export component VaultItemEditorPanel inherits Rectangle {
                     }
                     if ItemEditor.kind == ItemKind.login: LoginEditor { }
                     if ItemEditor.kind == ItemKind.payment-card || ItemEditor.kind == ItemKind.identity: DescriptorEditor { is-stacked: form.stacks-fields; }
-                    if form.stacks-fields: FormField {
-                        label: I18n.t("fields.folder");
-                        ComboBox {
-                            model: ItemEditor.folder-names;
-                            current-index <=> ItemEditor.folder-index;
-                        }
-                    }
-                    if form.stacks-fields: FormField {
-                        label: I18n.t("fields.tags");
-                        hint: I18n.t("editor.tagsHint");
-                        TextField {
-                            text <=> ItemEditor.tags-text;
-                            placeholder: I18n.t("editor.tagsPlaceholder");
-                            accessible-name: I18n.t("fields.tags");
-                        }
-                    }
+                    if form.stacks-fields: FolderField { }
+                    if form.stacks-fields: TagsField { }
                     if !form.stacks-fields: HorizontalLayout {
                         spacing: 16px;
-                        FormField {
-                            width: (parent.width - 16px) / 2;
-                            label: I18n.t("fields.folder");
-                            ComboBox {
-                                model: ItemEditor.folder-names;
-                                current-index <=> ItemEditor.folder-index;
-                            }
-                        }
-                        FormField {
-                            label: I18n.t("fields.tags");
-                            hint: I18n.t("editor.tagsHint");
-                            TextField {
-                                text <=> ItemEditor.tags-text;
-                                placeholder: I18n.t("editor.tagsPlaceholder");
-                                accessible-name: I18n.t("fields.tags");
-                            }
-                        }
+                        FolderField { width: (parent.width - 16px) / 2; }
+                        TagsField { }
                     }
                     FormField {
                         label: I18n.t("fields.notes");

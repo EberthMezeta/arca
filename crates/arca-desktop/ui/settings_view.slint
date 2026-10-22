@@ -4,7 +4,7 @@ import { Theme, Icons } from "theme.slint";
 import { I18n, Settings, PasswordStrengths } from "bridge.slint";
 import { Button, ButtonVariant, Icon, TextField, FormField, ToggleRow, CheckBox, StrengthMeter, Banner } from "primitives.slint";
 import { Viewport } from "viewport.slint";
-import { ScrollView, ComboBox } from "std-widgets.slint";
+import { ScrollView, ComboBox, AboutSlint } from "std-widgets.slint";
 
 component SettingsSection inherits Rectangle {
     in property <image> icon;
@@ -327,6 +327,11 @@ component AboutSettings inherits SettingsSection {
         font-size: Theme.font-sm;
         color: Theme.text-muted;
         wrap: word-wrap;
+    }
+    // La licencia royalty-free de Slint exige mostrar la atribución.
+    HorizontalLayout {
+        alignment: start;
+        AboutSlint { max-width: 240px; }
     }
 }
 

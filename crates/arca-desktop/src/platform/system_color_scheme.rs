@@ -38,7 +38,7 @@ mod xdg_portal {
     const APPEARANCE_NAMESPACE: &str = "org.freedesktop.appearance";
     const COLOR_SCHEME_KEY: &str = "color-scheme";
     const PORTAL_CALL_TIMEOUT: Duration = Duration::from_secs(2);
-    const SIGNAL_POLL_INTERVAL: Duration = Duration::from_secs(60);
+    const SIGNAL_POLL_INTERVAL: Duration = Duration::from_mins(1);
 
     /// Valores del portal: 0 sin preferencia, 1 oscuro, 2 claro.
     /// Sin preferencia se deja el esquema que detectó Slint.

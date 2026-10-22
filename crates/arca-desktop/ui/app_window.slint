@@ -2,7 +2,7 @@
 // Los globales se reexportan aquí para que los controladores Rust puedan usarlos.
 
 import { Theme } from "theme.slint";
-import { AppScreen, ItemPanel, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette } from "bridge.slint";
+import { AppScreen, ItemPanel, Shortcut, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette } from "bridge.slint";
 import { LoadingScreen, SetupScreen, UnlockScreen } from "session_screens.slint";
 import { VaultScreen } from "vault_screen.slint";
 import { CommandPaletteOverlay } from "command_palette.slint";
@@ -25,19 +25,6 @@ export component AppWindow inherits Window {
     default-font-size: Theme.font-md;
     forward-focus: shortcut-scope;
 
-    /// Atajos globales: Ctrl + letra se intercepta antes que los campos de texto.
-    function shortcut-for(event: KeyEvent) -> string {
-        if !event.modifiers.control || event.modifiers.alt {
-            return "";
-        }
-        if event.text.to-lowercase() == "k" { return "palette"; }
-        if event.text.to-lowercase() == "n" { return "new"; }
-        if event.text.to-lowercase() == "l" { return "lock"; }
-        if event.text.to-lowercase() == "f" { return "find"; }
-        if event.text.to-lowercase() == "s" { return "save"; }
-        return "";
-    }
-
     // Los widgets estándar (ComboBox, ScrollView…) siguen el tema elegido, no solo el del sistema.
     init => {
         Viewport.window-width = self.width;
@@ -55,7 +42,8 @@ export component AppWindow inherits Window {
                 return reject;
             }
             UserActivity.reported();
-            if root.shortcut-for(event) != "" && Workspace.shortcut(root.shortcut-for(event)) {
+            // Ctrl + letra se intercepta antes que los campos de texto.
+            if event.modifiers.control && !event.modifiers.alt && Workspace.control-key-shortcut(event.text.to-lowercase()) {
                 return accept;
             }
             return reject;
@@ -66,7 +54,7 @@ export component AppWindow inherits Window {
                 Viewport.is-drawer-requested = false;
                 return accept;
             }
-            if event.text == Key.Escape && Session.screen == AppScreen.vault && Workspace.shortcut("escape") {
+            if event.text == Key.Escape && Session.screen == AppScreen.vault && Workspace.shortcut(Shortcut.escape) {
                 return accept;
             }
             // En una sola columna, Esc desde los detalles vuelve a la lista.

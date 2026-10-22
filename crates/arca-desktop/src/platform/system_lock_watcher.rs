@@ -50,7 +50,7 @@ mod linux_session_signals {
     use crate::shared_vault::VaultLocker;
     use crate::vault_events::VaultLockReason;
 
-    const SIGNAL_POLL_INTERVAL: Duration = Duration::from_secs(60);
+    const SIGNAL_POLL_INTERVAL: Duration = Duration::from_mins(1);
     const LOGIN_MANAGER_SERVICE: &str = "org.freedesktop.login1";
     const LOGIN_MANAGER_PATH: &str = "/org/freedesktop/login1";
     const LOGIN_MANAGER_INTERFACE: &str = "org.freedesktop.login1.Manager";
@@ -161,6 +161,6 @@ mod tests {
         let start_time = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000);
         let mut suspension_detector = SuspensionDetector::new(CHECK_INTERVAL, start_time);
 
-        assert!(!suspension_detector.detect_suspension(start_time - Duration::from_secs(3600)));
+        assert!(!suspension_detector.detect_suspension(start_time - Duration::from_hours(1)));
     }
 }

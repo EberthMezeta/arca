@@ -7,5 +7,6 @@ pub mod date_formatting;
 pub mod error_messages;
 pub mod item_drafts;
 pub mod item_kinds;
+pub mod shortcuts;
 pub mod translator;
 pub mod vault_event_bridge;
