@@ -1,0 +1,3 @@
+name,url,username,password,note
+,https://mail.example.com/login,ana,pw1,
+Banco,https://banco.es,ana,pw2,pin aparte

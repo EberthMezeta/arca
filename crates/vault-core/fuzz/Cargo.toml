@@ -1,0 +1,38 @@
+[package]
+name = "vault-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Fuera del workspace de la app: solo compila con nightly (`cargo +nightly fuzz run <objetivo>`).
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4.10"
+
+[dependencies.vault-core]
+path = ".."
+
+[[bin]]
+name = "vault_file"
+path = "fuzz_targets/vault_file.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "bitwarden_json_import"
+path = "fuzz_targets/bitwarden_json_import.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "csv_import"
+path = "fuzz_targets/csv_import.rs"
+test = false
+doc = false
+bench = false

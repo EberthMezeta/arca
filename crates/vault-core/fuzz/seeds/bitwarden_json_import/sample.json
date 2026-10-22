@@ -1,0 +1,11 @@
+{
+      "encrypted": false,
+      "folders": [{ "id": "f-1", "name": "Trabajo" }],
+      "items": [
+        { "id": "i-1", "folderId": "f-1", "type": 1, "name": "GitHub", "notes": null, "favorite": true,
+          "fields": [{ "name": "PIN", "value": "1234", "type": 1 }],
+          "login": { "uris": [{ "match": null, "uri": "https://github.com" }], "username": "ana", "password": "s3cr3t", "totp": null } },
+        { "id": "i-2", "folderId": null, "type": 2, "name": "Nota", "notes": "texto", "favorite": false, "secureNote": { "type": 0 } },
+        { "id": "i-3", "folderId": null, "type": 5, "name": "Clave SSH" }
+      ]
+    }
