@@ -30,11 +30,22 @@ impl Write for SerializedByteCounter {
 /// bloque anterior con el texto plano dentro y sin borrar. Con dos pasadas (contar y
 /// luego escribir) el buffer se reserva una sola vez.
 pub fn serialize_secret_json<Value: Serialize>(serializable_value: &Value) -> VaultResult<Zeroizing<Vec<u8>>> {
+    write_secret_bytes(|output| serde_json::to_writer(output, serializable_value).map_err(VaultError::storage))
+}
+
+/// Igual que `serialize_secret_json`, con sangría (exportaciones legibles).
+pub fn serialize_secret_json_pretty<Value: Serialize>(serializable_value: &Value) -> VaultResult<Zeroizing<Vec<u8>>> {
+    write_secret_bytes(|output| serde_json::to_writer_pretty(output, serializable_value).map_err(VaultError::storage))
+}
+
+/// Escribe con `write_contents` en un buffer del tamaño exacto que se borra al soltarse.
+/// Se llama dos veces (contar y escribir), así que tiene que producir lo mismo las dos.
+pub fn write_secret_bytes(write_contents: impl Fn(&mut dyn Write) -> VaultResult<()>) -> VaultResult<Zeroizing<Vec<u8>>> {
     let mut serialized_byte_counter = SerializedByteCounter::default();
-    serde_json::to_writer(&mut serialized_byte_counter, serializable_value).map_err(VaultError::storage)?;
+    write_contents(&mut serialized_byte_counter)?;
 
     let mut serialized_bytes = Zeroizing::new(Vec::with_capacity(serialized_byte_counter.counted_byte_count));
-    serde_json::to_writer(&mut *serialized_bytes, serializable_value).map_err(VaultError::storage)?;
+    write_contents(&mut *serialized_bytes)?;
     Ok(serialized_bytes)
 }
 

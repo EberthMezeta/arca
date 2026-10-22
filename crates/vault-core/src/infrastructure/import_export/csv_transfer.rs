@@ -7,11 +7,13 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use crate::domain::folder::Folder;
 use crate::domain::item_content::{ItemContent, LoginContent, SecureNoteContent};
 use crate::domain::ports::vault_exporter::{ExportFormat, VaultExporter};
 use crate::domain::ports::vault_importer::{ImportFormat, ImportedVaultData, VaultImporter};
+use crate::domain::secret_serialization::write_secret_bytes;
 use crate::domain::secret_text::SecretText;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
@@ -280,26 +282,31 @@ impl VaultExporter for BitwardenCsvExporter {
         "csv"
     }
 
-    fn serialize_vault(&self, vault_contents: &VaultContents, _file_password: Option<&SecretText>) -> VaultResult<Vec<u8>> {
+    fn serialize_vault(&self, vault_contents: &VaultContents, _file_password: Option<&SecretText>) -> VaultResult<Zeroizing<Vec<u8>>> {
         let folder_name_by_id: HashMap<Uuid, &str> = vault_contents
             .folders
             .iter()
             .map(|folder| (folder.folder_id, folder.folder_name.as_str()))
             .collect();
-        let mut csv_writer = csv::Writer::from_writer(Vec::new());
-        csv_writer.write_record(BITWARDEN_CSV_HEADERS).map_err(VaultError::storage)?;
-
-        for vault_item in &vault_contents.vault_items {
-            let Some(csv_row) = bitwarden_csv_row(vault_item, &folder_name_by_id) else {
-                continue;
-            };
-            csv_writer.write_record(&csv_row).map_err(VaultError::storage)?;
-        }
-        csv_writer.into_inner().map_err(VaultError::storage)
+        let csv_rows: Vec<[Zeroizing<String>; BITWARDEN_CSV_HEADERS.len()]> = vault_contents
+            .vault_items
+            .iter()
+            .filter_map(|vault_item| bitwarden_csv_row(vault_item, &folder_name_by_id))
+            .map(|csv_row| csv_row.map(Zeroizing::new))
+            .collect();
+        write_secret_bytes(|output| {
+            let mut csv_writer = csv::Writer::from_writer(output);
+            csv_writer.write_record(BITWARDEN_CSV_HEADERS).map_err(VaultError::storage)?;
+            for csv_row in &csv_rows {
+                csv_writer.write_record(csv_row.iter().map(|csv_cell| csv_cell.as_bytes())).map_err(VaultError::storage)?;
+            }
+            csv_writer.flush().map_err(VaultError::storage)
+        })
     }
 }
 
-fn bitwarden_csv_row(vault_item: &VaultItem, folder_name_by_id: &HashMap<Uuid, &str>) -> Option<[String; 11]> {
+/// Las celdas llevan contraseñas en claro: quien las recibe las guarda en `Zeroizing`.
+fn bitwarden_csv_row(vault_item: &VaultItem, folder_name_by_id: &HashMap<Uuid, &str>) -> Option<[String; BITWARDEN_CSV_HEADERS.len()]> {
     let (item_type, login_content) = match &vault_item.item_content {
         ItemContent::Login(login_content) => ("login", Some(login_content)),
         ItemContent::SecureNote(_) => ("note", None),
@@ -309,12 +316,12 @@ fn bitwarden_csv_row(vault_item: &VaultItem, folder_name_by_id: &HashMap<Uuid, &
         .folder_id
         .and_then(|folder_id| folder_name_by_id.get(&folder_id).copied())
         .unwrap_or_default();
-    let serialized_fields = vault_item
+    let field_lines: Vec<Zeroizing<String>> = vault_item
         .custom_fields
         .iter()
-        .map(|custom_field| format!("{}: {}", custom_field.field_label, custom_field.field_value.expose_secret()))
-        .collect::<Vec<_>>()
-        .join("\n");
+        .map(|custom_field| Zeroizing::new(format!("{}: {}", custom_field.field_label, custom_field.field_value.expose_secret())))
+        .collect();
+    let serialized_fields = Zeroizing::new(field_lines.iter().map(|field_line| field_line.as_str()).collect::<Vec<_>>().join("\n"));
 
     Some([
         neutralize_spreadsheet_formula(folder_name),
@@ -368,7 +375,7 @@ mod tests {
         };
 
         let exported_bytes = BitwardenCsvExporter.serialize_vault(&vault_contents, None).expect("exportar");
-        let exported_text = String::from_utf8(exported_bytes).expect("utf-8");
+        let exported_text = String::from_utf8(exported_bytes.to_vec()).expect("utf-8");
 
         assert!(exported_text.contains("'=HYPERLINK"));
         assert!(exported_text.contains("'@SUM(1)"));

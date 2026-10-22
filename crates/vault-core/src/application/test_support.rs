@@ -97,7 +97,7 @@ pub fn build_test_vault_dependencies(
         unlock_throttle_store: Box::new(Arc::clone(unlock_throttle_store)),
         vault_revision_store: Box::new(Arc::clone(vault_revision_store)),
         clock: Box::new(fake_clock.clone()),
-        transfer_format_registry: build_default_transfer_format_registry(),
+        transfer_format_registry: Arc::new(build_default_transfer_format_registry()),
         key_derivation_policy: KeyDerivationPolicy {
             parameters_for_new_vaults: CHEAP_TEST_KEY_DERIVATION_PARAMETERS,
             minimum_accepted_parameters: CHEAP_TEST_KEY_DERIVATION_PARAMETERS,

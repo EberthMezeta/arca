@@ -2,10 +2,12 @@ use std::collections::HashMap;
 
 use chrono::Utc;
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use crate::domain::folder::Folder;
 use crate::domain::ports::vault_exporter::{ExportFormat, VaultExporter};
 use crate::domain::ports::vault_importer::{ImportFormat, ImportedVaultData, VaultImporter};
+use crate::domain::secret_serialization::serialize_secret_json_pretty;
 use crate::domain::secret_text::SecretText;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
@@ -75,7 +77,7 @@ impl VaultExporter for BitwardenJsonExporter {
         "json"
     }
 
-    fn serialize_vault(&self, vault_contents: &VaultContents, _file_password: Option<&SecretText>) -> VaultResult<Vec<u8>> {
+    fn serialize_vault(&self, vault_contents: &VaultContents, _file_password: Option<&SecretText>) -> VaultResult<Zeroizing<Vec<u8>>> {
         let export_document = BitwardenExportDocument {
             encrypted: false,
             folders: vault_contents
@@ -85,7 +87,7 @@ impl VaultExporter for BitwardenJsonExporter {
                 .collect(),
             items: vault_contents.vault_items.iter().map(BitwardenItem::from).collect(),
         };
-        serde_json::to_vec_pretty(&export_document).map_err(VaultError::storage)
+        serialize_secret_json_pretty(&export_document)
     }
 }
 

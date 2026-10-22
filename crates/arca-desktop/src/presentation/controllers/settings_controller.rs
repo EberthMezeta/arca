@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use chrono::Local;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use vault_core::application::import_export_vault::{ExportedFile, parse_import_file};
 use vault_core::domain::ports::vault_exporter::ExportFormat;
 use vault_core::domain::ports::vault_importer::ImportFormat;
 use vault_core::domain::secret_text::SecretText;
@@ -13,7 +14,7 @@ use vault_core::domain::vault_preferences::VaultPreferences;
 use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
 
 use crate::composition_root::MAXIMUM_IMPORT_FILE_SIZE_BYTES;
-use crate::platform::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
+use crate::platform::bounded_file_reader::read_user_file;
 use crate::platform::file_dialogs::{ask_file_to_open, ask_file_to_save};
 use crate::platform::system_color_scheme;
 use crate::platform::ui_preferences_store::ThemePreference;
@@ -135,6 +136,9 @@ fn to_string_model(labels: Vec<String>) -> ModelRc<SharedString> {
 pub struct SettingsController {
     context: Rc<AppContext>,
     preference_choices: RefCell<PreferenceChoices>,
+    /// Exportación ya generada que espera a que el usuario elija dónde guardarla. Puede ir en
+    /// texto plano: si la bóveda se bloquea mientras tanto, se descarta (y se borra de memoria).
+    pending_export: RefCell<Option<ExportedFile>>,
 }
 
 /// Con el tema «Sistema», la interfaz cambia en cuanto el sistema pasa a claro u oscuro.
@@ -147,7 +151,8 @@ fn follow_system_color_scheme(app_window: &AppWindow) {
 
 impl SettingsController {
     pub fn install(context: &Rc<AppContext>, app_window: &AppWindow) -> Rc<Self> {
-        let controller = Rc::new(Self { context: Rc::clone(context), preference_choices: RefCell::default() });
+        let controller =
+            Rc::new(Self { context: Rc::clone(context), preference_choices: RefCell::default(), pending_export: RefCell::default() });
         controller.bind_callbacks(app_window);
 
         let event_controller = Rc::clone(&controller);
@@ -408,14 +413,28 @@ impl SettingsController {
             let Some(chosen_path) = ask_file_to_open(&dialog_title, None).await else {
                 return controller.with_settings(|settings| settings.set_is_importing(false));
             };
-            let import_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                let file_bytes = read_file_with_size_limit(&chosen_path, MAXIMUM_IMPORT_FILE_SIZE_BYTES).map_err(|read_error| match read_error {
-                    BoundedReadError::TooLarge => UiError::import_file_too_large(),
-                    BoundedReadError::Unreadable(io_error) => UiError::file_access(io_error),
-                })?;
-                Ok(vault_service.import_file(import_format, &file_bytes, file_password.as_ref())?)
-            })
-            .await;
+            // Leer y descifrar el archivo (una copia `.arca` puede pedir un Argon2id de decenas de
+            // segundos) se hace sin tomar la bóveda: así el bloqueo nunca tiene que esperar.
+            let transfer_formats = controller.context.shared_vault.lock_service().map(|vault_service| vault_service.transfer_format_registry());
+            let parse_result = match transfer_formats {
+                Ok(transfer_formats) => {
+                    run_in_background(move || {
+                        let file_bytes = read_user_file(&chosen_path, MAXIMUM_IMPORT_FILE_SIZE_BYTES, UiError::import_file_too_large())?;
+                        Ok(parse_import_file(&transfer_formats, import_format, &file_bytes, file_password.as_ref())?)
+                    })
+                    .await
+                }
+                Err(ui_error) => Err(ui_error),
+            };
+            let import_result = match parse_result {
+                Ok(imported_vault_data) => {
+                    run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                        Ok(vault_service.merge_imported_data(imported_vault_data)?)
+                    })
+                    .await
+                }
+                Err(ui_error) => Err(ui_error),
+            };
             controller.with_settings(|settings| settings.set_is_importing(false));
             match import_result {
                 Ok(import_summary) => {
@@ -484,8 +503,11 @@ impl SettingsController {
             };
             let suggested_file_name =
                 format!("arca-export-{}.{}", Local::now().format("%Y-%m-%d"), exported_file.suggested_file_extension);
+            *controller.pending_export.borrow_mut() = Some(exported_file);
             let dialog_title = controller.context.text("transfer.chooseExportFile");
-            let Some(destination_path) = ask_file_to_save(&dialog_title, &suggested_file_name).await else {
+            let destination_path = ask_file_to_save(&dialog_title, &suggested_file_name).await;
+            let pending_export = controller.pending_export.borrow_mut().take();
+            let (Some(destination_path), Some(exported_file)) = (destination_path, pending_export) else {
                 return controller.with_settings(|settings| settings.set_is_exporting(false));
             };
             let write_result = run_in_background(move || {
@@ -509,6 +531,7 @@ impl SettingsController {
 
     /// Al bloquear no puede quedar ninguna contraseña escrita en los formularios.
     fn clear_secrets(&self) {
+        self.pending_export.borrow_mut().take();
         self.with_settings(|settings| {
             for clear_field in [
                 Settings::set_current_master_password,

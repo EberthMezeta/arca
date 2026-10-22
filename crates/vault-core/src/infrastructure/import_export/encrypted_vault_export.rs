@@ -71,7 +71,7 @@ impl VaultExporter for EncryptedVaultExportExporter {
         "arca"
     }
 
-    fn serialize_vault(&self, vault_contents: &VaultContents, file_password: Option<&SecretText>) -> VaultResult<Vec<u8>> {
+    fn serialize_vault(&self, vault_contents: &VaultContents, file_password: Option<&SecretText>) -> VaultResult<Zeroizing<Vec<u8>>> {
         let file_password = file_password.ok_or(VaultError::TransferPasswordRequired)?;
         let violations = MasterPasswordPolicy::default().find_violations(file_password);
         if !violations.is_empty() {
@@ -99,7 +99,7 @@ impl VaultExporter for EncryptedVaultExportExporter {
 
         export_envelope.nonce_base64 = BASE64_STANDARD.encode(&sealed_contents.nonce);
         export_envelope.ciphertext_base64 = BASE64_STANDARD.encode(&sealed_contents.ciphertext_with_tag);
-        serde_json::to_vec_pretty(&export_envelope).map_err(VaultError::storage)
+        serde_json::to_vec_pretty(&export_envelope).map(Zeroizing::new).map_err(VaultError::storage)
     }
 }
 

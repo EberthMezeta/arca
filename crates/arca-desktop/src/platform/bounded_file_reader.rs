@@ -7,6 +7,8 @@ use std::path::Path;
 
 use zeroize::Zeroizing;
 
+use crate::ui_error::{UiError, UiResult};
+
 pub enum BoundedReadError {
     TooLarge,
     Unreadable(io::Error),
@@ -32,6 +34,14 @@ pub fn read_file_with_size_limit(file_path: &Path, maximum_byte_count: u64) -> R
         return Err(BoundedReadError::TooLarge);
     }
     Ok(file_bytes)
+}
+
+/// Lee un archivo elegido por el usuario; `too_large_error` es el error que se le muestra si se pasa.
+pub fn read_user_file(file_path: &Path, maximum_byte_count: u64, too_large_error: UiError) -> UiResult<Zeroizing<Vec<u8>>> {
+    read_file_with_size_limit(file_path, maximum_byte_count).map_err(|read_error| match read_error {
+        BoundedReadError::TooLarge => too_large_error,
+        BoundedReadError::Unreadable(io_error) => UiError::file_access(io_error),
+    })
 }
 
 #[cfg(test)]

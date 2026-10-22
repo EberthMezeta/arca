@@ -1,6 +1,7 @@
-//! Fachada: único punto de entrada para la capa de presentación (comandos Tauri).
+//! Fachada: único punto de entrada para la capa de presentación.
 //! Cada método delega en un caso de uso; aquí solo se gestiona el estado de sesión.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -13,6 +14,7 @@ use crate::application::manage_attachments::{self, DecryptedAttachment};
 use crate::application::save_vault_item::{self, SaveVaultItemRequest};
 use crate::application::search_vault_items::{self, VaultItemFilter, VaultItemSummary, VaultOverview};
 use crate::application::throttled_master_password_attempt::run_throttled;
+use crate::application::transfer_format_registry::TransferFormatRegistry;
 use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::unwrap_vault_key;
@@ -25,9 +27,10 @@ use crate::domain::password_generation::password_generation_options::PasswordGen
 use crate::domain::password_strength::PasswordStrength;
 use crate::domain::ports::clock::Clock;
 use crate::domain::ports::vault_exporter::ExportFormat;
-use crate::domain::ports::vault_importer::ImportFormat;
+use crate::domain::ports::vault_importer::{ImportFormat, ImportedVaultData};
 use crate::domain::secret_text::SecretText;
 use crate::domain::totp_configuration::{TotpCode, TotpConfiguration};
+use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_item::{AttachmentReference, RevealableField, VaultItem};
 use crate::domain::vault_preferences::VaultPreferences;
@@ -79,6 +82,35 @@ impl VaultService {
 
     fn now(&self) -> DateTime<Utc> {
         self.vault_dependencies.clock.now()
+    }
+
+    /// Aplica un cambio a la bóveda desbloqueada y lo guarda cifrado (cuenta como actividad).
+    fn mutate<Output>(
+        &mut self,
+        apply_mutation: impl FnOnce(&mut VaultContents) -> VaultResult<Output>,
+    ) -> VaultResult<Output> {
+        let unlocked_vault =
+            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
+        unlocked_vault.modify_and_persist(&self.vault_dependencies, apply_mutation)
+    }
+
+    /// Como `mutate`, sin dejar `.bak`: para borrados definitivos.
+    fn mutate_discarding_backups<Output>(
+        &mut self,
+        apply_mutation: impl FnOnce(&mut VaultContents) -> VaultResult<Output>,
+    ) -> VaultResult<Output> {
+        let unlocked_vault =
+            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
+        unlocked_vault.modify_and_persist_discarding_backups(&self.vault_dependencies, apply_mutation)
+    }
+
+    /// Vuelve a pedir la contraseña maestra (con retardo) antes de sacar algo del cifrado.
+    fn reauthenticate(&mut self, master_password: &SecretText) -> VaultResult<()> {
+        let unlocked_vault = self.session_state.require_unlocked()?;
+        run_throttled(&self.vault_dependencies, &mut self.unlock_attempt_throttle, || {
+            unwrap_vault_key(&self.vault_dependencies, master_password, &unlocked_vault.vault_header)
+        })?;
+        Ok(())
     }
 
     // ── Sesión ────────────────────────────────────────────────────────────────
@@ -219,35 +251,27 @@ impl VaultService {
 
     pub fn save_item(&mut self, save_request: SaveVaultItemRequest) -> VaultResult<VaultItem> {
         let now = self.now();
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        self.mutate(|vault_contents| {
             save_vault_item::execute(vault_contents, save_request, now)
         })
     }
 
     pub fn move_item_to_trash(&mut self, item_id: Uuid) -> VaultResult<()> {
         let now = self.now();
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        self.mutate(|vault_contents| {
             manage_item_lifecycle::move_to_trash(vault_contents, item_id, now)
         })
     }
 
     pub fn restore_item_from_trash(&mut self, item_id: Uuid) -> VaultResult<()> {
         let now = self.now();
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        self.mutate(|vault_contents| {
             manage_item_lifecycle::restore_from_trash(vault_contents, item_id, now)
         })
     }
 
     pub fn delete_item_permanently(&mut self, item_id: Uuid) -> VaultResult<()> {
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        let removed_items = unlocked_vault.modify_and_persist_discarding_backups(&self.vault_dependencies, |vault_contents| {
+        let removed_items = self.mutate_discarding_backups(|vault_contents| {
             manage_item_lifecycle::delete_permanently(vault_contents, item_id)
         })?;
         manage_attachments::delete_attachments_of_items(&self.vault_dependencies, &removed_items);
@@ -255,9 +279,7 @@ impl VaultService {
     }
 
     pub fn empty_trash(&mut self) -> VaultResult<usize> {
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        let removed_items = unlocked_vault.modify_and_persist_discarding_backups(&self.vault_dependencies, |vault_contents| {
+        let removed_items = self.mutate_discarding_backups(|vault_contents| {
             Ok(manage_item_lifecycle::empty_trash(vault_contents))
         })?;
         manage_attachments::delete_attachments_of_items(&self.vault_dependencies, &removed_items);
@@ -265,34 +287,26 @@ impl VaultService {
     }
 
     pub fn create_folder(&mut self, folder_name: &str) -> VaultResult<Folder> {
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        self.mutate(|vault_contents| {
             manage_folders::create_folder(vault_contents, folder_name)
         })
     }
 
     pub fn rename_folder(&mut self, folder_id: Uuid, folder_name: &str) -> VaultResult<Folder> {
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        self.mutate(|vault_contents| {
             manage_folders::rename_folder(vault_contents, folder_id, folder_name)
         })
     }
 
     pub fn delete_folder(&mut self, folder_id: Uuid) -> VaultResult<()> {
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        self.mutate(|vault_contents| {
             manage_folders::delete_folder(vault_contents, folder_id)
         })
     }
 
     pub fn update_preferences(&mut self, new_preferences: VaultPreferences) -> VaultResult<VaultPreferences> {
         new_preferences.validate()?;
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
+        self.mutate(|vault_contents| {
             vault_contents.preferences = new_preferences.clone();
             Ok(new_preferences)
         })
@@ -314,10 +328,8 @@ impl VaultService {
         item_id: Uuid,
         attachment_id: Uuid,
     ) -> VaultResult<DecryptedAttachment> {
+        self.reauthenticate(master_password)?;
         let unlocked_vault = self.session_state.require_unlocked()?;
-        run_throttled(&self.vault_dependencies, &mut self.unlock_attempt_throttle, || {
-            unwrap_vault_key(&self.vault_dependencies, master_password, &unlocked_vault.vault_header)
-        })?;
         manage_attachments::read_attachment(&self.vault_dependencies, unlocked_vault, item_id, attachment_id)
     }
 
@@ -329,19 +341,32 @@ impl VaultService {
 
     // ── Importar / exportar ───────────────────────────────────────────────────
 
+    /// Los formatos de import/export. Se comparten para poder leer un archivo externo sin tener
+    /// tomada la bóveda: una copia `.arca` puede exigir un Argon2id largo, y mientras tanto el
+    /// bloqueo (pantalla, suspensión, inactividad) tiene que poder entrar.
+    pub fn transfer_format_registry(&self) -> Arc<TransferFormatRegistry> {
+        Arc::clone(&self.vault_dependencies.transfer_format_registry)
+    }
+
+    /// Fusiona en la bóveda lo leído con `import_export_vault::parse_import_file`.
+    pub fn merge_imported_data(&mut self, imported_vault_data: ImportedVaultData) -> VaultResult<ImportSummary> {
+        self.mutate(|vault_contents| Ok(import_export_vault::merge_imported_data(vault_contents, imported_vault_data)))
+    }
+
+    /// Leer y fusionar en un paso (con la bóveda tomada todo el rato): cómodo en tests.
     pub fn import_file(
         &mut self,
         import_format: ImportFormat,
         file_bytes: &[u8],
         file_password: Option<&SecretText>,
     ) -> VaultResult<ImportSummary> {
-        let imported_vault_data =
-            import_export_vault::parse_import_file(&self.vault_dependencies, import_format, file_bytes, file_password)?;
-        let unlocked_vault =
-            Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
-        unlocked_vault.modify_and_persist(&self.vault_dependencies, |vault_contents| {
-            Ok(import_export_vault::merge_imported_data(vault_contents, imported_vault_data))
-        })
+        let imported_vault_data = import_export_vault::parse_import_file(
+            &self.vault_dependencies.transfer_format_registry,
+            import_format,
+            file_bytes,
+            file_password,
+        )?;
+        self.merge_imported_data(imported_vault_data)
     }
 
     /// Exportar saca toda la bóveda del cifrado: exige la contraseña maestra (con retardo),
@@ -352,10 +377,8 @@ impl VaultService {
         export_format: ExportFormat,
         file_password: Option<&SecretText>,
     ) -> VaultResult<ExportedFile> {
+        self.reauthenticate(master_password)?;
         let unlocked_vault = self.session_state.require_unlocked()?;
-        run_throttled(&self.vault_dependencies, &mut self.unlock_attempt_throttle, || {
-            unwrap_vault_key(&self.vault_dependencies, master_password, &unlocked_vault.vault_header)
-        })?;
         import_export_vault::export_vault(&self.vault_dependencies, &unlocked_vault.vault_contents, export_format, file_password)
     }
 

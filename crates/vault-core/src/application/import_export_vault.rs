@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use crate::application::manage_folders::MAXIMUM_FOLDER_NAME_CHARACTER_COUNT;
 use crate::application::save_vault_item::MAXIMUM_TITLE_CHARACTER_COUNT;
+use crate::application::transfer_format_registry::TransferFormatRegistry;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::domain::folder::Folder;
 use crate::domain::item_content::ItemContent;
@@ -24,17 +26,19 @@ pub struct ImportSummary {
 }
 
 pub struct ExportedFile {
-    pub file_bytes: Vec<u8>,
+    /// Puede ir en texto plano (CSV, JSON): se borra al soltarse.
+    pub file_bytes: Zeroizing<Vec<u8>>,
     pub suggested_file_extension: &'static str,
 }
 
+/// No necesita la bóveda: se puede llamar sin tenerla tomada (ver `VaultService::transfer_format_registry`).
 pub fn parse_import_file(
-    vault_dependencies: &VaultDependencies,
+    transfer_format_registry: &TransferFormatRegistry,
     import_format: ImportFormat,
     file_bytes: &[u8],
     file_password: Option<&SecretText>,
 ) -> VaultResult<ImportedVaultData> {
-    vault_dependencies.transfer_format_registry.importer_for(import_format)?.parse_file(file_bytes, file_password)
+    transfer_format_registry.importer_for(import_format)?.parse_file(file_bytes, file_password)
 }
 
 const UNTITLED_ITEM_TITLE: &str = "Sin título";

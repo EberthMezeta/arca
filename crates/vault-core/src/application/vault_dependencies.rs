@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::application::transfer_format_registry::TransferFormatRegistry;
 use crate::domain::key_derivation_parameters::KeyDerivationParameters;
 use crate::domain::ports::attachment_storage::AttachmentStorage;
@@ -39,7 +41,7 @@ pub struct VaultDependencies {
     pub unlock_throttle_store: Box<dyn UnlockThrottleStore>,
     pub vault_revision_store: Box<dyn VaultRevisionStore>,
     pub clock: Box<dyn Clock>,
-    pub transfer_format_registry: TransferFormatRegistry,
+    pub transfer_format_registry: Arc<TransferFormatRegistry>,
     pub key_derivation_policy: KeyDerivationPolicy,
     pub maximum_attachment_size_bytes: u64,
 }

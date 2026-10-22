@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use zeroize::Zeroizing;
+
 use crate::domain::secret_text::SecretText;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::VaultResult;
@@ -19,5 +21,6 @@ pub trait VaultExporter: Send + Sync {
 
     fn suggested_file_extension(&self) -> &'static str;
 
-    fn serialize_vault(&self, vault_contents: &VaultContents, file_password: Option<&SecretText>) -> VaultResult<Vec<u8>>;
+    /// Puede ir en texto plano: se devuelve en un buffer que se borra al soltarse.
+    fn serialize_vault(&self, vault_contents: &VaultContents, file_password: Option<&SecretText>) -> VaultResult<Zeroizing<Vec<u8>>>;
 }

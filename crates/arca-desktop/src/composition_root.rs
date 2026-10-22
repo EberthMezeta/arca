@@ -3,6 +3,7 @@
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use vault_core::application::vault_dependencies::{KeyDerivationPolicy, VaultDependencies};
 use vault_core::application::vault_service::VaultService;
@@ -76,7 +77,7 @@ pub fn compose_application(vault_event_sink: VaultEventSink) -> io::Result<Start
             application_data_directory.join(VAULT_REVISION_FILE_NAME),
         )),
         clock: Box::new(SystemClock),
-        transfer_format_registry: build_default_transfer_format_registry(),
+        transfer_format_registry: Arc::new(build_default_transfer_format_registry()),
         key_derivation_policy: KeyDerivationPolicy::default(),
         maximum_attachment_size_bytes: MAXIMUM_ATTACHMENT_SIZE_BYTES,
     };

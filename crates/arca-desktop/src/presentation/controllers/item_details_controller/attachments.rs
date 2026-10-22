@@ -11,7 +11,7 @@ use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file
 use super::ItemDetailsController;
 use crate::ItemDetails;
 use crate::composition_root::MAXIMUM_ATTACHMENT_SIZE_BYTES;
-use crate::platform::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
+use crate::platform::bounded_file_reader::read_user_file;
 use crate::platform::file_dialogs::{ask_file_to_open, ask_file_to_save};
 use crate::presentation::app_context::AppEvent;
 use crate::presentation::background_task::{run_in_background, run_with_vault_in_background, spawn_ui_task};
@@ -44,15 +44,18 @@ impl ItemDetailsController {
             };
             let file_name = chosen_path.file_name().map(|file_name| file_name.to_string_lossy().into_owned()).unwrap_or_default();
             let attaching_file_name = file_name.clone();
-            let attach_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                let file_bytes = read_file_with_size_limit(&chosen_path, MAXIMUM_ATTACHMENT_SIZE_BYTES).map_err(|read_error| match read_error {
-                    BoundedReadError::TooLarge => UiError::from(VaultError::AttachmentTooLarge { maximum_size_bytes: MAXIMUM_ATTACHMENT_SIZE_BYTES }),
-                    BoundedReadError::Unreadable(io_error) => UiError::file_access(io_error),
-                })?;
-                vault_service.add_attachment(item_id, &attaching_file_name, &file_bytes)?;
-                Ok(())
-            })
-            .await;
+            // Leer el archivo no necesita la bóveda: se hace sin tomarla, para no retrasar un bloqueo.
+            let too_large_error = UiError::from(VaultError::AttachmentTooLarge { maximum_size_bytes: MAXIMUM_ATTACHMENT_SIZE_BYTES });
+            let attach_result = match run_in_background(move || read_user_file(&chosen_path, MAXIMUM_ATTACHMENT_SIZE_BYTES, too_large_error)).await {
+                Ok(file_bytes) => {
+                    run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                        vault_service.add_attachment(item_id, &attaching_file_name, &file_bytes)?;
+                        Ok(())
+                    })
+                    .await
+                }
+                Err(ui_error) => Err(ui_error),
+            };
             controller.set_adding_attachment(false);
             match attach_result {
                 Ok(()) => {
