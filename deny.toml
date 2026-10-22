@@ -1,0 +1,54 @@
+# Política de dependencias: `cargo deny check` (y `cargo audit` para vulnerabilidades).
+# Cualquier excepción lleva el motivo; revisarlas al actualizar Slint o accesskit.
+
+[graph]
+all-features = false
+
+[advisories]
+# Las vulnerabilidades siempre fallan; los crates sin mantenimiento también, salvo los listados.
+unmaintained = "all"
+yanked = "deny"
+ignore = [
+    # Transitivas de Slint (decoraciones de ventana en Wayland vía sctk-adwaita); no procesan datos de la bóveda.
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser: lo trae sctk-adwaita (Slint/winit), solo fuentes del sistema" },
+    # Transitivas de accesskit (lectores de pantalla por AT-SPI en Linux); no procesan datos de la bóveda.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant: lo trae accesskit_unix (Slint), solo D-Bus de accesibilidad" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names: lo trae accesskit_unix (Slint), solo D-Bus de accesibilidad" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: lo trae accesskit_unix (Slint), solo D-Bus de accesibilidad" },
+]
+
+[licenses]
+confidence-threshold = 0.9
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+    # Slint se usa con su licencia royalty-free para aplicaciones de escritorio (exige atribución).
+    "LicenseRef-Slint-Royalty-free-2.0",
+]
+
+[licenses.private]
+# arca y vault-core no se publican en crates.io.
+ignore = true
+
+[bans]
+# Varias versiones del mismo crate son habituales en el árbol de Slint/wgpu y no afectan a la seguridad.
+multiple-versions = "allow"
+wildcards = "deny"
+# vault-core se enlaza por ruta dentro del workspace.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

@@ -1,6 +1,7 @@
 [package]
 name = "arca"
 version = "0.1.0"
+publish = false
 description = "Gestor de contraseñas local y cifrado"
 edition = "2024"
 build = "build.rs"

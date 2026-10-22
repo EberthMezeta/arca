@@ -24,6 +24,13 @@ cargo test --workspace            # núcleo (cripto, formato, casos de uso, impo
 cargo clippy --workspace --all-targets
 ```
 
+Dependencias (`cargo install --locked cargo-audit cargo-deny`, una sola vez):
+
+```bash
+cargo audit                       # vulnerabilidades conocidas (RustSec)
+cargo deny check                  # vulnerabilidades, crates sin mantener o retirados, licencias y orígenes (deny.toml)
+```
+
 ## Seguridad
 
 | Pieza | Elección |
@@ -74,6 +81,17 @@ Lo que Arca **no** puede garantizar, y por qué:
   retardo solo frena a quien tiene la app delante; frente a quien tiene acceso al disco protege el coste de Argon2id.
 - **Portapapeles.** No todos los gestores de historial respetan la marca de contenido sensible.
 - **Sin auditoría externa.** El diseño se ha revisado internamente, pero nadie independiente ha auditado el código.
+
+### Pendiente de seguridad
+
+Ordenado por impacto frente a esfuerzo:
+
+- [x] **Auditar dependencias**: `cargo audit` y `cargo deny check` (`deny.toml`) pasan sin vulnerabilidades.
+      Las excepciones son crates sin mantener que trae Slint y no tocan la bóveda. Falta ejecutarlos en CI.
+- [ ] **Fuzzing** del lector del archivo de bóveda y de los importadores (`cargo fuzz`): son la entrada no confiable.
+- [ ] **Detectar rollback**: guardar aparte un contador de versión de la bóveda y avisar si el archivo retrocede.
+- [ ] **Revisar la política de contraseña maestra**: con una maestra débil, el resto del diseño importa poco.
+- [ ] **Revisión externa** del código, aunque sea informal.
 
 ## Arquitectura
 
