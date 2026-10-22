@@ -4,6 +4,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use slint::ComponentHandle;
 use uuid::Uuid;
@@ -11,6 +12,7 @@ use vault_core::application::search_vault_items::{FolderScope, VaultItemFilter};
 use vault_core::domain::item_content::ItemContentType;
 
 use crate::platform::ui_preferences_store::{UiPreferences, UiPreferencesStore};
+use crate::presentation::ports::{FileDialogs, UserFiles};
 use crate::presentation::controllers::dialog_controller::DialogService;
 use crate::presentation::controllers::toast_controller::ToastCenter;
 use crate::presentation::translator::Translator;
@@ -194,6 +196,14 @@ pub struct AppContext {
     pub navigator: WorkspaceNavigator,
     pub toasts: ToastCenter,
     pub dialogs: DialogService,
+    pub file_dialogs: Rc<dyn FileDialogs>,
+    pub user_files: Arc<dyn UserFiles>,
+}
+
+/// Lo que la presentación necesita del sistema, inyectado (en los tests, dobles).
+pub struct SystemPorts {
+    pub file_dialogs: Rc<dyn FileDialogs>,
+    pub user_files: Arc<dyn UserFiles>,
 }
 
 impl AppContext {
@@ -202,6 +212,7 @@ impl AppContext {
         shared_vault: SharedVault,
         vault_file_path: PathBuf,
         ui_preferences_store: UiPreferencesStore,
+        system_ports: SystemPorts,
     ) -> Rc<Self> {
         let ui_preferences = ui_preferences_store.load();
         let translator = Translator::new(ui_preferences.language_code.as_deref());
@@ -217,6 +228,8 @@ impl AppContext {
             events,
             toasts: ToastCenter::new(app_window.as_weak()),
             dialogs: DialogService::new(app_window.as_weak()),
+            file_dialogs: system_ports.file_dialogs,
+            user_files: system_ports.user_files,
         })
     }
 

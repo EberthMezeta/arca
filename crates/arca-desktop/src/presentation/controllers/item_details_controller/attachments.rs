@@ -1,19 +1,17 @@
 //! Adjuntos del elemento abierto: añadir, guardar una copia descifrada (con reautenticación) y quitar.
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use slint::ComponentHandle;
 use uuid::Uuid;
 use vault_core::domain::secret_text::SecretText;
 use vault_core::domain::vault_error::VaultError;
-use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
 
 use super::ItemDetailsController;
 use crate::presentation::app_commands::ItemCommand;
 use crate::ItemDetails;
 use crate::composition_root::MAXIMUM_ATTACHMENT_SIZE_BYTES;
-use crate::platform::bounded_file_reader::read_user_file;
-use crate::platform::file_dialogs::{ask_file_to_open, ask_file_to_save};
 use crate::presentation::app_context::AppEvent;
 use crate::presentation::background_task::{run_in_background, run_with_vault_in_background, spawn_ui_task};
 use crate::presentation::controllers::clipboard_feedback::report_error;
@@ -40,14 +38,19 @@ impl ItemDetailsController {
         let controller = Rc::clone(self);
         spawn_ui_task(async move {
             let dialog_title = controller.context.text("attachments.chooseFile");
-            let Some(chosen_path) = ask_file_to_open(&dialog_title, None).await else {
+            let Some(chosen_path) = controller.context.file_dialogs.choose_file_to_open(&dialog_title).await else {
                 return controller.set_adding_attachment(false);
             };
             let file_name = chosen_path.file_name().map(|file_name| file_name.to_string_lossy().into_owned()).unwrap_or_default();
             let attaching_file_name = file_name.clone();
             // Leer el archivo no necesita la bóveda: se hace sin tomarla, para no retrasar un bloqueo.
             let too_large_error = UiError::from(VaultError::AttachmentTooLarge { maximum_size_bytes: MAXIMUM_ATTACHMENT_SIZE_BYTES });
-            let attach_result = match run_in_background(move || read_user_file(&chosen_path, MAXIMUM_ATTACHMENT_SIZE_BYTES, too_large_error)).await {
+            let user_files = Arc::clone(&controller.context.user_files);
+            let attach_result = match run_in_background(move || {
+                user_files.read_limited(&chosen_path, MAXIMUM_ATTACHMENT_SIZE_BYTES, too_large_error)
+            })
+            .await
+            {
                 Ok(file_bytes) => {
                     run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
                         vault_service.add_attachment(item_id, &attaching_file_name, &file_bytes)?;
@@ -112,11 +115,14 @@ impl ItemDetailsController {
             controller.context.dialogs.close_prompt();
 
             let dialog_title = controller.context.text("attachments.saveCopy");
-            let Some(destination_path) = ask_file_to_save(&dialog_title, &decrypted_attachment.file_name).await else {
+            let Some(destination_path) =
+                controller.context.file_dialogs.choose_file_to_save(&dialog_title, &decrypted_attachment.file_name).await
+            else {
                 return;
             };
+            let user_files = Arc::clone(&controller.context.user_files);
             let write_result = run_in_background(move || {
-                write_owner_only_file(&destination_path, &decrypted_attachment.file_bytes).map_err(UiError::file_write)
+                user_files.write_private(&destination_path, &decrypted_attachment.file_bytes)
             })
             .await;
             match write_result {

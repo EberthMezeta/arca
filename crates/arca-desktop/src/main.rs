@@ -11,13 +11,17 @@ mod ui_error;
 mod vault_events;
 
 use std::process::ExitCode;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use rfd::{MessageDialog, MessageLevel};
 use slint::ComponentHandle;
 
 use crate::composition_root::{ComposedApplication, StartupOutcome, compose_application};
 use crate::platform::{auto_lock_scheduler, process_hardening, system_color_scheme, system_lock_watcher};
-use crate::presentation::app_context::AppContext;
+use crate::platform::file_dialogs::NativeFileDialogs;
+use crate::platform::local_user_files::LocalUserFiles;
+use crate::presentation::app_context::{AppContext, SystemPorts};
 use crate::presentation::{controllers, vault_event_bridge};
 use crate::shared_vault::VaultLocker;
 
@@ -71,7 +75,8 @@ fn main() -> ExitCode {
     system_lock_watcher::start(&vault_locker);
     auto_lock_scheduler::start(vault_locker);
 
-    let context = AppContext::new(&app_window, shared_vault.clone(), vault_file_path, ui_preferences_store);
+    let system_ports = SystemPorts { file_dialogs: Rc::new(NativeFileDialogs), user_files: Arc::new(LocalUserFiles) };
+    let context = AppContext::new(&app_window, shared_vault.clone(), vault_file_path, ui_preferences_store, system_ports);
     controllers::install_all(&context, &app_window);
 
     let run_result = app_window.run();

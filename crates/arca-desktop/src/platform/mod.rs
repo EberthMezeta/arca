@@ -2,10 +2,10 @@
 
 pub mod application_paths;
 pub mod auto_lock_scheduler;
-pub mod bounded_file_reader;
 pub mod data_files;
 pub mod file_dialogs;
 pub mod legacy_data_migration;
+pub mod local_user_files;
 pub mod process_hardening;
 pub mod single_instance_lock;
 pub mod system_color_scheme;

@@ -2,6 +2,7 @@
 //! en claro pendiente se descarta al bloquear.
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use chrono::Local;
 use slint::{ComponentHandle, SharedString};
@@ -9,11 +10,8 @@ use vault_core::application::import_export_vault::{ExportedFile, ImportLabels, p
 use vault_core::domain::ports::vault_exporter::ExportFormat;
 use vault_core::domain::ports::vault_importer::ImportFormat;
 use vault_core::domain::secret_text::SecretText;
-use vault_core::infrastructure::storage::owner_only_files::write_owner_only_file;
 
 use crate::composition_root::MAXIMUM_IMPORT_FILE_SIZE_BYTES;
-use crate::platform::bounded_file_reader::read_user_file;
-use crate::platform::file_dialogs::{ask_file_to_open, ask_file_to_save};
 use crate::presentation::app_context::AppEvent;
 use crate::presentation::background_task::{run_in_background, run_with_vault_in_background, spawn_ui_task};
 use crate::presentation::controllers::clipboard_feedback::report_error;
@@ -126,16 +124,18 @@ impl SettingsController {
             let controller = Rc::clone(self);
             spawn_ui_task(async move {
                 let dialog_title = controller.context.text("transfer.chooseImportFile");
-                let Some(chosen_path) = ask_file_to_open(&dialog_title, None).await else {
+                let Some(chosen_path) = controller.context.file_dialogs.choose_file_to_open(&dialog_title).await else {
                     return controller.with_settings(|settings| settings.set_is_importing(false));
                 };
                 // Leer y descifrar el archivo (una copia `.arca` puede pedir un Argon2id de decenas de
                 // segundos) se hace sin tomar la bóveda: así el bloqueo nunca tiene que esperar.
                 let transfer_formats = controller.context.shared_vault.lock_service().map(|vault_service| vault_service.transfer_format_registry());
+                let user_files = Arc::clone(&controller.context.user_files);
                 let parse_result = match transfer_formats {
                     Ok(transfer_formats) => {
                         run_in_background(move || {
-                            let file_bytes = read_user_file(&chosen_path, MAXIMUM_IMPORT_FILE_SIZE_BYTES, UiError::import_file_too_large())?;
+                            let file_bytes =
+                                user_files.read_limited(&chosen_path, MAXIMUM_IMPORT_FILE_SIZE_BYTES, UiError::import_file_too_large())?;
                             Ok(parse_import_file(&transfer_formats, import_format, &file_bytes, file_password.as_ref())?)
                         })
                         .await
@@ -219,13 +219,14 @@ impl SettingsController {
                     format!("arca-export-{}.{}", Local::now().format("%Y-%m-%d"), exported_file.suggested_file_extension);
                 *controller.export_state.borrow_mut() = ExportState::AwaitingDestination(exported_file);
                 let dialog_title = controller.context.text("transfer.chooseExportFile");
-                let destination_path = ask_file_to_save(&dialog_title, &suggested_file_name).await;
+                let destination_path = controller.context.file_dialogs.choose_file_to_save(&dialog_title, &suggested_file_name).await;
                 let pending_export = controller.export_state.borrow_mut().take_pending();
                 let (Some(destination_path), Some(exported_file)) = (destination_path, pending_export) else {
                     return controller.with_settings(|settings| settings.set_is_exporting(false));
                 };
+                let user_files = Arc::clone(&controller.context.user_files);
                 let write_result = run_in_background(move || {
-                    write_owner_only_file(&destination_path, &exported_file.file_bytes).map_err(UiError::file_write)
+                    user_files.write_private(&destination_path, &exported_file.file_bytes)
                 })
                 .await;
                 controller.with_settings(|settings| settings.set_is_exporting(false));
