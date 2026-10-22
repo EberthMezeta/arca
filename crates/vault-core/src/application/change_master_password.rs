@@ -65,7 +65,7 @@ pub fn execute(
         encoded_header_bytes: new_encoded_header_bytes,
         vault_subkeys: new_vault_subkeys,
         vault_contents: rotated_contents,
-        last_activity_at: unlocked_vault.last_activity_at,
+        last_activity: unlocked_vault.last_activity,
     };
     Ok(())
 }

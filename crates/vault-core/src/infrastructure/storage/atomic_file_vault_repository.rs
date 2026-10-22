@@ -3,8 +3,13 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use crate::domain::ports::vault_repository::VaultRepository;
+use crate::infrastructure::storage::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::infrastructure::storage::owner_only_files::{create_owner_only_directory, write_owner_only_file};
+
+/// Ninguna bóveda real se acerca (solo texto; los adjuntos van aparte): un archivo mayor lo ha
+/// puesto alguien con acceso al disco, y leerlo entero podría agotar la RAM.
+pub const MAXIMUM_VAULT_FILE_SIZE_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Guarda la bóveda en disco de forma atómica:
 /// copia de seguridad `.bak` → escribe `.tmp` + fsync → `rename` sobre el original.
@@ -38,13 +43,13 @@ impl VaultRepository for AtomicFileVaultRepository {
         if !self.vault_exists() {
             return Err(VaultError::VaultNotFound);
         }
-        fs::read(&self.vault_file_path).map_err(VaultError::storage)
+        self.read_existing_vault_bytes()
     }
 
     fn write_vault_bytes(&self, encrypted_vault_bytes: &[u8]) -> VaultResult<()> {
         self.ensure_parent_directory()?;
         if self.vault_exists() {
-            let previous_vault_bytes = fs::read(&self.vault_file_path).map_err(VaultError::storage)?;
+            let previous_vault_bytes = self.read_existing_vault_bytes()?;
             write_owner_only_file(&self.backup_file_path(), &previous_vault_bytes)?;
         }
         self.replace_atomically(encrypted_vault_bytes)
@@ -60,6 +65,16 @@ impl VaultRepository for AtomicFileVaultRepository {
 }
 
 impl AtomicFileVaultRepository {
+    fn read_existing_vault_bytes(&self) -> VaultResult<Vec<u8>> {
+        read_file_with_size_limit(&self.vault_file_path, MAXIMUM_VAULT_FILE_SIZE_BYTES)
+            // Va cifrada: se saca del `Zeroizing` sin copiarla.
+            .map(|mut vault_bytes| std::mem::take(&mut *vault_bytes))
+            .map_err(|read_error| match read_error {
+                BoundedReadError::TooLarge => VaultError::corrupted_file("la bóveda es demasiado grande"),
+                BoundedReadError::Unreadable(io_error) => VaultError::storage(io_error),
+            })
+    }
+
     fn backup_file_path(&self) -> PathBuf {
         self.sibling_path_with_suffix(".bak")
     }

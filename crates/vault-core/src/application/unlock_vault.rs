@@ -2,7 +2,7 @@ use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::application::throttled_master_password_attempt::run_throttled;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::unwrap_vault_key;
-use crate::application::vault_session::UnlockedVault;
+use crate::application::vault_session::{ActivityTimestamp, UnlockedVault};
 use crate::domain::key_hierarchy::derive_vault_subkeys;
 use crate::domain::secret_text::SecretText;
 use crate::domain::vault_contents::VaultContents;
@@ -60,6 +60,6 @@ fn decrypt_vault(vault_dependencies: &VaultDependencies, master_password: &Secre
         encoded_header_bytes: decoded_vault_file.encoded_header_bytes,
         vault_subkeys,
         vault_contents,
-        last_activity_at: vault_dependencies.clock.now(),
+        last_activity: ActivityTimestamp::now(vault_dependencies.clock.as_ref()),
     })
 }

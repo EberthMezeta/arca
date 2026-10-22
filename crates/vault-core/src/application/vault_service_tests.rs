@@ -177,6 +177,17 @@ fn unlocking_with_a_master_password_below_the_current_policy_reports_it() {
 }
 
 #[test]
+fn turning_the_system_clock_back_does_not_postpone_the_auto_lock() {
+    let mut test_harness = harness_with_created_vault();
+    let auto_lock_after_seconds = test_harness.vault_service.preferences().expect("preferencias").auto_lock_after_idle_seconds;
+
+    test_harness.fake_clock.advance_by(Duration::seconds(i64::try_from(auto_lock_after_seconds).expect("cabe")));
+    test_harness.fake_clock.set_wall_clock_back_by(Duration::hours(1));
+
+    assert!(test_harness.vault_service.lock_if_idle());
+}
+
+#[test]
 fn weak_master_password_is_rejected_on_creation() {
     let mut test_harness = build_test_vault_service();
 

@@ -33,6 +33,10 @@ impl KeyDerivationParameters {
         parallelism_degree: 16,
     };
 
+    /// Para copias `.arca` de otro equipo: las exportaciones se crean con `RECOMMENDED` (3 pasadas),
+    /// así que 16 deja margen para subirlo sin aceptar archivos que bloqueen la app un minuto.
+    pub const MAXIMUM_ACCEPTED_FOR_IMPORT: Self = Self { iteration_count: 16, ..Self::MAXIMUM_ACCEPTED };
+
     pub fn is_within(&self, lower_bound: &Self, upper_bound: &Self) -> bool {
         (lower_bound.memory_cost_kibibytes..=upper_bound.memory_cost_kibibytes).contains(&self.memory_cost_kibibytes)
             && (lower_bound.iteration_count..=upper_bound.iteration_count).contains(&self.iteration_count)

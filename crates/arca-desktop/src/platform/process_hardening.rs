@@ -19,15 +19,21 @@ pub fn apply() {
 fn disable_core_dumps() {
     let no_core_dumps = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
     // SAFETY: `setrlimit` solo lee la estructura que se le pasa, que vive durante toda la llamada.
-    unsafe {
-        libc::setrlimit(libc::RLIMIT_CORE, &raw const no_core_dumps);
-    }
+    let result = unsafe { libc::setrlimit(libc::RLIMIT_CORE, &raw const no_core_dumps) };
+    report_if_failed("desactivar los volcados de memoria (setrlimit)", result);
 }
 
 #[cfg(target_os = "linux")]
 fn deny_memory_inspection() {
     // SAFETY: `PR_SET_DUMPABLE` solo cambia un atributo del propio proceso; no toca memoria de Rust.
-    unsafe {
-        libc::prctl(libc::PR_SET_DUMPABLE, 0, 0, 0, 0);
+    let result = unsafe { libc::prctl(libc::PR_SET_DUMPABLE, 0, 0, 0, 0) };
+    report_if_failed("impedir que otros procesos lean la memoria (PR_SET_DUMPABLE)", result);
+}
+
+/// La app sigue sin la protección, pero queda constancia (por la terminal o el registro del sistema).
+#[cfg(unix)]
+fn report_if_failed(protection: &str, call_result: libc::c_int) {
+    if call_result != 0 {
+        eprintln!("Aviso: no se pudo {protection}: {}", std::io::Error::last_os_error());
     }
 }

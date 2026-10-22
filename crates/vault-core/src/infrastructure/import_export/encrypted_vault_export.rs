@@ -145,7 +145,7 @@ impl VaultImporter for EncryptedVaultExportImporter {
 
         let has_safe_parameters = export_envelope.key_derivation_parameters.is_within(
             &KeyDerivationParameters::MINIMUM_ACCEPTED,
-            &KeyDerivationParameters::MAXIMUM_ACCEPTED,
+            &KeyDerivationParameters::MAXIMUM_ACCEPTED_FOR_IMPORT,
         );
         if !has_safe_parameters {
             return Err(VaultError::InsecureKeyDerivationParameters);

@@ -20,21 +20,33 @@ pub const STRONG_MASTER_PASSWORD: &str = "glacier-mantis-orbit-velvet-27";
 #[derive(Clone)]
 pub struct FakeClock {
     current_time: Arc<Mutex<DateTime<Utc>>>,
+    monotonic_time: Arc<Mutex<std::time::Duration>>,
 }
 
 impl FakeClock {
     pub fn starting_now() -> Self {
-        Self { current_time: Arc::new(Mutex::new(Utc::now())) }
+        Self { current_time: Arc::new(Mutex::new(Utc::now())), monotonic_time: Arc::default() }
     }
 
+    /// Pasa el tiempo de verdad: avanzan los dos relojes.
     pub fn advance_by(&self, elapsed_time: Duration) {
         *self.current_time.lock().expect("mutex") += elapsed_time;
+        *self.monotonic_time.lock().expect("mutex") += elapsed_time.to_std().unwrap_or_default();
+    }
+
+    /// Alguien atrasa la hora del sistema: el reloj monótono no se entera.
+    pub fn set_wall_clock_back_by(&self, rewound_time: Duration) {
+        *self.current_time.lock().expect("mutex") -= rewound_time;
     }
 }
 
 impl Clock for FakeClock {
     fn now(&self) -> DateTime<Utc> {
         *self.current_time.lock().expect("mutex")
+    }
+
+    fn monotonic_now(&self) -> std::time::Duration {
+        *self.monotonic_time.lock().expect("mutex")
     }
 }
 

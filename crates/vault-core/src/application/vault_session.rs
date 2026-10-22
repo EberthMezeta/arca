@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::domain::encryption_key::EncryptionKey;
+use crate::domain::ports::clock::Clock;
 use crate::domain::key_hierarchy::VaultSubkeys;
 use crate::domain::secret_serialization::serialize_secret_json;
 use crate::domain::vault_contents::VaultContents;
@@ -41,13 +42,34 @@ impl VaultSessionState {
     }
 }
 
+/// Última actividad medida con los dos relojes: el de pared cuenta el tiempo de suspensión y
+/// el monótono no se deja engañar si alguien (o NTP) atrasa la hora del sistema.
+#[derive(Debug, Clone, Copy)]
+pub struct ActivityTimestamp {
+    wall_clock: DateTime<Utc>,
+    monotonic_clock: std::time::Duration,
+}
+
+impl ActivityTimestamp {
+    pub fn now(clock: &dyn Clock) -> Self {
+        Self { wall_clock: clock.now(), monotonic_clock: clock.monotonic_now() }
+    }
+
+    /// El mayor de los dos: basta con que uno diga que pasó el tiempo para bloquear.
+    pub fn idle_seconds(&self, clock: &dyn Clock) -> u64 {
+        let wall_clock_idle_seconds = u64::try_from((clock.now() - self.wall_clock).num_seconds()).unwrap_or(0);
+        let monotonic_idle_seconds = clock.monotonic_now().saturating_sub(self.monotonic_clock).as_secs();
+        wall_clock_idle_seconds.max(monotonic_idle_seconds)
+    }
+}
+
 pub struct UnlockedVault {
     pub vault_key: EncryptionKey,
     pub vault_header: VaultFileHeader,
     pub encoded_header_bytes: Vec<u8>,
     pub vault_subkeys: VaultSubkeys,
     pub vault_contents: VaultContents,
-    pub last_activity_at: DateTime<Utc>,
+    pub last_activity: ActivityTimestamp,
 }
 
 impl UnlockedVault {

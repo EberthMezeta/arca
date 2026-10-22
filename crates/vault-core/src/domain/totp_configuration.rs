@@ -13,6 +13,7 @@ use crate::domain::vault_error::{VaultError, VaultResult};
 const DEFAULT_DIGIT_COUNT: u32 = 6;
 const DEFAULT_PERIOD_SECONDS: u64 = 30;
 const SUPPORTED_DIGIT_COUNTS: std::ops::RangeInclusive<u32> = 6..=8;
+const OTPAUTH_SCHEME: &str = "otpauth://";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TotpHashAlgorithm {
@@ -65,7 +66,8 @@ pub struct TotpConfiguration {
 impl TotpConfiguration {
     pub fn parse(totp_secret: &SecretText) -> VaultResult<Self> {
         let trimmed_secret = totp_secret.expose_secret().trim();
-        if trimmed_secret.to_ascii_lowercase().starts_with("otpauth://") {
+        // Sin `to_ascii_lowercase()` del secreto entero: dejaría otra copia sin borrar.
+        if trimmed_secret.get(..OTPAUTH_SCHEME.len()).is_some_and(|scheme| scheme.eq_ignore_ascii_case(OTPAUTH_SCHEME)) {
             return Self::parse_otpauth_uri(trimmed_secret);
         }
         Ok(Self {
@@ -82,9 +84,10 @@ impl TotpConfiguration {
             parsed_uri
                 .query_pairs()
                 .find(|(query_key, _)| query_key.eq_ignore_ascii_case(parameter_name))
-                .map(|(_, query_value)| query_value.into_owned())
+                .map(|(_, query_value)| Zeroizing::new(query_value.into_owned()))
         };
 
+        // `Url` guarda su propia copia de la URI, que no se puede borrar: límite conocido.
         let base32_secret = find_query_parameter("secret").ok_or(VaultError::InvalidTotpSecret)?;
         let hash_algorithm = find_query_parameter("algorithm")
             .map_or(Ok(TotpHashAlgorithm::Sha1), |algorithm_name| TotpHashAlgorithm::from_uri_name(&algorithm_name))?;
@@ -124,11 +127,14 @@ impl TotpConfiguration {
 }
 
 fn decode_base32_secret(base32_secret: &str) -> VaultResult<Zeroizing<Vec<u8>>> {
-    let normalized_secret: String = base32_secret
-        .chars()
-        .filter(|secret_character| !secret_character.is_whitespace() && *secret_character != '=')
-        .map(|secret_character| secret_character.to_ascii_uppercase())
-        .collect();
+    // Mismo tamaño que la entrada: reservar evita realocar (y dejar copias sin borrar).
+    let mut normalized_secret = Zeroizing::new(String::with_capacity(base32_secret.len()));
+    normalized_secret.extend(
+        base32_secret
+            .chars()
+            .filter(|secret_character| !secret_character.is_whitespace() && *secret_character != '=')
+            .map(|secret_character| secret_character.to_ascii_uppercase()),
+    );
     if normalized_secret.is_empty() {
         return Err(VaultError::InvalidTotpSecret);
     }

@@ -66,6 +66,7 @@ pub fn compose_application(vault_event_sink: VaultEventSink) -> io::Result<Start
         vault_repository: Box::new(AtomicFileVaultRepository::new(&vault_file_path)),
         attachment_storage: Box::new(DirectoryAttachmentStorage::new(
             application_data_directory.join(ATTACHMENTS_DIRECTORY_NAME),
+            MAXIMUM_ATTACHMENT_SIZE_BYTES,
         )),
         key_derivation_function: Box::new(Argon2idKeyDerivation),
         authenticated_cipher: Box::new(XChaCha20Poly1305Cipher),

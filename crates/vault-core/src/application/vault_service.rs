@@ -18,7 +18,7 @@ use crate::application::transfer_format_registry::TransferFormatRegistry;
 use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::unwrap_vault_key;
-use crate::application::vault_session::{UnlockedVault, VaultSessionState};
+use crate::application::vault_session::{ActivityTimestamp, UnlockedVault, VaultSessionState};
 use crate::application::{
     change_master_password, create_vault, manage_folders, manage_item_lifecycle, unlock_vault,
 };
@@ -76,7 +76,7 @@ impl VaultService {
         clock: &dyn Clock,
     ) -> VaultResult<&'session mut UnlockedVault> {
         let unlocked_vault = session_state.require_unlocked_mut()?;
-        unlocked_vault.last_activity_at = clock.now();
+        unlocked_vault.last_activity = ActivityTimestamp::now(clock);
         Ok(unlocked_vault)
     }
 
@@ -151,13 +151,11 @@ impl VaultService {
 
     /// Lo llama periódicamente el planificador de auto-bloqueo. Devuelve `true` si ha bloqueado.
     pub fn lock_if_idle(&mut self) -> bool {
-        let now = self.now();
         let Ok(unlocked_vault) = self.session_state.require_unlocked() else {
             return false;
         };
-        let idle_seconds = (now - unlocked_vault.last_activity_at).num_seconds();
-        let auto_lock_after_seconds = unlocked_vault.vault_contents.preferences.auto_lock_after_idle_seconds;
-        let is_idle_too_long = u64::try_from(idle_seconds).is_ok_and(|idle_seconds| idle_seconds >= auto_lock_after_seconds);
+        let idle_seconds = unlocked_vault.last_activity.idle_seconds(self.vault_dependencies.clock.as_ref());
+        let is_idle_too_long = idle_seconds >= unlocked_vault.vault_contents.preferences.auto_lock_after_idle_seconds;
         if is_idle_too_long {
             self.lock_session();
         }

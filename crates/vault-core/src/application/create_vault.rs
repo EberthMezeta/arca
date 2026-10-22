@@ -1,6 +1,6 @@
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::build_header_wrapping_vault_key;
-use crate::application::vault_session::{UnlockedVault, persist_vault_contents};
+use crate::application::vault_session::{ActivityTimestamp, UnlockedVault, persist_vault_contents};
 use crate::domain::key_hierarchy::derive_vault_subkeys;
 use crate::domain::master_password_policy::MasterPasswordPolicy;
 use crate::domain::secret_text::SecretText;
@@ -42,6 +42,6 @@ pub fn execute(vault_dependencies: &VaultDependencies, master_password: &SecretT
         encoded_header_bytes,
         vault_subkeys,
         vault_contents,
-        last_activity_at: vault_dependencies.clock.now(),
+        last_activity: ActivityTimestamp::now(vault_dependencies.clock.as_ref()),
     })
 }
