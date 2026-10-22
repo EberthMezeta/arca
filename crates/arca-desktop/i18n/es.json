@@ -35,7 +35,8 @@
     "generator": "Generador",
     "health": "Salud de contraseñas",
     "settings": "Ajustes",
-    "itemList": "Lista de elementos"
+    "itemList": "Lista de elementos",
+    "openMenu": "Abrir menú"
   },
   "itemTypes": {
     "login": "Inicio de sesión",

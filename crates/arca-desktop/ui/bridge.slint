@@ -156,6 +156,8 @@ export global Workspace {
     in property <int> focus-search-requests;
     callback search-edited(text: string);
     callback select-row(row: int);
+    /// Deja de mostrar el elemento abierto; en una sola columna, vuelve a la lista.
+    callback close-item();
     callback move-selection(offset: int);
     callback copy-username(row: int);
     callback copy-password(row: int);

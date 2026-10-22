@@ -3,6 +3,7 @@
 import { Theme, Icons } from "theme.slint";
 import { I18n, Sidebar, NavEntry, NavIcon, Session } from "bridge.slint";
 import { Icon, IconButton, SectionLabel, Kbd, VisualRegistry } from "primitives.slint";
+import { Viewport } from "viewport.slint";
 import { ScrollView } from "std-widgets.slint";
 
 component NavButton inherits Rectangle {
@@ -16,7 +17,10 @@ component NavButton inherits Rectangle {
 
     touch := TouchArea {
         mouse-cursor: pointer;
-        clicked => { Sidebar.activate(root.entry.entry-key); }
+        clicked => {
+            Viewport.is-drawer-requested = false;
+            Sidebar.activate(root.entry.entry-key);
+        }
 
         HorizontalLayout {
             padding-left: 10px;
@@ -160,7 +164,10 @@ export component VaultSidebar inherits Rectangle {
                 accessible-label: I18n.t("actions.lock");
                 lock-touch := TouchArea {
                     mouse-cursor: pointer;
-                    clicked => { Session.lock-now(); }
+                    clicked => {
+                        Viewport.is-drawer-requested = false;
+                        Session.lock-now();
+                    }
                 }
                 HorizontalLayout {
                     padding-left: 10px;

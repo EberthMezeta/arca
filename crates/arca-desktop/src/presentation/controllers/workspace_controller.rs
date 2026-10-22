@@ -83,6 +83,8 @@ impl WorkspaceController {
         workspace.on_search_edited(move |search_text| search_controller.context.navigator.change_search_text(&search_text));
         let selecting_controller = Rc::clone(self);
         workspace.on_select_row(move |row_position| selecting_controller.select_row(row_position));
+        let closing_controller = Rc::clone(self);
+        workspace.on_close_item(move || closing_controller.context.navigator.select_item(None));
         let moving_controller = Rc::clone(self);
         workspace.on_move_selection(move |selection_offset| moving_controller.move_selection(selection_offset));
         let username_controller = Rc::clone(self);

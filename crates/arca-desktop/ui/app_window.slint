@@ -2,11 +2,12 @@
 // Los globales se reexportan aquí para que los controladores Rust puedan usarlos.
 
 import { Theme } from "theme.slint";
-import { AppScreen, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette } from "bridge.slint";
+import { AppScreen, ItemPanel, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette } from "bridge.slint";
 import { LoadingScreen, SetupScreen, UnlockScreen } from "session_screens.slint";
 import { VaultScreen } from "vault_screen.slint";
 import { CommandPaletteOverlay } from "command_palette.slint";
 import { ToastViewport, DialogLayer } from "overlays.slint";
+import { Viewport } from "viewport.slint";
 import { Palette } from "std-widgets.slint";
 
 export { Theme, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette }
@@ -18,8 +19,8 @@ export component AppWindow inherits Window {
     icon: @image-url("../icons/arca.png");
     preferred-width: 1200px;
     preferred-height: 780px;
-    min-width: 900px;
-    min-height: 580px;
+    min-width: 360px;
+    min-height: 480px;
     background: Theme.canvas;
     default-font-size: Theme.font-md;
     forward-focus: shortcut-scope;
@@ -39,12 +40,14 @@ export component AppWindow inherits Window {
 
     // Los widgets estándar (ComboBox, ScrollView…) siguen el tema elegido, no solo el del sistema.
     init => {
+        Viewport.window-width = self.width;
         Theme.system-is-dark = Palette.color-scheme == ColorScheme.dark;
         Palette.color-scheme = Theme.dark ? ColorScheme.dark : ColorScheme.light;
     }
     changed uses-dark-theme => {
         Palette.color-scheme = self.uses-dark-theme ? ColorScheme.dark : ColorScheme.light;
     }
+    changed width => { Viewport.window-width = self.width; }
 
     shortcut-scope := FocusScope {
         capture-key-pressed(event) => {
@@ -59,7 +62,16 @@ export component AppWindow inherits Window {
         }
         // Esc llega aquí solo si ningún control lo usó (paleta y diálogos lo gestionan antes).
         key-pressed(event) => {
+            if event.text == Key.Escape && Viewport.is-drawer-open {
+                Viewport.is-drawer-requested = false;
+                return accept;
+            }
             if event.text == Key.Escape && Session.screen == AppScreen.vault && Workspace.shortcut("escape") {
+                return accept;
+            }
+            // En una sola columna, Esc desde los detalles vuelve a la lista.
+            if event.text == Key.Escape && Session.screen == AppScreen.vault && Viewport.shows-single-pane && Workspace.item-panel == ItemPanel.details {
+                Workspace.close-item();
                 return accept;
             }
             return reject;

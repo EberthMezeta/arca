@@ -35,7 +35,8 @@
     "generator": "Generator",
     "health": "Password health",
     "settings": "Settings",
-    "itemList": "Item list"
+    "itemList": "Item list",
+    "openMenu": "Open menu"
   },
   "itemTypes": {
     "login": "Login",

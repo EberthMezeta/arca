@@ -16,7 +16,6 @@ global ToastAppearance {
 
 component ToastCard inherits Rectangle {
     in property <ToastData> toast;
-    width: 360px;
     height: toast-layout.preferred-height;
     background: Theme.surface;
     border-radius: Theme.radius-lg;
@@ -84,6 +83,7 @@ component ToastCard inherits Rectangle {
 export component ToastViewport inherits Rectangle {
     for toast[position] in Toasts.visible-toasts: ToastCard {
         toast: toast;
+        width: min(360px, root.width - 32px);
         x: root.width - self.width - 16px;
         y: root.height - (Toasts.visible-toasts.length - position) * (self.height + 8px) - 8px;
     }

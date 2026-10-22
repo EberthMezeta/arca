@@ -1,0 +1,17 @@
+// Ancho disponible de la ventana y puntos de corte del diseño adaptable.
+//
+//   ancho   ≥ 1000 px → barra lateral fija, lista y panel lado a lado.
+//   medio   ≥  680 px → la barra lateral pasa a un cajón; lista y panel siguen lado a lado.
+//   estrecho < 680 px → cajón y un solo panel a la vez (la lista o el elemento abierto).
+
+export global Viewport {
+    /// La ventana lo actualiza al cambiar de tamaño.
+    in-out property <length> window-width: 1200px;
+    out property <bool> has-fixed-sidebar: window-width >= 1000px;
+    out property <bool> shows-single-pane: window-width < 680px;
+    /// Margen lateral de las páginas centradas (generador, ajustes, salud, elemento).
+    out property <length> page-gutter: shows-single-pane ? 16px : 32px;
+    /// El cajón solo existe sin barra lateral fija; al ensanchar la ventana se ignora.
+    in-out property <bool> is-drawer-requested;
+    out property <bool> is-drawer-open: is-drawer-requested && !has-fixed-sidebar;
+}
