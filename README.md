@@ -59,9 +59,9 @@ cargo deny check                  # vulnerabilidades, crates sin mantener o reti
 | Interfaz | Slint nativo en el mismo proceso: sin WebView, sin JavaScript y sin superficie web (ni CSP que configurar). La interfaz solo lee propiedades y emite callbacks; los controladores Rust son los únicos que tocan la bóveda. Los secretos llegan enmascarados (también al editor) y el valor real solo se publica al pulsar «Mostrar»; lo revelado se vuelve a ocultar a los 30 s. Al guardar, un secreto enmascarado sin tocar conserva su valor |
 | Campos sensibles | Las contraseñas maestras se vacían del campo en cuanto Rust las lee; al bloquear se vacían el editor, los diálogos, los formularios de ajustes, el generador y los detalles revelados |
 | Portapapeles | Se marca como sensible para que los gestores de historial no lo guarden, y se vacía a los 30 s (por defecto), al bloquear la bóveda y al cerrar la app, si sigue conteniendo el secreto |
-| Bloqueo | Por inactividad, al minimizar (opcional), al suspender el equipo y, en Linux, al bloquear la pantalla (señales de D-Bus del salvapantallas y de logind, solo de la sesión propia) |
-| Exportación | Las celdas de CSV que empiezan por `=`, `+`, `-` o `@` se exportan como texto (evita la *CSV injection*); contraseña y TOTP se exportan intactos |
-| Archivos externos | Importaciones (máx. 64 MB) y adjuntos (máx. 50 MB) se rechazan antes de leerlos si son más grandes; lo importado pasa las mismas reglas que el editor. Argon2id acepta como mucho 1 GiB al abrir un archivo |
+| Bloqueo | Por inactividad, al minimizar (opcional), al suspender el equipo y, en Linux, al bloquear la pantalla (señales de D-Bus del salvapantallas y de logind, solo de la sesión propia). La inactividad se mide con el reloj de pared y con uno monótono: atrasar la hora del sistema no retrasa el bloqueo. Leer o descifrar un archivo a importar no retiene la bóveda, así que el bloqueo nunca espera a un Argon2id largo |
+| Exportación | Las celdas de CSV que empiezan por `=`, `+`, `-` o `@` se exportan como texto (evita la *CSV injection*); contraseña y TOTP se exportan intactos. Una exportación en claro se genera en un buffer de tamaño exacto que se borra al soltarse, y si la bóveda se bloquea mientras eliges dónde guardarla, se descarta |
+| Archivos externos | Importaciones (máx. 64 MB) y adjuntos (máx. 50 MB) se rechazan antes de leerlos si son más grandes; lo importado pasa las mismas reglas que el editor. Argon2id acepta como mucho 1 GiB al abrir un archivo (y 16 pasadas en una copia `.arca` importada). La bóveda y los adjuntos cifrados también se leen con límite de tamaño |
 | Proceso | Sin volcados de memoria; en Linux, `PR_SET_DUMPABLE = 0` impide leer la memoria con `ptrace` desde otros procesos. Una sola instancia a la vez (dos se pisarían los cambios). El bloqueo funciona aunque un fallo interno haya dejado el estado inconsistente |
 
 Archivos: `~/.local/share/dev.arca.desktop/personal.vault`, los adjuntos cifrados en `personal.vault.d/`, el contador de intentos fallidos en `unlock-throttle.json`, la última revisión vista de la bóveda en `vault-revision.json` y el bloqueo de instancia única en `arca.lock`.
@@ -144,9 +144,14 @@ crates/arca-desktop/      Aplicación de escritorio
 
 Patrones usados para evitar cadenas de `if`:
 
-- **State**: `VaultSessionState { Locked, Unlocked }` en el núcleo y `AppScreen` en la interfaz.
-- **Strategy**: generación de contraseñas, KDF y cifrado detrás de traits.
-- **Registry**: formatos de import/export (`TransferFormatRegistry`), tipos de elemento (`ITEM_KIND_DEFINITIONS`), idiomas (`SUPPORTED_LANGUAGES`).
+- **State**: `VaultSessionState { Locked, Unlocked }` en el núcleo, `AppScreen` y `ExportState` en la interfaz.
+- **Strategy**: generación de contraseñas, KDF y cifrado detrás de traits; la copia `.arca` y la política de
+  contraseña maestra se inyectan (`ExportCryptography`, `MasterPasswordPolicy`).
+- **Command**: `AppCommand` (paleta, atajos, Esc) e `ItemCommand`, cuyo `inverse()` es el «Deshacer».
+- **Builder**: `VaultDependenciesBuilder` (raíz de composición y tests), `ConfirmRequest` / `PromptRequest`.
+- **Registry / tablas**: formatos de import/export (`TransferFormatRegistry`, `ImportFormat::traits`), tipos de elemento
+  (`ITEM_KIND_DEFINITIONS`), secretos enmascarados por tipo (`ItemContent::masked_secrets_mut`), atajos
+  (`CONTROL_KEY_SHORTCUTS`), idiomas (`SUPPORTED_LANGUAGES`).
 - **Reglas en lista**: política de contraseña maestra y salud de contraseñas (`PasswordHealthRule`).
 - **Repository / Ports & Adapters**: almacenamiento, portapapeles y reloj inyectados → tests con dobles en memoria.
 - **Observer**: `VaultEvent` (bloqueo, portapapeles vaciado) desde otros hilos, y `AppEvent` entre controladores.
