@@ -95,38 +95,11 @@ Lo que Arca **no** puede garantizar, y por qué:
 - **Portapapeles.** No todos los gestores de historial respetan la marca de contenido sensible.
 - **Sin auditoría externa.** El diseño se ha revisado internamente, pero nadie independiente ha auditado el código.
 
-### Pendiente de seguridad
+### Pendiente
 
-Ordenado por impacto frente a esfuerzo:
-
-- [x] **Auditar dependencias**: `cargo audit` y `cargo deny check` (`deny.toml`) pasan sin vulnerabilidades.
-      Las excepciones son crates sin mantener que trae Slint y no tocan la bóveda. De momento se ejecutan a mano.
-- [x] **Fuzzing** del lector del archivo de bóveda y de los importadores JSON y CSV (`crates/vault-core/fuzz`):
-      3 min por objetivo sin fallos. La copia cifrada `.arca` no tiene objetivo: cada intento exige contraseña y un Argon2id de hasta 1 GiB.
-- [x] **Detectar rollback**: contador de revisión dentro de la bóveda y última revisión vista aparte (ver «Límites»).
-- [x] **Revisar la política de contraseña maestra**: subida de puntuación 3 a 4 de zxcvbn (con 3 pasaban
-      `Barcelona1992!` o `arcaarca2024!`) y palabras de contexto en español. La interfaz lee la política del núcleo.
 - [ ] **Revisión externa** del código, aunque sea informal.
-
-Algún día: **CI** que ejecute tests, clippy, `cargo audit` y `cargo deny check` en cada cambio (ahora no hay; se
-lanzan a mano).
-
-### Pendiente de código
-
-- [x] **Quitar la duplicación del editor adaptable** (`item_editor.slint`): carpeta/etiquetas y valor/«oculto» de los
-      campos personalizados están escritos dos veces (en fila y apilados). Extraerlos a componentes pequeños.
-- [x] **Contrato Slint ↔ Rust con tipos, no cadenas**: `Workspace.shortcut("save")` y
-      `reveal-sealed("descriptor:" + índice)` dependen de texto que el compilador no comprueba. Pasar a enums de Slint
-      (`enum Shortcut { … }`) y callbacks con parámetros tipados.
-- [x] **Atajos como tabla**: `presentation/shortcuts.rs` (tecla → `Shortcut` → etiqueta para la paleta).
-- [x] **Apariencia de `Button` por variante**: el `background` encadena cuatro ternarios; moverlo a una función de
-      apariencia como `ToastAppearance`.
-- [x] **Dividir los controladores grandes**: `item_details_controller.rs` (≈600 líneas) y `workspace_controller.rs`
-      (≈550) en piezas por responsabilidad (adjuntos, TOTP, filas de detalle…).
-- [x] **Atribución de Slint**: se usa con la licencia royalty-free, que exige mostrar la atribución (p. ej. el widget
-      `AboutSlint` en «Acerca de») o elegir otra licencia (GPL-3.0 o comercial).
-- [x] **Memoria y CPU** (ver `docs/consumo-memoria.md`): el pico de 383 MB es Argon2id (+261,6 MB durante
-      ~0,5 s al crear o desbloquear, medido) y la CPU en reposo es ~0–0,4 %; el 3 % salía de medir con resolución de 1 s.
+- [ ] Algún día: **CI** que ejecute tests, clippy, `cargo audit` y `cargo deny check` en cada cambio (ahora se
+      lanzan a mano).
 
 ## Arquitectura
 
