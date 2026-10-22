@@ -92,6 +92,25 @@ Ordenado por impacto frente a esfuerzo:
 - [ ] **Detectar rollback**: guardar aparte un contador de versión de la bóveda y avisar si el archivo retrocede.
 - [ ] **Revisar la política de contraseña maestra**: con una maestra débil, el resto del diseño importa poco.
 - [ ] **Revisión externa** del código, aunque sea informal.
+- [ ] **Ejecutar `cargo audit` y `cargo deny check` en CI** (no hay CI todavía).
+
+### Pendiente de código
+
+- [ ] **Quitar la duplicación del editor adaptable** (`item_editor.slint`): carpeta/etiquetas y valor/«oculto» de los
+      campos personalizados están escritos dos veces (en fila y apilados). Extraerlos a componentes pequeños.
+- [ ] **Contrato Slint ↔ Rust con tipos, no cadenas**: `Workspace.shortcut("save")` y
+      `reveal-sealed("descriptor:" + índice)` dependen de texto que el compilador no comprueba. Pasar a enums de Slint
+      (`enum Shortcut { … }`) y callbacks con parámetros tipados.
+- [ ] **Atajos como tabla**: `shortcut-for` en `app_window.slint` es una cadena de `if`; sustituirla por una tabla
+      tecla → atajo.
+- [ ] **Apariencia de `Button` por variante**: el `background` encadena cuatro ternarios; moverlo a una función de
+      apariencia como `ToastAppearance`.
+- [ ] **Dividir los controladores grandes**: `item_details_controller.rs` (≈600 líneas) y `workspace_controller.rs`
+      (≈550) en piezas por responsabilidad (adjuntos, TOTP, filas de detalle…).
+- [ ] **Atribución de Slint**: se usa con la licencia royalty-free, que exige mostrar la atribución (p. ej. el widget
+      `AboutSlint` en «Acerca de») o elegir otra licencia (GPL-3.0 o comercial).
+- [ ] **Memoria y CPU** (ver `docs/consumo-memoria.md`): investigar el pico de 383 MB al arrancar y el ~3 % de CPU en
+      reposo (¿cursor parpadeando?).
 
 ## Arquitectura
 
