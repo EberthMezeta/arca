@@ -124,8 +124,8 @@ lanzan a mano).
       (≈550) en piezas por responsabilidad (adjuntos, TOTP, filas de detalle…).
 - [x] **Atribución de Slint**: se usa con la licencia royalty-free, que exige mostrar la atribución (p. ej. el widget
       `AboutSlint` en «Acerca de») o elegir otra licencia (GPL-3.0 o comercial).
-- [x] **Memoria y CPU** (ver `docs/consumo-memoria.md`): el pico de 383 MB no se reproduce (probablemente Argon2id
-      durante un desbloqueo) y la CPU en reposo es ~0–0,4 %; el 3 % salía de medir con resolución de 1 s.
+- [x] **Memoria y CPU** (ver `docs/consumo-memoria.md`): el pico de 383 MB es Argon2id (+261,6 MB durante
+      ~0,5 s al crear o desbloquear, medido) y la CPU en reposo es ~0–0,4 %; el 3 % salía de medir con resolución de 1 s.
 
 ## Arquitectura
 

@@ -47,9 +47,12 @@ durante 30 s y la CPU por hilo (`/proc/<pid>/task/*/stat`).
 
 - **Pico de 383 MB: no se reproduce.** `VmHWM` se quedó en 113–128 MB en dos ejecuciones, una de
   ellas con `MESA_SHADER_CACHE_DISABLE=true` (como si fuera el primer arranque), así que no lo
-  causa la compilación de shaders. Sospecha razonable: 383 − 122 ≈ 260 MB es casi exactamente
-  lo que reserva Argon2id (256 MiB), es decir, la medición original probablemente coincidió con
-  un desbloqueo o con la creación de la bóveda. Es esperado y se libera al terminar.
+  causa la compilación de shaders.
+- **El pico es Argon2id.** Una derivación con los parámetros reales (`KeyDerivationParameters::RECOMMENDED`,
+  la misma `Argon2idKeyDerivation` de la app) en un proceso aparte sube `VmHWM` de 1,9 MB a
+  263,5 MB en 0,47 s y `VmRSS` vuelve a 2 MB al terminar. 122 MB en reposo + 261,6 MB = 383 MB:
+  la medición original coincidió con crear o desbloquear la bóveda. Es el coste buscado del
+  KDF (256 MiB), dura menos de medio segundo y se libera.
 - **CPU en reposo: ~0–0,4 %, no 3 %.** 1 tick (10 ms) en 30 s con la ventana sin foco; ~40 ms
   cada 10 s en otra ejecución, casi todo en el hilo principal: el cursor parpadeando obliga a
   redibujar dos veces por segundo (~2 ms cada vez). La cifra anterior salía de la columna «CPU
