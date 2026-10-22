@@ -40,13 +40,23 @@ procesos. No se volvió a medir aquí porque esa versión ya no está en el repo
 - Con Tauri, cada ventana arrastraba un motor web completo (WebKitGTK) con su propio proceso
   de contenido y de red. Esa memoria es casi toda privada.
 
-## Pendiente de revisar
+## Revisión del pico y de la CPU (22-10-2026)
 
-- **Pico de 383 MB** (`VmHWM`) entre los 10 y los 30 s, sin interacción. Luego la memoria
-  volvió a ~122 MB. Puede ser la compilación de shaders del driver de GPU en el primer dibujado,
-  pero no está confirmado.
-- **CPU en reposo**: ~1 s de CPU cada 30 s (≈3 %). En reposo debería acercarse a 0; lo más
-  probable es una animación continua, como el cursor parpadeando en el campo de contraseña.
+Se repitió la medición con el binario release, muestreando `/proc/<pid>/status` cada 0,2 s
+durante 30 s y la CPU por hilo (`/proc/<pid>/task/*/stat`).
+
+- **Pico de 383 MB: no se reproduce.** `VmHWM` se quedó en 113–128 MB en dos ejecuciones, una de
+  ellas con `MESA_SHADER_CACHE_DISABLE=true` (como si fuera el primer arranque), así que no lo
+  causa la compilación de shaders. Sospecha razonable: 383 − 122 ≈ 260 MB es casi exactamente
+  lo que reserva Argon2id (256 MiB), es decir, la medición original probablemente coincidió con
+  un desbloqueo o con la creación de la bóveda. Es esperado y se libera al terminar.
+- **CPU en reposo: ~0–0,4 %, no 3 %.** 1 tick (10 ms) en 30 s con la ventana sin foco; ~40 ms
+  cada 10 s en otra ejecución, casi todo en el hilo principal: el cursor parpadeando obliga a
+  redibujar dos veces por segundo (~2 ms cada vez). La cifra anterior salía de la columna «CPU
+  acumulada» con resolución de 1 s, que no sirve para medir algo tan pequeño.
+
+Conclusión: no hay nada que corregir en reposo. Si se quiere vigilar, medir con ticks de
+`/proc/<pid>/stat` (resolución de 10 ms), no con segundos enteros.
 
 ## Repetir la medición
 
@@ -54,4 +64,5 @@ procesos. No se volvió a medir aquí porque esa versión ya no está en el repo
 cargo build --release -p arca
 XDG_DATA_HOME=$(mktemp -d) target/release/arca &
 sleep 30; grep -E 'VmRSS|RssAnon|RssFile|VmHWM' /proc/$!/status
+awk '{print "CPU (ticks de 10 ms):", $14 + $15}' /proc/$!/stat
 ```

@@ -24,6 +24,15 @@ cargo test --workspace            # núcleo (cripto, formato, casos de uso, impo
 cargo clippy --workspace --all-targets
 ```
 
+Fuzzing del lector de `.vault` y de los importadores (necesita nightly y `cargo install --locked cargo-fuzz`):
+
+```bash
+cd crates/vault-core
+cargo +nightly fuzz run vault_file fuzz/corpus/vault_file fuzz/seeds/vault_file -- -max_total_time=300
+cargo +nightly fuzz run bitwarden_json_import fuzz/corpus/bitwarden_json_import fuzz/seeds/bitwarden_json_import
+cargo +nightly fuzz run csv_import fuzz/corpus/csv_import fuzz/seeds/csv_import
+```
+
 Dependencias (`cargo install --locked cargo-audit cargo-deny`, una sola vez):
 
 ```bash
@@ -43,7 +52,9 @@ cargo deny check                  # vulnerabilidades, crates sin mantener o reti
 | Memoria | `zeroize` en claves y secretos (también la memoria interna de Argon2id y ChaCha20) y en títulos, usuarios, URLs y datos personales al bloquear; las claves se rellenan en su sitio y el JSON descifrado, las frases de paso y los archivos leídos usan buffers de tamaño exacto para no dejar copias al realocar |
 | Disco | Escritura atómica (`.tmp` + fsync + rename) y copia `.bak` (no se genera al cambiar la contraseña maestra, al eliminar definitivamente ni al vaciar la papelera, y la anterior se borra: lo borrado no sigue en la copia). Archivos `0600` y directorio de datos `0700`, también para exportaciones y adjuntos descifrados (en un USB FAT/exFAT no hay permisos) |
 | Fuerza bruta | Retardo exponencial tras 3 intentos fallidos (máx. 5 min), guardado en disco para que reiniciar la app no lo borre. Se aplica también a cambiar la contraseña y a exportar. Frente a un ataque con el archivo copiado protege el coste de Argon2id |
+| Rollback | Cada guardado sube un contador que va cifrado y autenticado dentro de la bóveda; la app apunta aparte el último que vio (`vault-revision.json`). Si al desbloquear el archivo trae uno menor, avisa: alguien lo sustituyó por una versión anterior (o restauraste una copia) |
 | Reautenticación | Exportar y guardar un adjunto descifrado piden la contraseña maestra aunque la bóveda esté desbloqueada |
+| Contraseña maestra | Mínimo 12 caracteres y puntuación 4 de zxcvbn (más de 10¹⁰ intentos), con palabras propias de la app y en español («arca», «contraseña», «bóveda»…) que su diccionario inglés no conoce. Se exige al crear la bóveda, al cambiarla y en las copias cifradas; una bóveda antigua con una maestra más débil se sigue abriendo |
 | Contraseña | Se normaliza a Unicode NFC antes de Argon2id: «é» compuesto o descompuesto (macOS) abre igual en cualquier sistema. Las bóvedas y copias creadas antes de normalizar se siguen abriendo |
 | Interfaz | Slint nativo en el mismo proceso: sin WebView, sin JavaScript y sin superficie web (ni CSP que configurar). La interfaz solo lee propiedades y emite callbacks; los controladores Rust son los únicos que tocan la bóveda. Los secretos llegan enmascarados (también al editor) y el valor real solo se publica al pulsar «Mostrar»; lo revelado se vuelve a ocultar a los 30 s. Al guardar, un secreto enmascarado sin tocar conserva su valor |
 | Campos sensibles | Las contraseñas maestras se vacían del campo en cuanto Rust las lee; al bloquear se vacían el editor, los diálogos, los formularios de ajustes, el generador y los detalles revelados |
@@ -53,7 +64,7 @@ cargo deny check                  # vulnerabilidades, crates sin mantener o reti
 | Archivos externos | Importaciones (máx. 64 MB) y adjuntos (máx. 50 MB) se rechazan antes de leerlos si son más grandes; lo importado pasa las mismas reglas que el editor. Argon2id acepta como mucho 1 GiB al abrir un archivo |
 | Proceso | Sin volcados de memoria; en Linux, `PR_SET_DUMPABLE = 0` impide leer la memoria con `ptrace` desde otros procesos. Una sola instancia a la vez (dos se pisarían los cambios). El bloqueo funciona aunque un fallo interno haya dejado el estado inconsistente |
 
-Archivos: `~/.local/share/dev.arca.desktop/personal.vault`, los adjuntos cifrados en `personal.vault.d/`, el contador de intentos fallidos en `unlock-throttle.json` y el bloqueo de instancia única en `arca.lock`.
+Archivos: `~/.local/share/dev.arca.desktop/personal.vault`, los adjuntos cifrados en `personal.vault.d/`, el contador de intentos fallidos en `unlock-throttle.json`, la última revisión vista de la bóveda en `vault-revision.json` y el bloqueo de instancia única en `arca.lock`.
 
 > **Antes se llamaba RustVault.** Al arrancar por primera vez, Arca mueve la bóveda, los adjuntos y las preferencias desde
 > `~/.local/share/dev.rustvault.desktop/` (nunca sobrescribe una bóveda que ya exista en la carpeta nueva). Las copias
@@ -75,8 +86,9 @@ Lo que Arca **no** puede garantizar, y por qué:
   y los adjuntos se descifran con la clave de bóveda actual. Si te preocupa, cambia la contraseña maestra: rota la
   clave y lo que quede en el disco deja de poder abrirse con la contraseña nueva (no con la antigua).
 - **Exportaciones antiguas.** Siguen cifradas con la contraseña con la que se crearon; cambiar la maestra no las afecta.
-- **Rollback.** Quien pueda escribir en tu disco puede sustituir la bóveda por una versión anterior suya y la app no
-  lo detecta.
+- **Rollback.** Se detecta si solo se sustituye la bóveda, pero quien pueda escribir en tu disco puede retroceder
+  también `vault-revision.json` (o borrarlo) y la app no lo notará: no hay ningún almacén de confianza fuera del disco.
+  Tras avisar una vez, la versión abierta pasa a ser la de referencia.
 - **Retardo de intentos.** Borrar `unlock-throttle.json` con la app cerrada reinicia el contador. Es intencionado: el
   retardo solo frena a quien tiene la app delante; frente a quien tiene acceso al disco protege el coste de Argon2id.
 - **Portapapeles.** No todos los gestores de historial respetan la marca de contenido sensible.
@@ -87,30 +99,33 @@ Lo que Arca **no** puede garantizar, y por qué:
 Ordenado por impacto frente a esfuerzo:
 
 - [x] **Auditar dependencias**: `cargo audit` y `cargo deny check` (`deny.toml`) pasan sin vulnerabilidades.
-      Las excepciones son crates sin mantener que trae Slint y no tocan la bóveda. Falta ejecutarlos en CI.
-- [ ] **Fuzzing** del lector del archivo de bóveda y de los importadores (`cargo fuzz`): son la entrada no confiable.
-- [ ] **Detectar rollback**: guardar aparte un contador de versión de la bóveda y avisar si el archivo retrocede.
-- [ ] **Revisar la política de contraseña maestra**: con una maestra débil, el resto del diseño importa poco.
+      Las excepciones son crates sin mantener que trae Slint y no tocan la bóveda. De momento se ejecutan a mano.
+- [x] **Fuzzing** del lector del archivo de bóveda y de los importadores JSON y CSV (`crates/vault-core/fuzz`):
+      3 min por objetivo sin fallos. La copia cifrada `.arca` no tiene objetivo: cada intento exige contraseña y un Argon2id de hasta 1 GiB.
+- [x] **Detectar rollback**: contador de revisión dentro de la bóveda y última revisión vista aparte (ver «Límites»).
+- [x] **Revisar la política de contraseña maestra**: subida de puntuación 3 a 4 de zxcvbn (con 3 pasaban
+      `Barcelona1992!` o `arcaarca2024!`) y palabras de contexto en español. La interfaz lee la política del núcleo.
 - [ ] **Revisión externa** del código, aunque sea informal.
-- [ ] **Ejecutar `cargo audit` y `cargo deny check` en CI** (no hay CI todavía).
+
+Algún día: **CI** que ejecute tests, clippy, `cargo audit` y `cargo deny check` en cada cambio (ahora no hay; se
+lanzan a mano).
 
 ### Pendiente de código
 
-- [ ] **Quitar la duplicación del editor adaptable** (`item_editor.slint`): carpeta/etiquetas y valor/«oculto» de los
+- [x] **Quitar la duplicación del editor adaptable** (`item_editor.slint`): carpeta/etiquetas y valor/«oculto» de los
       campos personalizados están escritos dos veces (en fila y apilados). Extraerlos a componentes pequeños.
-- [ ] **Contrato Slint ↔ Rust con tipos, no cadenas**: `Workspace.shortcut("save")` y
+- [x] **Contrato Slint ↔ Rust con tipos, no cadenas**: `Workspace.shortcut("save")` y
       `reveal-sealed("descriptor:" + índice)` dependen de texto que el compilador no comprueba. Pasar a enums de Slint
       (`enum Shortcut { … }`) y callbacks con parámetros tipados.
-- [ ] **Atajos como tabla**: `shortcut-for` en `app_window.slint` es una cadena de `if`; sustituirla por una tabla
-      tecla → atajo.
-- [ ] **Apariencia de `Button` por variante**: el `background` encadena cuatro ternarios; moverlo a una función de
+- [x] **Atajos como tabla**: `presentation/shortcuts.rs` (tecla → `Shortcut` → etiqueta para la paleta).
+- [x] **Apariencia de `Button` por variante**: el `background` encadena cuatro ternarios; moverlo a una función de
       apariencia como `ToastAppearance`.
-- [ ] **Dividir los controladores grandes**: `item_details_controller.rs` (≈600 líneas) y `workspace_controller.rs`
+- [x] **Dividir los controladores grandes**: `item_details_controller.rs` (≈600 líneas) y `workspace_controller.rs`
       (≈550) en piezas por responsabilidad (adjuntos, TOTP, filas de detalle…).
-- [ ] **Atribución de Slint**: se usa con la licencia royalty-free, que exige mostrar la atribución (p. ej. el widget
+- [x] **Atribución de Slint**: se usa con la licencia royalty-free, que exige mostrar la atribución (p. ej. el widget
       `AboutSlint` en «Acerca de») o elegir otra licencia (GPL-3.0 o comercial).
-- [ ] **Memoria y CPU** (ver `docs/consumo-memoria.md`): investigar el pico de 383 MB al arrancar y el ~3 % de CPU en
-      reposo (¿cursor parpadeando?).
+- [x] **Memoria y CPU** (ver `docs/consumo-memoria.md`): el pico de 383 MB no se reproduce (probablemente Argon2id
+      durante un desbloqueo) y la CPU en reposo es ~0–0,4 %; el 3 % salía de medir con resolución de 1 s.
 
 ## Arquitectura
 
