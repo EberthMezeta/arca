@@ -26,6 +26,10 @@ uuid = { version = "1.28.0", features = ["v4", "serde"] }
 zeroize = { version = "1.9.1", features = ["derive"] }
 zxcvbn = "3.1.1"
 
+[features]
+# Adaptadores en memoria y bóveda de prueba, para los tests de la app de escritorio.
+test-support = []
+
 [dev-dependencies]
 tempfile = "3.27.0"
 

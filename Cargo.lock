@@ -257,6 +257,7 @@ dependencies = [
  "dbus",
  "dirs",
  "futures-channel",
+ "i-slint-backend-testing",
  "libc",
  "rfd",
  "serde",

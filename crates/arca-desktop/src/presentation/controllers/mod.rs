@@ -3,6 +3,8 @@
 
 pub mod clipboard_feedback;
 pub mod command_palette_controller;
+#[cfg(test)]
+mod controller_tests;
 pub mod dialog_controller;
 pub mod folder_dialogs;
 pub mod generator_controller;

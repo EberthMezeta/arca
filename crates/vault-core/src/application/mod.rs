@@ -14,7 +14,8 @@ pub mod vault_dependencies;
 pub mod vault_key_wrapping;
 pub mod vault_service;
 pub mod vault_session;
-#[cfg(test)]
+/// Bóveda en memoria con Argon2id barato, para los tests del núcleo y de la app (`test-support`).
+#[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 #[cfg(test)]
 mod vault_service_tests;

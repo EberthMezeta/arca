@@ -30,6 +30,11 @@ libc = "0.2.191"
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus = "0.9.12"
 
+[dev-dependencies]
+# Ventana Slint sin pantalla, para probar los controladores.
+i-slint-backend-testing = "=1.18.1"
+vault-core = { path = "../vault-core", features = ["test-support"] }
+
 [build-dependencies]
 slint-build = "1.18.1"
 
