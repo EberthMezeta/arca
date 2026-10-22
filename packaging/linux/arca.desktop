@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Arca
+GenericName=Gestor de contraseñas
+GenericName[en]=Password manager
+Comment=Gestor de contraseñas local y cifrado
+Comment[en]=Local, encrypted password manager
+Exec=arca
+Icon=arca
+Terminal=false
+Categories=Utility;Security;System;
+Keywords=contraseñas;passwords;vault;bóveda;
+StartupWMClass=arca

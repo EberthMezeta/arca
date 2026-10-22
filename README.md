@@ -17,6 +17,14 @@ cargo run -p arca
 cargo build -p arca --release
 ```
 
+Paquete `.deb` (Debian, Ubuntu y derivadas; `cargo install --locked cargo-deb` una sola vez):
+
+```bash
+cargo deb -p arca                                       # → target/debian/arca_<versión>_amd64.deb
+sudo apt install ./target/debian/arca_0.1.0-1_amd64.deb # instala binario, icono y entrada del menú
+sudo apt remove arca                                    # desinstala (la bóveda en ~/.local/share no se toca)
+```
+
 Tests:
 
 ```bash

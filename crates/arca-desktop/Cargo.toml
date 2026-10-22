@@ -44,3 +44,22 @@ unwrap_used = "deny"
 module_name_repetitions = "allow"
 missing_errors_doc = "allow"
 needless_pass_by_value = "allow"
+
+# Paquete .deb: `cargo deb -p arca` (genera target/debian/arca_<versión>_<arquitectura>.deb).
+[package.metadata.deb]
+name = "arca"
+maintainer = "Eberth <the.jonkey@gmail.com>"
+copyright = "Eberth"
+section = "utils"
+priority = "optional"
+# Bibliotecas del sistema que necesita el binario, calculadas con dpkg-shlibdeps.
+depends = "$auto"
+extended-description = """\
+Gestor de contraseñas 100 % local (sin nube ni cuentas): XChaCha20-Poly1305, \
+Argon2id y una interfaz nativa con Slint."""
+assets = [
+    ["target/release/arca", "usr/bin/", "755"],
+    ["../../packaging/linux/arca.desktop", "usr/share/applications/", "644"],
+    ["../../design/app-icon.svg", "usr/share/icons/hicolor/scalable/apps/arca.svg", "644"],
+    ["icons/arca.png", "usr/share/icons/hicolor/512x512/apps/arca.png", "644"],
+]
