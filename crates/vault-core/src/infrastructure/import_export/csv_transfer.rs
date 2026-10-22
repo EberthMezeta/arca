@@ -74,7 +74,9 @@ impl CsvColumnLayout {
             .filter_map(|(csv_column, header_aliases)| {
                 header_aliases
                     .iter()
-                    .find_map(|header_alias| normalized_headers.iter().position(|header_name| header_name == header_alias))
+                    .find_map(|header_alias| {
+                        normalized_headers.iter().position(|header_name| header_name == header_alias)
+                    })
                     .map(|column_position| (*csv_column, column_position))
             })
             .collect();
@@ -128,11 +130,8 @@ impl FolderCollector {
         if folder_name.is_empty() {
             return None;
         }
-        let existing_folder_id = self
-            .folders
-            .iter()
-            .find(|folder| folder.folder_name == folder_name)
-            .map(|folder| folder.folder_id);
+        let existing_folder_id =
+            self.folders.iter().find(|folder| folder.folder_name == folder_name).map(|folder| folder.folder_id);
         Some(existing_folder_id.unwrap_or_else(|| {
             let new_folder = Folder { folder_id: Uuid::new_v4(), folder_name: folder_name.to_string() };
             let new_folder_id = new_folder.folder_id;
@@ -247,7 +246,8 @@ impl VaultImporter for BitwardenCsvImporter {
                 now,
             );
             vault_item.is_favorite = column_layout.read(csv_record, CsvColumn::IsFavorite) == "1";
-            vault_item.custom_fields = parse_bitwarden_custom_fields(column_layout.read(csv_record, CsvColumn::CustomFields));
+            vault_item.custom_fields =
+                parse_bitwarden_custom_fields(column_layout.read(csv_record, CsvColumn::CustomFields));
             Some(vault_item)
         })
     }
@@ -278,12 +278,13 @@ impl VaultExporter for BitwardenCsvExporter {
         "csv"
     }
 
-    fn serialize_vault(&self, vault_contents: &VaultContents, _file_password: Option<&SecretText>) -> VaultResult<Zeroizing<Vec<u8>>> {
-        let folder_name_by_id: HashMap<Uuid, &str> = vault_contents
-            .folders
-            .iter()
-            .map(|folder| (folder.folder_id, folder.folder_name.as_str()))
-            .collect();
+    fn serialize_vault(
+        &self,
+        vault_contents: &VaultContents,
+        _file_password: Option<&SecretText>,
+    ) -> VaultResult<Zeroizing<Vec<u8>>> {
+        let folder_name_by_id: HashMap<Uuid, &str> =
+            vault_contents.folders.iter().map(|folder| (folder.folder_id, folder.folder_name.as_str())).collect();
         let csv_rows: Vec<[Zeroizing<String>; BITWARDEN_CSV_HEADERS.len()]> = vault_contents
             .vault_items
             .iter()
@@ -294,7 +295,9 @@ impl VaultExporter for BitwardenCsvExporter {
             let mut csv_writer = csv::Writer::from_writer(output);
             csv_writer.write_record(BITWARDEN_CSV_HEADERS).map_err(VaultError::storage)?;
             for csv_row in &csv_rows {
-                csv_writer.write_record(csv_row.iter().map(|csv_cell| csv_cell.as_bytes())).map_err(VaultError::storage)?;
+                csv_writer
+                    .write_record(csv_row.iter().map(|csv_cell| csv_cell.as_bytes()))
+                    .map_err(VaultError::storage)?;
             }
             csv_writer.flush().map_err(VaultError::storage)
         })
@@ -302,22 +305,26 @@ impl VaultExporter for BitwardenCsvExporter {
 }
 
 /// Las celdas llevan contraseñas en claro: quien las recibe las guarda en `Zeroizing`.
-fn bitwarden_csv_row(vault_item: &VaultItem, folder_name_by_id: &HashMap<Uuid, &str>) -> Option<[String; BITWARDEN_CSV_HEADERS.len()]> {
+fn bitwarden_csv_row(
+    vault_item: &VaultItem,
+    folder_name_by_id: &HashMap<Uuid, &str>,
+) -> Option<[String; BITWARDEN_CSV_HEADERS.len()]> {
     let (item_type, login_content) = match &vault_item.item_content {
         ItemContent::Login(login_content) => ("login", Some(login_content)),
         ItemContent::SecureNote(_) => ("note", None),
         ItemContent::PaymentCard(_) | ItemContent::Identity(_) => return None,
     };
-    let folder_name = vault_item
-        .folder_id
-        .and_then(|folder_id| folder_name_by_id.get(&folder_id).copied())
-        .unwrap_or_default();
+    let folder_name =
+        vault_item.folder_id.and_then(|folder_id| folder_name_by_id.get(&folder_id).copied()).unwrap_or_default();
     let field_lines: Vec<Zeroizing<String>> = vault_item
         .custom_fields
         .iter()
-        .map(|custom_field| Zeroizing::new(format!("{}: {}", custom_field.field_label, custom_field.field_value.expose_secret())))
+        .map(|custom_field| {
+            Zeroizing::new(format!("{}: {}", custom_field.field_label, custom_field.field_value.expose_secret()))
+        })
         .collect();
-    let serialized_fields = Zeroizing::new(field_lines.iter().map(|field_line| field_line.as_str()).collect::<Vec<_>>().join("\n"));
+    let serialized_fields =
+        Zeroizing::new(field_lines.iter().map(|field_line| field_line.as_str()).collect::<Vec<_>>().join("\n"));
 
     Some([
         neutralize_spreadsheet_formula(folder_name),
@@ -393,7 +400,8 @@ mod tests {
 
     #[test]
     fn firefox_csv_column_order_is_supported() {
-        let firefox_csv = "\u{feff}\"url\",\"username\",\"password\",\"httpRealm\"\n\"https://foro.org\",\"luis\",\"clave\",\"\"\n";
+        let firefox_csv =
+            "\u{feff}\"url\",\"username\",\"password\",\"httpRealm\"\n\"https://foro.org\",\"luis\",\"clave\",\"\"\n";
 
         let imported_vault_data = BrowserCsvImporter.parse_file(firefox_csv.as_bytes(), None).expect("importar");
 

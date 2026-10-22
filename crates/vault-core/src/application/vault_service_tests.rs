@@ -3,7 +3,6 @@
 use chrono::Duration;
 
 use crate::application::import_export_vault::ImportLabels;
-use crate::application::vault_service::{VaultAttachments, VaultClipboard, VaultItems, VaultSession, VaultTransfer};
 use crate::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest, SubmittedSecret};
 use crate::application::search_vault_items::VaultItemFilter;
 use crate::application::test_support::{
@@ -11,10 +10,8 @@ use crate::application::test_support::{
     build_test_vault_service, build_test_vault_service_on,
 };
 use crate::application::vault_key_wrapping::build_header_wrapping_vault_key;
+use crate::application::vault_service::{VaultAttachments, VaultClipboard, VaultItems, VaultSession, VaultTransfer};
 use crate::application::vault_session::persist_vault_contents;
-use crate::domain::secure_random::random_encryption_key;
-use crate::domain::vault_contents::VaultContents;
-use crate::infrastructure::storage::in_memory_storage::FakeSecretClipboard;
 use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::item_content::{ItemContent, LoginContent};
 use crate::domain::key_hierarchy::derive_vault_subkeys;
@@ -24,11 +21,14 @@ use crate::domain::ports::vault_exporter::ExportFormat;
 use crate::domain::ports::vault_importer::ImportFormat;
 use crate::domain::ports::vault_repository::VaultRepository;
 use crate::domain::secret_text::SecretText;
+use crate::domain::secure_random::random_encryption_key;
+use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::VaultError;
 use crate::domain::vault_file::vault_file_format::decode_vault_file;
 use crate::domain::vault_item::{REDACTED_SECRET_PLACEHOLDER, RevealableField, VaultItem};
 use crate::infrastructure::crypto::argon2id_key_derivation::Argon2idKeyDerivation;
 use crate::infrastructure::crypto::xchacha20_poly1305_cipher::XChaCha20Poly1305Cipher;
+use crate::infrastructure::storage::in_memory_storage::FakeSecretClipboard;
 
 fn import_labels() -> ImportLabels {
     ImportLabels { untitled_item_title: "Sin título".into(), invalid_totp_field_label: "TOTP (no válido)".into() }
@@ -133,7 +133,10 @@ fn replacing_the_vault_with_an_older_version_is_detected_once() {
     let detected_rollback = unlock_report.detected_rollback.expect("debe avisar del retroceso");
     assert!(detected_rollback.opened_revision_number < detected_rollback.last_seen_revision_number);
     test_harness.vault_service.lock_vault();
-    assert_eq!(test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear").detected_rollback, None);
+    assert_eq!(
+        test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear").detected_rollback,
+        None
+    );
 }
 
 #[test]
@@ -146,9 +149,13 @@ fn normal_saves_and_reopening_raise_no_rollback_warning() {
     assert_eq!(unlock_report.detected_rollback, None);
     assert_eq!(unlock_report.master_password_violations, Vec::new());
 
-    test_harness.vault_service.change_master_password(&master_password(), &SecretText::new("harbor-quartz-cafe-falcon-81")).expect("cambiar");
+    test_harness
+        .vault_service
+        .change_master_password(&master_password(), &SecretText::new("harbor-quartz-cafe-falcon-81"))
+        .expect("cambiar");
     test_harness.vault_service.lock_vault();
-    let reopened = test_harness.vault_service.unlock_vault(&SecretText::new("harbor-quartz-cafe-falcon-81")).expect("desbloquear");
+    let reopened =
+        test_harness.vault_service.unlock_vault(&SecretText::new("harbor-quartz-cafe-falcon-81")).expect("desbloquear");
     assert_eq!(reopened.detected_rollback, None);
 }
 
@@ -158,8 +165,11 @@ fn unlocking_with_a_master_password_below_the_current_policy_reports_it() {
     let fake_clock = FakeClock::starting_now();
     let weak_password = SecretText::new("Barcelona1992!");
     // Una bóveda creada con una política anterior, más permisiva.
-    let vault_dependencies =
-        build_test_vault_dependencies(&shared_storage, &fake_clock, &std::sync::Arc::new(FakeSecretClipboard::default()));
+    let vault_dependencies = build_test_vault_dependencies(
+        &shared_storage,
+        &fake_clock,
+        &std::sync::Arc::new(FakeSecretClipboard::default()),
+    );
     let vault_key = random_encryption_key().expect("clave");
     let vault_header = build_header_wrapping_vault_key(
         &vault_dependencies,
@@ -186,7 +196,8 @@ fn unlocking_with_a_master_password_below_the_current_policy_reports_it() {
 #[test]
 fn turning_the_system_clock_back_does_not_postpone_the_auto_lock() {
     let mut test_harness = harness_with_created_vault();
-    let auto_lock_after_seconds = test_harness.vault_service.preferences().expect("preferencias").auto_lock_after_idle_seconds;
+    let auto_lock_after_seconds =
+        test_harness.vault_service.preferences().expect("preferencias").auto_lock_after_idle_seconds;
 
     test_harness.fake_clock.advance_by(Duration::seconds(i64::try_from(auto_lock_after_seconds).expect("cabe")));
     test_harness.fake_clock.set_wall_clock_back_by(Duration::hours(1));
@@ -220,10 +231,7 @@ fn accented_password_unlocks_whether_typed_composed_or_decomposed() {
 fn creating_twice_is_rejected() {
     let mut test_harness = harness_with_created_vault();
 
-    assert!(matches!(
-        test_harness.vault_service.create_vault(&master_password()),
-        Err(VaultError::VaultAlreadyExists)
-    ));
+    assert!(matches!(test_harness.vault_service.create_vault(&master_password()), Err(VaultError::VaultAlreadyExists)));
 }
 
 #[test]
@@ -331,12 +339,18 @@ fn saving_an_attachment_requires_the_master_password() {
     let wrong_password = SecretText::new("totalmente-incorrecta-123");
 
     for _ in 0..3 {
-        let read_result =
-            test_harness.vault_service.read_attachment(&wrong_password, saved_item.item_id, attachment_reference.attachment_id);
+        let read_result = test_harness.vault_service.read_attachment(
+            &wrong_password,
+            saved_item.item_id,
+            attachment_reference.attachment_id,
+        );
         assert!(matches!(read_result, Err(VaultError::InvalidMasterPasswordOrCorruptedVault)));
     }
-    let throttled_result =
-        test_harness.vault_service.read_attachment(&master_password(), saved_item.item_id, attachment_reference.attachment_id);
+    let throttled_result = test_harness.vault_service.read_attachment(
+        &master_password(),
+        saved_item.item_id,
+        attachment_reference.attachment_id,
+    );
 
     assert!(matches!(throttled_result, Err(VaultError::UnlockTemporarilyBlocked { .. })));
 }
@@ -396,7 +410,10 @@ fn health_report_flags_reused_and_weak_passwords() {
 fn bitwarden_json_export_reimports_into_a_new_vault() {
     let mut source_harness = harness_with_created_vault();
     source_harness.vault_service.save_item(login_request("Correo", "pw-exportable")).expect("guardar");
-    let exported_file = source_harness.vault_service.export_vault(&master_password(), ExportFormat::BitwardenJson, None).expect("exportar");
+    let exported_file = source_harness
+        .vault_service
+        .export_vault(&master_password(), ExportFormat::BitwardenJson, None)
+        .expect("exportar");
 
     let mut target_harness = harness_with_created_vault();
     let import_summary = target_harness
@@ -414,7 +431,8 @@ fn encrypted_export_requires_a_password_and_round_trips() {
     source_harness.vault_service.save_item(login_request("Correo", "pw-cifrada")).expect("guardar");
     let export_password = SecretText::new("timber-cobalt-lantern-prism-44");
 
-    let missing_password_result = source_harness.vault_service.export_vault(&master_password(), ExportFormat::EncryptedVaultExport, None);
+    let missing_password_result =
+        source_harness.vault_service.export_vault(&master_password(), ExportFormat::EncryptedVaultExport, None);
     let exported_file = source_harness
         .vault_service
         .export_vault(&master_password(), ExportFormat::EncryptedVaultExport, Some(&export_password))
@@ -428,7 +446,12 @@ fn encrypted_export_requires_a_password_and_round_trips() {
     );
     let import_summary = target_harness
         .vault_service
-        .import_file(ImportFormat::EncryptedVaultExport, &exported_file.file_bytes, Some(&export_password), &import_labels())
+        .import_file(
+            ImportFormat::EncryptedVaultExport,
+            &exported_file.file_bytes,
+            Some(&export_password),
+            &import_labels(),
+        )
         .expect("importar");
 
     assert!(matches!(missing_password_result, Err(VaultError::TransferPasswordRequired)));
@@ -455,7 +478,11 @@ fn vault_key_recovered_from(vault_file_bytes: &[u8], master_password: &SecretTex
     let decoded_vault_file = decode_vault_file(vault_file_bytes).expect("decodificar");
     let vault_header = decoded_vault_file.vault_header;
     let key_encryption_key = Argon2idKeyDerivation
-        .derive_key_encryption_key(master_password, &vault_header.master_key_salt, &vault_header.key_derivation_parameters)
+        .derive_key_encryption_key(
+            master_password,
+            &vault_header.master_key_salt,
+            &vault_header.key_derivation_parameters,
+        )
         .expect("derivar");
     let vault_key_bytes = XChaCha20Poly1305Cipher
         .open(&key_encryption_key, &vault_header.wrapped_vault_key, &vault_header.key_wrapping_associated_data())
@@ -474,7 +501,8 @@ fn changing_master_password_rotates_the_vault_key() {
 
     let old_vault_key = vault_key_recovered_from(&stolen_old_vault_file, &master_password());
     let old_contents_key = derive_vault_subkeys(&old_vault_key).expect("subclaves").vault_contents_key;
-    let current_vault_file = decode_vault_file(&test_harness.vault_repository.read_vault_bytes().expect("leer")).expect("decodificar");
+    let current_vault_file =
+        decode_vault_file(&test_harness.vault_repository.read_vault_bytes().expect("leer")).expect("decodificar");
     let open_with_old_key = XChaCha20Poly1305Cipher.open(
         &old_contents_key,
         &current_vault_file.encrypted_contents,
@@ -495,10 +523,8 @@ fn changing_master_password_discards_the_backup_and_keeps_data() {
     test_harness.vault_service.unlock_vault(&new_master_password).expect("desbloquear con la nueva");
 
     assert!(test_harness.vault_repository.backup_vault_bytes.lock().expect("mutex").is_none());
-    let revealed_password = test_harness
-        .vault_service
-        .reveal_item_field(saved_item.item_id, RevealableField::Password)
-        .expect("revelar");
+    let revealed_password =
+        test_harness.vault_service.reveal_item_field(saved_item.item_id, RevealableField::Password).expect("revelar");
     assert_eq!(revealed_password.expose_secret(), "pw-conservada");
 }
 
@@ -518,8 +544,10 @@ fn attachments_are_reencrypted_and_old_copies_removed_on_password_change() {
         test_harness.attachment_storage.encrypted_attachments.lock().expect("mutex").keys().copied().collect();
     assert_ne!(rotated_attachment_id, original_attachment.attachment_id);
     assert_eq!(stored_attachment_ids, vec![rotated_attachment_id]);
-    let decrypted_attachment =
-        test_harness.vault_service.read_attachment(&new_master_password, saved_item.item_id, rotated_attachment_id).expect("leer adjunto");
+    let decrypted_attachment = test_harness
+        .vault_service
+        .read_attachment(&new_master_password, saved_item.item_id, rotated_attachment_id)
+        .expect("leer adjunto");
     assert_eq!(decrypted_attachment.file_bytes.as_slice(), b"contenido");
 }
 
@@ -529,7 +557,12 @@ fn failed_attachment_reencryption_leaves_the_vault_untouched() {
     let saved_item = test_harness.vault_service.save_item(login_request("Correo", "pw")).expect("guardar");
     let attachment_reference =
         test_harness.vault_service.add_attachment(saved_item.item_id, "contrato.pdf", b"contenido").expect("adjuntar");
-    test_harness.attachment_storage.encrypted_attachments.lock().expect("mutex").remove(&attachment_reference.attachment_id);
+    test_harness
+        .attachment_storage
+        .encrypted_attachments
+        .lock()
+        .expect("mutex")
+        .remove(&attachment_reference.attachment_id);
     let vault_file_before = test_harness.vault_repository.read_vault_bytes().expect("leer");
 
     let change_result = test_harness
@@ -567,7 +600,10 @@ fn unlock_throttle_survives_an_app_restart() {
 fn locking_clears_the_copied_secret_from_clipboard() {
     let mut test_harness = harness_with_created_vault();
     let saved_item = test_harness.vault_service.save_item(login_request("Correo", "pw-copiada")).expect("guardar");
-    test_harness.vault_service.copy_item_field_to_clipboard(saved_item.item_id, RevealableField::Password).expect("copiar");
+    test_harness
+        .vault_service
+        .copy_item_field_to_clipboard(saved_item.item_id, RevealableField::Password)
+        .expect("copiar");
     assert!(test_harness.fake_clipboard.last_copied_value.lock().expect("mutex").is_some());
 
     test_harness.vault_service.lock_vault();
@@ -580,7 +616,8 @@ fn locking_clears_the_copied_secret_from_clipboard() {
 /// Simula lo que hace la UI: carga el elemento enmascarado y lo devuelve sin tocar ningún secreto.
 fn editing_request_from(redacted_item: &VaultItem) -> SaveVaultItemRequest {
     let mut item_content = redacted_item.item_content.clone();
-    let unchanged_secrets = item_content.masked_secrets_mut().into_iter().map(|(masked_field, _)| masked_field).collect();
+    let unchanged_secrets =
+        item_content.masked_secrets_mut().into_iter().map(|(masked_field, _)| masked_field).collect();
     SaveVaultItemRequest {
         item_id: Some(redacted_item.item_id),
         title: redacted_item.title.clone(),
@@ -665,7 +702,8 @@ fn edited_secret_replaces_the_stored_one() {
 fn hidden_custom_field_keeps_its_value_after_removing_an_earlier_field() {
     let mut test_harness = harness_with_created_vault();
     let mut item_request = login_request("Banco", "pw");
-    item_request.custom_fields = vec![hidden_field_draft("PIN", "1234"), hidden_field_draft("Clave de firma", "firma-9")];
+    item_request.custom_fields =
+        vec![hidden_field_draft("PIN", "1234"), hidden_field_draft("Clave de firma", "firma-9")];
     let saved_item = test_harness.vault_service.save_item(item_request).expect("guardar");
 
     let redacted_item = test_harness.vault_service.get_item_details(saved_item.item_id).expect("leer");
@@ -683,10 +721,8 @@ fn hidden_custom_field_keeps_its_value_after_removing_an_earlier_field() {
 #[test]
 fn placeholder_typed_in_a_new_item_is_stored_literally() {
     let mut test_harness = harness_with_created_vault();
-    let saved_item = test_harness
-        .vault_service
-        .save_item(login_request("Raro", REDACTED_SECRET_PLACEHOLDER))
-        .expect("guardar");
+    let saved_item =
+        test_harness.vault_service.save_item(login_request("Raro", REDACTED_SECRET_PLACEHOLDER)).expect("guardar");
 
     let revealed_password =
         test_harness.vault_service.reveal_item_field(saved_item.item_id, RevealableField::Password).expect("revelar");
@@ -715,8 +751,11 @@ fn export_requires_the_master_password() {
     let mut test_harness = harness_with_created_vault();
     test_harness.vault_service.save_item(login_request("Correo", "pw")).expect("guardar");
 
-    let export_result =
-        test_harness.vault_service.export_vault(&SecretText::new("no-es-la-maestra"), ExportFormat::BitwardenJson, None);
+    let export_result = test_harness.vault_service.export_vault(
+        &SecretText::new("no-es-la-maestra"),
+        ExportFormat::BitwardenJson,
+        None,
+    );
 
     assert!(matches!(export_result, Err(VaultError::InvalidMasterPasswordOrCorruptedVault)));
 }

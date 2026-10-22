@@ -1,9 +1,9 @@
 use std::sync::OnceLock;
 
-use crate::domain::secret_text::SecretText;
-use crate::domain::vault_error::{VaultError, VaultResult};
-use crate::domain::secure_random::random_index_below;
 use crate::domain::password_generation::PasswordGenerationStrategy;
+use crate::domain::secret_text::SecretText;
+use crate::domain::secure_random::random_index_below;
+use crate::domain::vault_error::{VaultError, VaultResult};
 
 /// Lista larga de la EFF: 7776 palabras ≈ 12,9 bits de entropía por palabra.
 const EFF_LARGE_WORDLIST_SOURCE: &str = include_str!("../../../resources/eff_large_wordlist.txt");
@@ -15,10 +15,7 @@ const MAXIMUM_SEPARATOR_CHARACTER_COUNT: usize = 5;
 fn eff_wordlist() -> &'static [&'static str] {
     static PARSED_WORDLIST: OnceLock<Vec<&'static str>> = OnceLock::new();
     PARSED_WORDLIST.get_or_init(|| {
-        EFF_LARGE_WORDLIST_SOURCE
-            .lines()
-            .filter_map(|wordlist_line| wordlist_line.split('\t').nth(1))
-            .collect()
+        EFF_LARGE_WORDLIST_SOURCE.lines().filter_map(|wordlist_line| wordlist_line.split('\t').nth(1)).collect()
     })
 }
 
@@ -56,9 +53,8 @@ impl PasswordGenerationStrategy for PassphraseStrategy {
         }
 
         let wordlist = eff_wordlist();
-        let chosen_word_indexes = (0..self.word_count)
-            .map(|_| random_index_below(wordlist.len()))
-            .collect::<VaultResult<Vec<usize>>>()?;
+        let chosen_word_indexes =
+            (0..self.word_count).map(|_| random_index_below(wordlist.len())).collect::<VaultResult<Vec<usize>>>()?;
         let appended_digit = self.should_append_number.then(|| random_index_below(10)).transpose()?;
 
         let longest_word_byte_count = wordlist.iter().map(|word| word.len()).max().unwrap_or_default();
@@ -70,7 +66,8 @@ impl PasswordGenerationStrategy for PassphraseStrategy {
             }
             self.append_word(&mut passphrase, wordlist[*word_index]);
         }
-        if let Some(appended_digit) = appended_digit.and_then(|digit| char::from_digit(u32::try_from(digit).ok()?, 10)) {
+        if let Some(appended_digit) = appended_digit.and_then(|digit| char::from_digit(u32::try_from(digit).ok()?, 10))
+        {
             passphrase.push(appended_digit);
         }
         Ok(SecretText::new(passphrase))

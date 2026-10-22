@@ -30,10 +30,8 @@ pub fn detect_rollback(last_seen: Option<VaultRevision>, opened: Option<VaultRev
         Some(opened) if opened.vault_id != last_seen.vault_id => return None,
         Some(opened) => opened.revision_number,
     };
-    (opened_revision_number < last_seen.revision_number).then_some(VaultRollback {
-        opened_revision_number,
-        last_seen_revision_number: last_seen.revision_number,
-    })
+    (opened_revision_number < last_seen.revision_number)
+        .then_some(VaultRollback { opened_revision_number, last_seen_revision_number: last_seen.revision_number })
 }
 
 #[cfg(test)]

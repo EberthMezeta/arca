@@ -15,18 +15,25 @@ use vault_core::application::vault_service::VaultItems;
 
 type FolderOperation = Box<dyn Fn(&AppContext, &str) -> UiResult<()>>;
 
-fn ask_folder_name(context: &Rc<AppContext>, title_key: &str, confirm_key: &str, initial_name: String, folder_operation: FolderOperation) {
+fn ask_folder_name(
+    context: &Rc<AppContext>,
+    title_key: &str,
+    confirm_key: &str,
+    initial_name: String,
+    folder_operation: FolderOperation,
+) {
     let submitting_context = Rc::clone(context);
-    let on_submit = move |folder_name: SecretText| match folder_operation(&submitting_context, folder_name.expose_secret()) {
-        Ok(()) => {
-            submitting_context.dialogs.close_prompt();
-            submitting_context.events.publish(AppEvent::VaultDataChanged);
-        }
-        Err(ui_error) => {
-            let error_message = describe_error(&submitting_context.translator.borrow(), &ui_error);
-            submitting_context.dialogs.show_prompt_error(error_message);
-        }
-    };
+    let on_submit =
+        move |folder_name: SecretText| match folder_operation(&submitting_context, folder_name.expose_secret()) {
+            Ok(()) => {
+                submitting_context.dialogs.close_prompt();
+                submitting_context.events.publish(AppEvent::VaultDataChanged);
+            }
+            Err(ui_error) => {
+                let error_message = describe_error(&submitting_context.translator.borrow(), &ui_error);
+                submitting_context.dialogs.show_prompt_error(error_message);
+            }
+        };
     context.dialogs.ask_for_text(
         PromptRequest::new(context.text(title_key), context.text("folders.name"), context.text(confirm_key), on_submit)
             .initial_value(initial_name),
@@ -69,8 +76,10 @@ pub fn confirm_folder_deletion(context: &Rc<AppContext>, folder_id: Uuid, folder
         )
         .destructive()
         .on_confirm(move || {
-            let deletion_result: UiResult<()> =
-                deleting_context.shared_vault.lock_service().and_then(|mut vault_service| Ok(vault_service.delete_folder(folder_id)?));
+            let deletion_result: UiResult<()> = deleting_context
+                .shared_vault
+                .lock_service()
+                .and_then(|mut vault_service| Ok(vault_service.delete_folder(folder_id)?));
             match deletion_result {
                 Ok(()) => {
                     deleting_context.navigator.apply_navigation_filter(VaultItemFilter::default());

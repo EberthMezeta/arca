@@ -2,8 +2,8 @@ use chrono::{DateTime, Utc};
 
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::domain::encryption_key::EncryptionKey;
-use crate::domain::ports::clock::Clock;
 use crate::domain::key_hierarchy::VaultSubkeys;
+use crate::domain::ports::clock::Clock;
 use crate::domain::secret_serialization::serialize_secret_json;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
@@ -124,9 +124,13 @@ pub fn persist_vault_contents(
     vault_contents_key: &EncryptionKey,
     vault_contents: &mut VaultContents,
 ) -> VaultResult<()> {
-    seal_and_write_vault_file(vault_dependencies, encoded_header_bytes, vault_contents_key, vault_contents, |vault_file_bytes| {
-        vault_dependencies.vault_repository.write_vault_bytes(vault_file_bytes)
-    })
+    seal_and_write_vault_file(
+        vault_dependencies,
+        encoded_header_bytes,
+        vault_contents_key,
+        vault_contents,
+        |vault_file_bytes| vault_dependencies.vault_repository.write_vault_bytes(vault_file_bytes),
+    )
 }
 
 /// Sube la revisión, cifra, escribe con `write_vault_file` y apunta la revisión como la última vista.
@@ -139,7 +143,8 @@ pub fn seal_and_write_vault_file(
     write_vault_file: impl FnOnce(&[u8]) -> VaultResult<()>,
 ) -> VaultResult<()> {
     let vault_revision = vault_contents.advance_revision();
-    let vault_file_bytes = seal_vault_file(vault_dependencies, encoded_header_bytes, vault_contents_key, vault_contents)?;
+    let vault_file_bytes =
+        seal_vault_file(vault_dependencies, encoded_header_bytes, vault_contents_key, vault_contents)?;
     write_vault_file(&vault_file_bytes)?;
     let _ = vault_dependencies.vault_revision_store.record_revision(&vault_revision);
     Ok(())

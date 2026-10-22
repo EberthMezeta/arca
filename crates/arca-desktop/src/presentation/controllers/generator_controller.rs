@@ -18,7 +18,8 @@ use crate::{AppWindow, Generator, ItemEditor};
 use vault_core::application::vault_service::VaultClipboard;
 
 /// Orden de los conjuntos tal como los numera la interfaz (`toggle-character-set`).
-const CHARACTER_SET_ORDER: [CharacterSet; 4] = [CharacterSet::Uppercase, CharacterSet::Lowercase, CharacterSet::Digits, CharacterSet::Symbols];
+const CHARACTER_SET_ORDER: [CharacterSet; 4] =
+    [CharacterSet::Uppercase, CharacterSet::Lowercase, CharacterSet::Digits, CharacterSet::Symbols];
 
 pub struct GeneratorController {
     context: Rc<AppContext>,
@@ -107,13 +108,18 @@ impl GeneratorController {
             let generator = app_window.global::<Generator>();
             self.context.update_ui_preferences(|ui_preferences| {
                 let generator_settings = &mut ui_preferences.generator_settings;
-                generator_settings.active_strategy =
-                    if generator.get_is_passphrase() { GenerationStrategy::Passphrase } else { GenerationStrategy::RandomCharacters };
+                generator_settings.active_strategy = if generator.get_is_passphrase() {
+                    GenerationStrategy::Passphrase
+                } else {
+                    GenerationStrategy::RandomCharacters
+                };
                 let random_characters = &mut generator_settings.random_characters;
-                random_characters.password_length = usize::try_from(generator.get_password_length()).unwrap_or(DEFAULT_PASSWORD_LENGTH);
+                random_characters.password_length =
+                    usize::try_from(generator.get_password_length()).unwrap_or(DEFAULT_PASSWORD_LENGTH);
                 random_characters.should_exclude_ambiguous_characters = generator.get_excludes_ambiguous();
                 let passphrase = &mut generator_settings.passphrase;
-                passphrase.word_count = usize::try_from(generator.get_word_count()).unwrap_or(DEFAULT_PASSPHRASE_WORD_COUNT);
+                passphrase.word_count =
+                    usize::try_from(generator.get_word_count()).unwrap_or(DEFAULT_PASSPHRASE_WORD_COUNT);
                 passphrase.word_separator = generator.get_word_separator().to_string();
                 passphrase.should_capitalize_words = generator.get_capitalizes_words();
                 passphrase.should_append_number = generator.get_appends_number();
@@ -131,7 +137,8 @@ impl GeneratorController {
             random_characters.includes_digits,
             random_characters.includes_symbols,
         ];
-        let Some(toggled_set) = usize::try_from(set_position).ok().filter(|position| *position < selected_sets.len()) else {
+        let Some(toggled_set) = usize::try_from(set_position).ok().filter(|position| *position < selected_sets.len())
+        else {
             return;
         };
         selected_sets[toggled_set] = !selected_sets[toggled_set];
@@ -144,7 +151,8 @@ impl GeneratorController {
             random_characters.includes_digits,
             random_characters.includes_symbols,
         ] = selected_sets;
-        self.context.update_ui_preferences(|ui_preferences| ui_preferences.generator_settings = generator_settings.clone());
+        self.context
+            .update_ui_preferences(|ui_preferences| ui_preferences.generator_settings = generator_settings.clone());
         self.publish_settings(&generator_settings);
         self.regenerate();
     }

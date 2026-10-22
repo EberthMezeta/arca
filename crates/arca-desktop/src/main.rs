@@ -18,9 +18,9 @@ use rfd::{MessageDialog, MessageLevel};
 use slint::ComponentHandle;
 
 use crate::composition_root::{ComposedApplication, StartupOutcome, compose_application};
-use crate::platform::{auto_lock_scheduler, process_hardening, system_color_scheme, system_lock_watcher};
 use crate::platform::file_dialogs::NativeFileDialogs;
 use crate::platform::local_user_files::LocalUserFiles;
+use crate::platform::{auto_lock_scheduler, process_hardening, system_color_scheme, system_lock_watcher};
 use crate::presentation::app_context::{AppContext, SystemPorts};
 use crate::presentation::{controllers, vault_event_bridge};
 use crate::shared_vault::VaultLocker;
@@ -38,7 +38,11 @@ const ANOTHER_INSTANCE_MESSAGE: &str = "Arca (o RustVault, su versión anterior)
      Arca (or RustVault, its previous version) is already open in another window. Close it and try again.";
 
 fn warn_about_running_instance() {
-    MessageDialog::new().set_title("Arca").set_description(ANOTHER_INSTANCE_MESSAGE).set_level(MessageLevel::Warning).show();
+    MessageDialog::new()
+        .set_title("Arca")
+        .set_description(ANOTHER_INSTANCE_MESSAGE)
+        .set_level(MessageLevel::Warning)
+        .show();
 }
 
 fn main() -> ExitCode {
@@ -58,7 +62,8 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let ComposedApplication { shared_vault, vault_file_path, ui_preferences_store, single_instance_lock } = *composed_application;
+    let ComposedApplication { shared_vault, vault_file_path, ui_preferences_store, single_instance_lock } =
+        *composed_application;
 
     let app_window = match AppWindow::new() {
         Ok(app_window) => app_window,
@@ -76,7 +81,8 @@ fn main() -> ExitCode {
     auto_lock_scheduler::start(vault_locker);
 
     let system_ports = SystemPorts { file_dialogs: Rc::new(NativeFileDialogs), user_files: Arc::new(LocalUserFiles) };
-    let context = AppContext::new(&app_window, shared_vault.clone(), vault_file_path, ui_preferences_store, system_ports);
+    let context =
+        AppContext::new(&app_window, shared_vault.clone(), vault_file_path, ui_preferences_store, system_ports);
     controllers::install_all(&context, &app_window);
 
     let run_result = app_window.run();

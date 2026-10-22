@@ -42,7 +42,10 @@ mod tests {
     fn known_codes_use_their_translation_with_details() {
         let translator = Translator::new(Some("en"));
 
-        let blocked_message = describe_error(&translator, &UiError::from(VaultError::UnlockTemporarilyBlocked { retry_after_seconds: 7 }));
+        let blocked_message = describe_error(
+            &translator,
+            &UiError::from(VaultError::UnlockTemporarilyBlocked { retry_after_seconds: 7 }),
+        );
 
         assert_eq!(blocked_message, "Too many attempts. Wait 7 s.");
     }

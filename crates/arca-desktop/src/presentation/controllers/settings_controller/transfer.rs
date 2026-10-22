@@ -11,12 +11,12 @@ use vault_core::domain::ports::vault_exporter::ExportFormat;
 use vault_core::domain::ports::vault_importer::ImportFormat;
 use vault_core::domain::secret_text::SecretText;
 
+use crate::Settings;
 use crate::composition_root::MAXIMUM_IMPORT_FILE_SIZE_BYTES;
 use crate::presentation::app_context::AppEvent;
 use crate::presentation::background_task::{run_in_background, run_with_vault_in_background, spawn_ui_task};
 use crate::presentation::controllers::clipboard_feedback::report_error;
 use crate::ui_error::UiError;
-use crate::Settings;
 
 use super::SettingsController;
 use vault_core::application::vault_service::VaultTransfer;
@@ -90,7 +90,8 @@ pub(super) const EXPORT_FORMATS: [TransferFormatDescription<ExportFormat>; 3] = 
 
 impl SettingsController {
     pub(super) fn select_import_format(&self, format_position: i32) {
-        let Some(description) = usize::try_from(format_position).ok().and_then(|position| IMPORT_FORMATS.get(position)) else {
+        let Some(description) = usize::try_from(format_position).ok().and_then(|position| IMPORT_FORMATS.get(position))
+        else {
             return;
         };
         self.with_settings(|settings| {
@@ -103,7 +104,9 @@ impl SettingsController {
     pub(super) fn import_file(self: &Rc<Self>) {
         self.context.with_window(|app_window| {
             let settings = app_window.global::<Settings>();
-            let Some(description) = usize::try_from(settings.get_import_format_index()).ok().and_then(|position| IMPORT_FORMATS.get(position))
+            let Some(description) = usize::try_from(settings.get_import_format_index())
+                .ok()
+                .and_then(|position| IMPORT_FORMATS.get(position))
             else {
                 return;
             };
@@ -130,14 +133,26 @@ impl SettingsController {
                 };
                 // Leer y descifrar el archivo (una copia `.arca` puede pedir un Argon2id de decenas de
                 // segundos) se hace sin tomar la bóveda: así el bloqueo nunca tiene que esperar.
-                let transfer_formats = controller.context.shared_vault.lock_service().map(|vault_service| vault_service.transfer_format_registry());
+                let transfer_formats = controller
+                    .context
+                    .shared_vault
+                    .lock_service()
+                    .map(|vault_service| vault_service.transfer_format_registry());
                 let user_files = Arc::clone(&controller.context.user_files);
                 let parse_result = match transfer_formats {
                     Ok(transfer_formats) => {
                         run_in_background(move || {
-                            let file_bytes =
-                                user_files.read_limited(&chosen_path, MAXIMUM_IMPORT_FILE_SIZE_BYTES, UiError::import_file_too_large())?;
-                            Ok(parse_import_file(&transfer_formats, import_format, &file_bytes, file_password.as_ref())?)
+                            let file_bytes = user_files.read_limited(
+                                &chosen_path,
+                                MAXIMUM_IMPORT_FILE_SIZE_BYTES,
+                                UiError::import_file_too_large(),
+                            )?;
+                            Ok(parse_import_file(
+                                &transfer_formats,
+                                import_format,
+                                &file_bytes,
+                                file_password.as_ref(),
+                            )?)
                         })
                         .await
                     }
@@ -172,7 +187,8 @@ impl SettingsController {
     }
 
     pub(super) fn select_export_format(&self, format_position: i32) {
-        let Some(description) = usize::try_from(format_position).ok().and_then(|position| EXPORT_FORMATS.get(position)) else {
+        let Some(description) = usize::try_from(format_position).ok().and_then(|position| EXPORT_FORMATS.get(position))
+        else {
             return;
         };
         self.with_settings(|settings| {
@@ -187,7 +203,9 @@ impl SettingsController {
     pub(super) fn export_file(self: &Rc<Self>) {
         self.context.with_window(|app_window| {
             let settings = app_window.global::<Settings>();
-            let Some(description) = usize::try_from(settings.get_export_format_index()).ok().and_then(|position| EXPORT_FORMATS.get(position))
+            let Some(description) = usize::try_from(settings.get_export_format_index())
+                .ok()
+                .and_then(|position| EXPORT_FORMATS.get(position))
             else {
                 return;
             };
@@ -205,10 +223,11 @@ impl SettingsController {
 
             let controller = Rc::clone(self);
             spawn_ui_task(async move {
-                let export_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                    Ok(vault_service.export_vault(&master_password, export_format, file_password.as_ref())?)
-                })
-                .await;
+                let export_result =
+                    run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                        Ok(vault_service.export_vault(&master_password, export_format, file_password.as_ref())?)
+                    })
+                    .await;
                 let exported_file = match export_result {
                     Ok(exported_file) => exported_file,
                     Err(ui_error) => {
@@ -216,20 +235,23 @@ impl SettingsController {
                         return report_error(&controller.context, &ui_error);
                     }
                 };
-                let suggested_file_name =
-                    format!("arca-export-{}.{}", Local::now().format("%Y-%m-%d"), exported_file.suggested_file_extension);
+                let suggested_file_name = format!(
+                    "arca-export-{}.{}",
+                    Local::now().format("%Y-%m-%d"),
+                    exported_file.suggested_file_extension
+                );
                 *controller.export_state.borrow_mut() = ExportState::AwaitingDestination(exported_file);
                 let dialog_title = controller.context.text("transfer.chooseExportFile");
-                let destination_path = controller.context.file_dialogs.choose_file_to_save(&dialog_title, &suggested_file_name).await;
+                let destination_path =
+                    controller.context.file_dialogs.choose_file_to_save(&dialog_title, &suggested_file_name).await;
                 let pending_export = controller.export_state.borrow_mut().take_pending();
                 let (Some(destination_path), Some(exported_file)) = (destination_path, pending_export) else {
                     return controller.with_settings(|settings| settings.set_is_exporting(false));
                 };
                 let user_files = Arc::clone(&controller.context.user_files);
-                let write_result = run_in_background(move || {
-                    user_files.write_private(&destination_path, &exported_file.file_bytes)
-                })
-                .await;
+                let write_result =
+                    run_in_background(move || user_files.write_private(&destination_path, &exported_file.file_bytes))
+                        .await;
                 controller.with_settings(|settings| settings.set_is_exporting(false));
                 match write_result {
                     Ok(()) => {

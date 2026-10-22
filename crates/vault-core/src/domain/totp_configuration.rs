@@ -67,7 +67,8 @@ impl TotpConfiguration {
     pub fn parse(totp_secret: &SecretText) -> VaultResult<Self> {
         let trimmed_secret = totp_secret.expose_secret().trim();
         // Sin `to_ascii_lowercase()` del secreto entero: dejaría otra copia sin borrar.
-        if trimmed_secret.get(..OTPAUTH_SCHEME.len()).is_some_and(|scheme| scheme.eq_ignore_ascii_case(OTPAUTH_SCHEME)) {
+        if trimmed_secret.get(..OTPAUTH_SCHEME.len()).is_some_and(|scheme| scheme.eq_ignore_ascii_case(OTPAUTH_SCHEME))
+        {
             return Self::parse_otpauth_uri(trimmed_secret);
         }
         Ok(Self {
@@ -101,7 +102,12 @@ impl TotpConfiguration {
         if !SUPPORTED_DIGIT_COUNTS.contains(&digit_count) || period_seconds == 0 {
             return Err(VaultError::InvalidTotpSecret);
         }
-        Ok(Self { secret_key_bytes: decode_base32_secret(&base32_secret)?, hash_algorithm, digit_count, period_seconds })
+        Ok(Self {
+            secret_key_bytes: decode_base32_secret(&base32_secret)?,
+            hash_algorithm,
+            digit_count,
+            period_seconds,
+        })
     }
 
     pub fn code_at(&self, unix_timestamp_seconds: u64) -> VaultResult<TotpCode> {
@@ -160,8 +166,7 @@ mod tests {
     #[test]
     fn matches_rfc6238_test_vectors() {
         let sha1_configuration = rfc6238_configuration("12345678901234567890", TotpHashAlgorithm::Sha1);
-        let sha256_configuration =
-            rfc6238_configuration("12345678901234567890123456789012", TotpHashAlgorithm::Sha256);
+        let sha256_configuration = rfc6238_configuration("12345678901234567890123456789012", TotpHashAlgorithm::Sha256);
         let sha512_configuration = rfc6238_configuration(
             "1234567890123456789012345678901234567890123456789012345678901234",
             TotpHashAlgorithm::Sha512,

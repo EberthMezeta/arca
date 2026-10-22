@@ -1,10 +1,10 @@
-use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::application::throttled_master_password_attempt::run_throttled;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::unwrap_vault_key;
 use crate::application::vault_session::{ActivityTimestamp, UnlockedVault};
 use crate::domain::key_hierarchy::derive_vault_subkeys;
 use crate::domain::secret_text::SecretText;
+use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_file::vault_file_format::decode_vault_file;
@@ -21,8 +21,9 @@ pub fn execute(
     unlock_attempt_throttle: &mut UnlockAttemptThrottle,
     master_password: &SecretText,
 ) -> VaultResult<UnlockOutcome> {
-    let unlocked_vault =
-        run_throttled(vault_dependencies, unlock_attempt_throttle, || decrypt_vault(vault_dependencies, master_password))?;
+    let unlocked_vault = run_throttled(vault_dependencies, unlock_attempt_throttle, || {
+        decrypt_vault(vault_dependencies, master_password)
+    })?;
     let opened_revision = unlocked_vault.vault_contents.revision();
     let detected_rollback =
         detect_rollback(vault_dependencies.vault_revision_store.load_last_seen_revision(), opened_revision);

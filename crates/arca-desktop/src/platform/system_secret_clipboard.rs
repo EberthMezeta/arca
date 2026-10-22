@@ -96,7 +96,8 @@ fn run_clear_scheduler(clipboard_state: &(Mutex<ClipboardState>, Condvar), vault
         };
         let now = Instant::now();
         if now < clear_deadline {
-            state = deadline_changed.wait_timeout(state, clear_deadline - now).unwrap_or_else(PoisonError::into_inner).0;
+            state =
+                deadline_changed.wait_timeout(state, clear_deadline - now).unwrap_or_else(PoisonError::into_inner).0;
             continue;
         }
         if state.clear_tracked_secret() {

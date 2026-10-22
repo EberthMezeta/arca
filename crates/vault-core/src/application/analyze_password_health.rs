@@ -57,13 +57,21 @@ struct PasswordHealthContext<'vault> {
 }
 
 trait PasswordHealthRule {
-    fn find_issue(&self, login_entry: &LoginPasswordEntry<'_>, context: &PasswordHealthContext<'_>) -> Option<PasswordHealthIssue>;
+    fn find_issue(
+        &self,
+        login_entry: &LoginPasswordEntry<'_>,
+        context: &PasswordHealthContext<'_>,
+    ) -> Option<PasswordHealthIssue>;
 }
 
 struct WeakPasswordRule;
 
 impl PasswordHealthRule for WeakPasswordRule {
-    fn find_issue(&self, login_entry: &LoginPasswordEntry<'_>, _context: &PasswordHealthContext<'_>) -> Option<PasswordHealthIssue> {
+    fn find_issue(
+        &self,
+        login_entry: &LoginPasswordEntry<'_>,
+        _context: &PasswordHealthContext<'_>,
+    ) -> Option<PasswordHealthIssue> {
         let strength_score = PasswordStrength::estimate(login_entry.password).score;
         (strength_score < WEAK_PASSWORD_SCORE_THRESHOLD).then_some(PasswordHealthIssue::WeakPassword { strength_score })
     }
@@ -72,7 +80,11 @@ impl PasswordHealthRule for WeakPasswordRule {
 struct ReusedPasswordRule;
 
 impl PasswordHealthRule for ReusedPasswordRule {
-    fn find_issue(&self, login_entry: &LoginPasswordEntry<'_>, context: &PasswordHealthContext<'_>) -> Option<PasswordHealthIssue> {
+    fn find_issue(
+        &self,
+        login_entry: &LoginPasswordEntry<'_>,
+        context: &PasswordHealthContext<'_>,
+    ) -> Option<PasswordHealthIssue> {
         let reuse_count = context.password_usage_counts.get(login_entry.password.expose_secret()).copied().unwrap_or(0);
         (reuse_count > 1).then_some(PasswordHealthIssue::ReusedPassword { reuse_count })
     }
@@ -81,7 +93,11 @@ impl PasswordHealthRule for ReusedPasswordRule {
 struct OldPasswordRule;
 
 impl PasswordHealthRule for OldPasswordRule {
-    fn find_issue(&self, login_entry: &LoginPasswordEntry<'_>, context: &PasswordHealthContext<'_>) -> Option<PasswordHealthIssue> {
+    fn find_issue(
+        &self,
+        login_entry: &LoginPasswordEntry<'_>,
+        context: &PasswordHealthContext<'_>,
+    ) -> Option<PasswordHealthIssue> {
         let age_in_days = (context.now - login_entry.password_changed_at?).num_days();
         (age_in_days >= OLD_PASSWORD_AGE_DAYS).then_some(PasswordHealthIssue::OldPassword { age_in_days })
     }

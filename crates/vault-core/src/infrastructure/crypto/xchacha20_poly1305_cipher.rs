@@ -4,8 +4,8 @@ use zeroize::Zeroizing;
 
 use crate::domain::encryption_key::EncryptionKey;
 use crate::domain::ports::authenticated_cipher::{AuthenticatedCipher, SealedBox};
-use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::secure_random::random_bytes;
+use crate::domain::vault_error::{VaultError, VaultResult};
 
 pub const XCHACHA20_NONCE_LENGTH_BYTES: usize = 24;
 
@@ -62,7 +62,8 @@ mod tests {
         let encryption_key = random_encryption_key().expect("clave");
         let sealed_box = XChaCha20Poly1305Cipher.seal(&encryption_key, b"secreto", b"cabecera").expect("cifrar");
 
-        let decrypted_plaintext = XChaCha20Poly1305Cipher.open(&encryption_key, &sealed_box, b"cabecera").expect("descifrar");
+        let decrypted_plaintext =
+            XChaCha20Poly1305Cipher.open(&encryption_key, &sealed_box, b"cabecera").expect("descifrar");
 
         assert_eq!(decrypted_plaintext.as_slice(), b"secreto");
     }

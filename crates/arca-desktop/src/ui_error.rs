@@ -29,7 +29,8 @@ impl UiError {
         Self::with_code("importFileTooLarge")
     }
 
-    /// Fallo al escribir un archivo elegido por el usuario (se informa como acceso a archivo, no como error de la bóveda).
+    /// Fallo al escribir un archivo elegido por el usuario: se informa como acceso a archivo,
+    /// no como error de la bóveda.
     pub fn file_write(storage_error: VaultError) -> Self {
         Self::file_access(format!("{storage_error:?}"))
     }

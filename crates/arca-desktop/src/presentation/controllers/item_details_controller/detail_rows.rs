@@ -53,17 +53,29 @@ impl ItemDetailsController {
                 .filter(|(_, field_value)| !field_value.trim().is_empty())
                 .map(|(field_descriptor, field_value)| match field_descriptor.revealable_field {
                     Some(revealable_field) => secret_row(field_descriptor.label_key, field_value, revealable_field),
-                    None => plain_row(field_descriptor.label_key, field_value.clone(), RowValueSource::PlainText(field_value)),
+                    None => plain_row(
+                        field_descriptor.label_key,
+                        field_value.clone(),
+                        RowValueSource::PlainText(field_value),
+                    ),
                 })
                 .collect();
         };
 
         let mut login_rows = Vec::new();
         if !login_content.username.is_empty() {
-            login_rows.push(plain_row("fields.username", login_content.username.clone(), RowValueSource::Field(RevealableField::Username)));
+            login_rows.push(plain_row(
+                "fields.username",
+                login_content.username.clone(),
+                RowValueSource::Field(RevealableField::Username),
+            ));
         }
         if !login_content.password.is_empty() {
-            login_rows.push(secret_row("fields.password", login_content.password.expose_secret().to_string(), RevealableField::Password));
+            login_rows.push(secret_row(
+                "fields.password",
+                login_content.password.expose_secret().to_string(),
+                RevealableField::Password,
+            ));
         }
         if vault_item.item_content.totp_secret().is_some() {
             login_rows.push(DetailRowSpec {
@@ -73,12 +85,9 @@ impl ItemDetailsController {
                 value_source: RowValueSource::Totp,
             });
         }
-        login_rows.extend(
-            login_content
-                .website_urls
-                .iter()
-                .map(|website_url| plain_row("fields.website", website_url.clone(), RowValueSource::PlainText(website_url.clone()))),
-        );
+        login_rows.extend(login_content.website_urls.iter().map(|website_url| {
+            plain_row("fields.website", website_url.clone(), RowValueSource::PlainText(website_url.clone()))
+        }));
         login_rows
     }
 
@@ -91,7 +100,9 @@ impl ItemDetailsController {
     }
 
     pub(super) fn toggle_reveal(self: &Rc<Self>, row_index: i32) {
-        let (Some(item_id), Some(row_spec), Ok(row_position)) = (self.displayed_item_id(), self.row_spec(row_index), usize::try_from(row_index)) else {
+        let (Some(item_id), Some(row_spec), Ok(row_position)) =
+            (self.displayed_item_id(), self.row_spec(row_index), usize::try_from(row_index))
+        else {
             return;
         };
         let RowValueSource::Field(revealable_field) = row_spec.value_source else {
@@ -101,8 +112,11 @@ impl ItemDetailsController {
             self.publish_item();
             return;
         }
-        let revealed_value =
-            self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.reveal_item_field(item_id, revealable_field)?));
+        let revealed_value = self
+            .context
+            .shared_vault
+            .lock_service()
+            .and_then(|vault_service| Ok(vault_service.reveal_item_field(item_id, revealable_field)?));
         let Ok(revealed_value) = revealed_value else {
             return;
         };
@@ -129,8 +143,12 @@ impl ItemDetailsController {
             return;
         };
         copy_with_feedback(&self.context, &row_spec.label, |vault_service| match row_spec.value_source {
-            RowValueSource::PlainText(plain_text) => vault_service.copy_secret_to_clipboard(SecretText::new(plain_text)),
-            RowValueSource::Field(revealable_field) => vault_service.copy_item_field_to_clipboard(item_id, revealable_field),
+            RowValueSource::PlainText(plain_text) => {
+                vault_service.copy_secret_to_clipboard(SecretText::new(plain_text))
+            }
+            RowValueSource::Field(revealable_field) => {
+                vault_service.copy_item_field_to_clipboard(item_id, revealable_field)
+            }
             RowValueSource::Totp => vault_service.copy_totp_code_to_clipboard(item_id),
         });
     }
@@ -150,4 +168,3 @@ pub(super) fn build_custom_rows(vault_item: &VaultItem) -> Vec<DetailRowSpec> {
         })
         .collect()
 }
-

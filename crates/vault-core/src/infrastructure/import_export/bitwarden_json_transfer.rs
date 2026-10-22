@@ -11,7 +11,9 @@ use crate::domain::secret_serialization::serialize_secret_json_pretty;
 use crate::domain::secret_text::SecretText;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
-use crate::infrastructure::import_export::bitwarden_json_format::{BitwardenExportDocument, BitwardenFolder, BitwardenItem};
+use crate::infrastructure::import_export::bitwarden_json_format::{
+    BitwardenExportDocument, BitwardenFolder, BitwardenItem,
+};
 
 pub struct BitwardenJsonImporter;
 
@@ -38,10 +40,9 @@ impl VaultImporter for BitwardenJsonImporter {
             .folders
             .iter()
             .filter_map(|bitwarden_folder| {
-                folder_id_by_source_id.get(bitwarden_folder.id.as_str()).map(|folder_id| Folder {
-                    folder_id: *folder_id,
-                    folder_name: bitwarden_folder.name.clone(),
-                })
+                folder_id_by_source_id
+                    .get(bitwarden_folder.id.as_str())
+                    .map(|folder_id| Folder { folder_id: *folder_id, folder_name: bitwarden_folder.name.clone() })
             })
             .collect();
 
@@ -73,7 +74,11 @@ impl VaultExporter for BitwardenJsonExporter {
         "json"
     }
 
-    fn serialize_vault(&self, vault_contents: &VaultContents, _file_password: Option<&SecretText>) -> VaultResult<Zeroizing<Vec<u8>>> {
+    fn serialize_vault(
+        &self,
+        vault_contents: &VaultContents,
+        _file_password: Option<&SecretText>,
+    ) -> VaultResult<Zeroizing<Vec<u8>>> {
         let export_document = BitwardenExportDocument {
             encrypted: false,
             folders: vault_contents
@@ -90,8 +95,8 @@ impl VaultExporter for BitwardenJsonExporter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::vault_preferences::VaultPreferences;
     use crate::domain::item_content::ItemContent;
+    use crate::domain::vault_preferences::VaultPreferences;
 
     const BITWARDEN_SAMPLE_EXPORT: &str = r#"{
       "encrypted": false,

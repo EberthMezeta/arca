@@ -46,8 +46,11 @@ fn choice_at(choices: &[u64], position: i32) -> Option<u64> {
 
 impl SettingsController {
     fn format_duration(&self, total_seconds: u64) -> String {
-        let (unit_seconds, unit_key) =
-            DURATION_UNITS.iter().find(|(unit_seconds, _)| total_seconds >= *unit_seconds).copied().unwrap_or((1, "settings.seconds"));
+        let (unit_seconds, unit_key) = DURATION_UNITS
+            .iter()
+            .find(|(unit_seconds, _)| total_seconds >= *unit_seconds)
+            .copied()
+            .unwrap_or((1, "settings.seconds"));
         self.context.count_text(unit_key, i64::try_from(total_seconds / unit_seconds).unwrap_or(0), &[])
     }
 
@@ -56,18 +59,28 @@ impl SettingsController {
         if self.context.navigator.snapshot().section != VaultSection::Settings {
             return;
         }
-        let Ok(vault_preferences) = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.preferences()?)) else {
+        let Ok(vault_preferences) =
+            self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.preferences()?))
+        else {
             return;
         };
         let history_limit = u64::try_from(vault_preferences.password_history_limit).unwrap_or(0);
         let preference_choices = PreferenceChoices {
-            auto_lock_seconds: choices_including(&AUTO_LOCK_SECONDS_CHOICES, vault_preferences.auto_lock_after_idle_seconds),
-            clipboard_clear_seconds: choices_including(&CLIPBOARD_CLEAR_SECONDS_CHOICES, vault_preferences.clipboard_clear_after_seconds),
+            auto_lock_seconds: choices_including(
+                &AUTO_LOCK_SECONDS_CHOICES,
+                vault_preferences.auto_lock_after_idle_seconds,
+            ),
+            clipboard_clear_seconds: choices_including(
+                &CLIPBOARD_CLEAR_SECONDS_CHOICES,
+                vault_preferences.clipboard_clear_after_seconds,
+            ),
             history_limits: choices_including(&PASSWORD_HISTORY_LIMIT_CHOICES, history_limit),
             loaded_preferences: Some(vault_preferences.clone()),
         };
-        let auto_lock_labels = preference_choices.auto_lock_seconds.iter().map(|seconds| self.format_duration(*seconds)).collect();
-        let clipboard_labels = preference_choices.clipboard_clear_seconds.iter().map(|seconds| self.format_duration(*seconds)).collect();
+        let auto_lock_labels =
+            preference_choices.auto_lock_seconds.iter().map(|seconds| self.format_duration(*seconds)).collect();
+        let clipboard_labels =
+            preference_choices.clipboard_clear_seconds.iter().map(|seconds| self.format_duration(*seconds)).collect();
         let history_labels = preference_choices
             .history_limits
             .iter()
@@ -75,7 +88,10 @@ impl SettingsController {
             .collect();
         self.with_settings(|settings| {
             settings.set_auto_lock_labels(to_string_model(auto_lock_labels));
-            settings.set_auto_lock_index(position_of(&preference_choices.auto_lock_seconds, vault_preferences.auto_lock_after_idle_seconds));
+            settings.set_auto_lock_index(position_of(
+                &preference_choices.auto_lock_seconds,
+                vault_preferences.auto_lock_after_idle_seconds,
+            ));
             settings.set_clipboard_clear_labels(to_string_model(clipboard_labels));
             settings.set_clipboard_clear_index(position_of(
                 &preference_choices.clipboard_clear_seconds,
@@ -98,18 +114,30 @@ impl SettingsController {
                     return;
                 };
                 VaultPreferences {
-                    auto_lock_after_idle_seconds: choice_at(&preference_choices.auto_lock_seconds, settings.get_auto_lock_index())
-                        .unwrap_or(loaded_preferences.auto_lock_after_idle_seconds),
-                    clipboard_clear_after_seconds: choice_at(&preference_choices.clipboard_clear_seconds, settings.get_clipboard_clear_index())
-                        .unwrap_or(loaded_preferences.clipboard_clear_after_seconds),
-                    password_history_limit: choice_at(&preference_choices.history_limits, settings.get_history_limit_index())
-                        .and_then(|limit| usize::try_from(limit).ok())
-                        .unwrap_or(loaded_preferences.password_history_limit),
+                    auto_lock_after_idle_seconds: choice_at(
+                        &preference_choices.auto_lock_seconds,
+                        settings.get_auto_lock_index(),
+                    )
+                    .unwrap_or(loaded_preferences.auto_lock_after_idle_seconds),
+                    clipboard_clear_after_seconds: choice_at(
+                        &preference_choices.clipboard_clear_seconds,
+                        settings.get_clipboard_clear_index(),
+                    )
+                    .unwrap_or(loaded_preferences.clipboard_clear_after_seconds),
+                    password_history_limit: choice_at(
+                        &preference_choices.history_limits,
+                        settings.get_history_limit_index(),
+                    )
+                    .and_then(|limit| usize::try_from(limit).ok())
+                    .unwrap_or(loaded_preferences.password_history_limit),
                     should_lock_on_window_minimize: settings.get_locks_on_minimize(),
                 }
             };
-            let update_result: UiResult<_> =
-                self.context.shared_vault.lock_service().and_then(|mut vault_service| Ok(vault_service.update_preferences(updated_preferences)?));
+            let update_result: UiResult<_> = self
+                .context
+                .shared_vault
+                .lock_service()
+                .and_then(|mut vault_service| Ok(vault_service.update_preferences(updated_preferences)?));
             match update_result {
                 Ok(_) => self.report_success("settings.saved"),
                 Err(ui_error) => report_error(&self.context, &ui_error),

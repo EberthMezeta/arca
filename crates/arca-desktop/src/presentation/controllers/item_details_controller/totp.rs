@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use slint::{ComponentHandle, TimerMode};
 
-use vault_core::domain::totp_configuration::SUPPORTED_DIGIT_COUNTS;
 use vault_core::application::vault_service::VaultItems;
+use vault_core::domain::totp_configuration::SUPPORTED_DIGIT_COUNTS;
 
 use super::ItemDetailsController;
 use super::detail_rows::RowValueSource;
@@ -16,7 +16,12 @@ const TOTP_REFRESH_INTERVAL: Duration = Duration::from_secs(1);
 
 impl ItemDetailsController {
     pub(super) fn restart_totp_refresh(self: &Rc<Self>) {
-        let has_totp = self.details_state.borrow().main_rows.iter().any(|row_spec| matches!(row_spec.value_source, RowValueSource::Totp));
+        let has_totp = self
+            .details_state
+            .borrow()
+            .main_rows
+            .iter()
+            .any(|row_spec| matches!(row_spec.value_source, RowValueSource::Totp));
         if !has_totp {
             self.totp_timer.stop();
             return;
@@ -35,7 +40,11 @@ impl ItemDetailsController {
         let Some(item_id) = self.displayed_item_id() else {
             return;
         };
-        let Some(totp_code) = self.context.shared_vault.try_lock_service().and_then(|vault_service| vault_service.current_totp_code(item_id).ok())
+        let Some(totp_code) = self
+            .context
+            .shared_vault
+            .try_lock_service()
+            .and_then(|vault_service| vault_service.current_totp_code(item_id).ok())
         else {
             return;
         };

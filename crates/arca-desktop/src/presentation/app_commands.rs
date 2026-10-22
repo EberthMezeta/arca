@@ -6,9 +6,9 @@ use std::time::Duration;
 use slint::{ComponentHandle, Timer};
 use uuid::Uuid;
 use vault_core::application::search_vault_items::VaultItemFilter;
-use vault_core::domain::item_content::ItemContentType;
 use vault_core::application::vault_service::VaultAttachments;
 use vault_core::application::vault_service::VaultItems;
+use vault_core::domain::item_content::ItemContentType;
 
 use crate::presentation::app_context::{AppContext, AppEvent, EditorMode};
 use crate::presentation::item_drafts::save_request_from_item;
@@ -101,7 +101,9 @@ impl ItemCommand {
                 context.navigator.select_item(None);
             }
             Self::RestoreFromTrash(item_id) => vault_service.restore_item_from_trash(item_id)?,
-            Self::DeleteAttachment { item_id, attachment_id } => vault_service.delete_attachment(item_id, attachment_id)?,
+            Self::DeleteAttachment { item_id, attachment_id } => {
+                vault_service.delete_attachment(item_id, attachment_id)?;
+            }
             Self::DeletePermanently(item_id) => {
                 vault_service.delete_item_permanently(item_id)?;
                 drop(vault_service);

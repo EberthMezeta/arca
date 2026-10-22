@@ -55,7 +55,9 @@ pub enum FolderScope {
     AllFolders,
     WithoutFolder,
     #[serde(rename_all = "camelCase")]
-    SpecificFolder { folder_id: Uuid },
+    SpecificFolder {
+        folder_id: Uuid,
+    },
 }
 
 impl FolderScope {
@@ -100,7 +102,9 @@ impl VaultItemFilter {
             Box::new(move |vault_item| item_matches_search_text(vault_item, &search_text))
         }));
         item_predicates.extend(self.tag_name.as_deref().map(|tag_name| -> ItemPredicate<'_> {
-            Box::new(move |vault_item| vault_item.tag_names.iter().any(|item_tag| item_tag.eq_ignore_ascii_case(tag_name)))
+            Box::new(move |vault_item| {
+                vault_item.tag_names.iter().any(|item_tag| item_tag.eq_ignore_ascii_case(tag_name))
+            })
         }));
         item_predicates.extend(self.content_type.map(|content_type| -> ItemPredicate<'_> {
             Box::new(move |vault_item| vault_item.item_content.content_type() == content_type)

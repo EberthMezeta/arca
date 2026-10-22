@@ -20,22 +20,29 @@ pub(super) const THEME_CHOICES: [(ThemePreference, ThemeChoice, &str); 3] = [
 pub(super) fn follow_system_color_scheme(app_window: &AppWindow) {
     let window_handle = app_window.as_weak();
     system_color_scheme::watch_changes(move |system_is_dark| {
-        let _ = window_handle.upgrade_in_event_loop(move |app_window| app_window.global::<Theme>().set_system_is_dark(system_is_dark));
+        let _ = window_handle
+            .upgrade_in_event_loop(move |app_window| app_window.global::<Theme>().set_system_is_dark(system_is_dark));
     });
 }
 
 impl SettingsController {
     pub(super) fn select_language(&self, language_position: i32) {
-        let Some(language) = usize::try_from(language_position).ok().and_then(|position| SUPPORTED_LANGUAGES.get(position)) else {
+        let Some(language) =
+            usize::try_from(language_position).ok().and_then(|position| SUPPORTED_LANGUAGES.get(position))
+        else {
             return;
         };
         self.context.translator.borrow_mut().change_language(language.language_code);
-        self.context.update_ui_preferences(|ui_preferences| ui_preferences.language_code = Some(language.language_code.to_string()));
+        self.context.update_ui_preferences(|ui_preferences| {
+            ui_preferences.language_code = Some(language.language_code.to_string());
+        });
         self.context.events.publish(AppEvent::LanguageChanged);
     }
 
     pub(super) fn select_theme(&self, theme_position: i32) {
-        let Some((theme_preference, _, _)) = usize::try_from(theme_position).ok().and_then(|position| THEME_CHOICES.get(position)) else {
+        let Some((theme_preference, _, _)) =
+            usize::try_from(theme_position).ok().and_then(|position| THEME_CHOICES.get(position))
+        else {
             return;
         };
         self.context.update_ui_preferences(|ui_preferences| ui_preferences.theme_preference = *theme_preference);

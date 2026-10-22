@@ -2,9 +2,11 @@ use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
 use crate::domain::ports::vault_repository::VaultRepository;
-use crate::infrastructure::storage::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
 use crate::domain::vault_error::{VaultError, VaultResult};
-use crate::infrastructure::storage::owner_only_files::{create_owner_only_directory, remove_file_if_exists, write_owner_only_file};
+use crate::infrastructure::storage::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
+use crate::infrastructure::storage::owner_only_files::{
+    create_owner_only_directory, remove_file_if_exists, write_owner_only_file,
+};
 
 /// Ninguna bóveda real se acerca (solo texto; los adjuntos van aparte): un archivo mayor lo ha
 /// puesto alguien con acceso al disco, y leerlo entero podría agotar la RAM.

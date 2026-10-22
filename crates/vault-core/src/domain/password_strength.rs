@@ -5,7 +5,17 @@ use crate::domain::secret_text::SecretText;
 /// Palabras que zxcvbn no conoce (su diccionario es inglés) y que cualquiera probaría primero
 /// contra una bóveda de esta app.
 const CONTEXT_WORDS: &[&str] = &[
-    "arca", "rustvault", "vault", "boveda", "bóveda", "contraseña", "contrasena", "clave", "maestra", "segura", "secreta",
+    "arca",
+    "rustvault",
+    "vault",
+    "boveda",
+    "bóveda",
+    "contraseña",
+    "contrasena",
+    "clave",
+    "maestra",
+    "segura",
+    "secreta",
     "password",
 ];
 

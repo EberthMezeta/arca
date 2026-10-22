@@ -27,7 +27,10 @@ pub fn derive_vault_subkeys(vault_key: &EncryptionKey) -> VaultResult<VaultSubke
 }
 
 /// Cada adjunto obtiene su propia clave única derivada de su identificador.
-pub fn derive_single_attachment_key(attachments_root_key: &EncryptionKey, attachment_id: Uuid) -> VaultResult<EncryptionKey> {
+pub fn derive_single_attachment_key(
+    attachments_root_key: &EncryptionKey,
+    attachment_id: Uuid,
+) -> VaultResult<EncryptionKey> {
     let purpose_with_identifier = [SINGLE_ATTACHMENT_KEY_PURPOSE, attachment_id.as_bytes().as_slice()].concat();
     derive_subkey(attachments_root_key, &purpose_with_identifier)
 }

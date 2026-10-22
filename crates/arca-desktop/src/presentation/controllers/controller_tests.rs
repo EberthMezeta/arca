@@ -51,7 +51,12 @@ struct FakeUserFiles {
 }
 
 impl UserFiles for FakeUserFiles {
-    fn read_limited(&self, file_path: &Path, maximum_byte_count: u64, too_large_error: UiError) -> UiResult<Zeroizing<Vec<u8>>> {
+    fn read_limited(
+        &self,
+        file_path: &Path,
+        maximum_byte_count: u64,
+        too_large_error: UiError,
+    ) -> UiResult<Zeroizing<Vec<u8>>> {
         let files_by_path = self.files_by_path.lock().expect("mutex");
         let file_bytes = files_by_path.get(file_path).ok_or_else(|| UiError::file_access("no existe"))?;
         if file_bytes.len() as u64 > maximum_byte_count {
@@ -81,8 +86,15 @@ fn unlocked_app() -> UnlockedApp {
     let app_window = AppWindow::new().expect("ventana");
     let mut vault_service = build_test_vault_service().vault_service;
     vault_service.create_vault(&SecretText::new(STRONG_MASTER_PASSWORD)).expect("crear bóveda");
-    let preferences_path = std::env::temp_dir().join(format!("arca-controller-tests-{}-{:?}.json", std::process::id(), std::thread::current().id()));
-    let system_ports = SystemPorts { file_dialogs: Rc::new(FakeFileDialogs::default()), user_files: Arc::new(FakeUserFiles::default()) };
+    let preferences_path = std::env::temp_dir().join(format!(
+        "arca-controller-tests-{}-{:?}.json",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let system_ports = SystemPorts {
+        file_dialogs: Rc::new(FakeFileDialogs::default()),
+        user_files: Arc::new(FakeUserFiles::default()),
+    };
     let context = AppContext::new(
         &app_window,
         SharedVault::new(vault_service),
@@ -139,7 +151,11 @@ fn details_show_the_password_masked_until_revealed() {
     app.create_login("Banco", "pw-del-banco-1234");
     let item_details = app.app_window.global::<ItemDetails>();
     let password_row = || {
-        item_details.get_main_rows().iter().find(|detail_row| detail_row.label == "Contraseña" || detail_row.label == "Password").expect("fila")
+        item_details
+            .get_main_rows()
+            .iter()
+            .find(|detail_row| detail_row.label == "Contraseña" || detail_row.label == "Password")
+            .expect("fila")
     };
 
     assert_ne!(password_row().value, SharedString::from("pw-del-banco-1234"));
@@ -157,7 +173,8 @@ fn moving_to_trash_offers_an_undo_that_restores_the_item() {
     let trash_filter = VaultItemFilter { should_show_trash: true, ..VaultItemFilter::default() };
     assert_eq!(app.stored_titles(&trash_filter), vec!["Correo".to_string()]);
     let toasts = app.app_window.global::<Toasts>();
-    let undo_toast = toasts.get_visible_toasts().iter().find(|toast| !toast.action_label.is_empty()).expect("aviso con «Deshacer»");
+    let undo_toast =
+        toasts.get_visible_toasts().iter().find(|toast| !toast.action_label.is_empty()).expect("aviso con «Deshacer»");
     toasts.invoke_run_action(undo_toast.toast_id);
 
     assert!(app.stored_titles(&trash_filter).is_empty());
@@ -193,9 +210,17 @@ fn editing_without_touching_the_masked_password_keeps_it() {
     item_editor.set_title("Correo personal".into());
     item_editor.invoke_save();
 
-    let password_row = item_details.get_main_rows().iter().find(|detail_row| detail_row.kind == crate::DetailRowKind::Secret).expect("fila");
+    let password_row = item_details
+        .get_main_rows()
+        .iter()
+        .find(|detail_row| detail_row.kind == crate::DetailRowKind::Secret)
+        .expect("fila");
     item_details.invoke_toggle_reveal(password_row.row_index);
-    let revealed_row = item_details.get_main_rows().iter().find(|detail_row| detail_row.row_index == password_row.row_index).expect("fila");
+    let revealed_row = item_details
+        .get_main_rows()
+        .iter()
+        .find(|detail_row| detail_row.row_index == password_row.row_index)
+        .expect("fila");
     assert_eq!(item_details.get_title(), SharedString::from("Correo personal"));
     assert_eq!(revealed_row.value, SharedString::from("pw-original-9876"));
 }

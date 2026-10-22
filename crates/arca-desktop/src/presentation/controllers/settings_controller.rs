@@ -32,8 +32,11 @@ pub struct SettingsController {
 
 impl SettingsController {
     pub fn install(context: &Rc<AppContext>, app_window: &AppWindow) -> Rc<Self> {
-        let controller =
-            Rc::new(Self { context: Rc::clone(context), preference_choices: RefCell::default(), export_state: RefCell::default() });
+        let controller = Rc::new(Self {
+            context: Rc::clone(context),
+            preference_choices: RefCell::default(),
+            export_state: RefCell::default(),
+        });
         controller.bind_callbacks(app_window);
 
         let event_controller = Rc::clone(&controller);
@@ -67,11 +70,15 @@ impl SettingsController {
         let password_controller = Rc::clone(self);
         settings.on_change_master_password(move || password_controller.change_master_password());
         let import_format_controller = Rc::clone(self);
-        settings.on_import_format_selected(move |format_position| import_format_controller.select_import_format(format_position));
+        settings.on_import_format_selected(move |format_position| {
+            import_format_controller.select_import_format(format_position);
+        });
         let import_controller = Rc::clone(self);
         settings.on_import_file(move || import_controller.import_file());
         let export_format_controller = Rc::clone(self);
-        settings.on_export_format_selected(move |format_position| export_format_controller.select_export_format(format_position));
+        settings.on_export_format_selected(move |format_position| {
+            export_format_controller.select_export_format(format_position);
+        });
         let export_controller = Rc::clone(self);
         settings.on_export_file(move || export_controller.export_file());
     }
@@ -94,8 +101,10 @@ impl SettingsController {
         let theme_names = THEME_CHOICES.iter().map(|(_, _, label_key)| self.context.text(label_key)).collect();
         let import_names = IMPORT_FORMATS.iter().map(|description| self.context.text(description.label_key)).collect();
         let export_names = EXPORT_FORMATS.iter().map(|description| self.context.text(description.label_key)).collect();
-        let language_position = SUPPORTED_LANGUAGES.iter().position(|language| language.language_code == active_language_code).unwrap_or(0);
-        let theme_position = THEME_CHOICES.iter().position(|(preference, _, _)| *preference == theme_preference).unwrap_or(0);
+        let language_position =
+            SUPPORTED_LANGUAGES.iter().position(|language| language.language_code == active_language_code).unwrap_or(0);
+        let theme_position =
+            THEME_CHOICES.iter().position(|(preference, _, _)| *preference == theme_preference).unwrap_or(0);
         self.with_settings(|settings| {
             settings.set_language_names(to_string_model(language_names));
             settings.set_language_index(i32::try_from(language_position).unwrap_or(0));
@@ -104,7 +113,10 @@ impl SettingsController {
             settings.set_import_format_names(to_string_model(import_names));
             settings.set_export_format_names(to_string_model(export_names));
             let import_position = usize::try_from(settings.get_import_format_index()).unwrap_or(0);
-            let import_hint = IMPORT_FORMATS.get(import_position).map(|description| self.context.text(description.hint_key)).unwrap_or_default();
+            let import_hint = IMPORT_FORMATS
+                .get(import_position)
+                .map(|description| self.context.text(description.hint_key))
+                .unwrap_or_default();
             settings.set_import_hint(import_hint.into());
         });
     }

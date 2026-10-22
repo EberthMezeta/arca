@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroize;
 use uuid::Uuid;
+use zeroize::Zeroize;
 
 use crate::domain::item_content::ItemContent;
 use crate::domain::secret_text::SecretText;
@@ -74,7 +74,9 @@ pub enum RevealableField {
     IdentityDocumentNumber,
     TotpSecret,
     #[serde(rename_all = "camelCase")]
-    CustomField { field_index: usize },
+    CustomField {
+        field_index: usize,
+    },
 }
 
 /// Sustituye a cada secreto no vacío en la vista de detalle. Solo es lo que se muestra: al guardar,
@@ -164,10 +166,8 @@ impl VaultItem {
             return;
         };
 
-        self.password_history.insert(
-            0,
-            PasswordHistoryEntry { previous_password: previous_password.clone(), replaced_at: changed_at },
-        );
+        self.password_history
+            .insert(0, PasswordHistoryEntry { previous_password: previous_password.clone(), replaced_at: changed_at });
         self.password_history.truncate(password_history_limit);
     }
 }
@@ -224,10 +224,8 @@ mod tests {
     fn history_is_truncated_to_limit() {
         let mut vault_item = login_item_with_password("v3");
         vault_item.record_password_change(Some(&SecretText::new("v1")), Utc::now(), 1);
-        vault_item.item_content = ItemContent::Login(LoginContent {
-            password: SecretText::new("v4"),
-            ..LoginContent::default()
-        });
+        vault_item.item_content =
+            ItemContent::Login(LoginContent { password: SecretText::new("v4"), ..LoginContent::default() });
 
         vault_item.record_password_change(Some(&SecretText::new("v3")), Utc::now(), 1);
 

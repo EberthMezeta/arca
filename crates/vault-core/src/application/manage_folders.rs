@@ -34,7 +34,11 @@ pub fn create_folder(vault_contents: &mut VaultContents, raw_folder_name: &str) 
     Ok(new_folder)
 }
 
-pub fn rename_folder(vault_contents: &mut VaultContents, folder_id: Uuid, raw_folder_name: &str) -> VaultResult<Folder> {
+pub fn rename_folder(
+    vault_contents: &mut VaultContents,
+    folder_id: Uuid,
+    raw_folder_name: &str,
+) -> VaultResult<Folder> {
     let folder_name = validated_folder_name(vault_contents, raw_folder_name, Some(folder_id))?;
     let folder = vault_contents.find_folder_mut(folder_id)?;
     folder.folder_name = folder_name;

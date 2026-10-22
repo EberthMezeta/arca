@@ -1,6 +1,5 @@
 //! Adjuntos cifrados de un elemento.
 
-
 use uuid::Uuid;
 
 use crate::application::manage_attachments::{self, DecryptedAttachment};
@@ -11,7 +10,8 @@ use crate::domain::vault_item::AttachmentReference;
 use super::VaultService;
 
 pub trait VaultAttachments {
-    fn add_attachment(&mut self, item_id: Uuid, file_name: &str, file_bytes: &[u8]) -> VaultResult<AttachmentReference>;
+    fn add_attachment(&mut self, item_id: Uuid, file_name: &str, file_bytes: &[u8])
+    -> VaultResult<AttachmentReference>;
 
     /// Guardar un adjunto descifrado lo saca del cifrado, como exportar: exige la contraseña
     /// maestra (con retardo), para que alguien con acceso breve a la app no se lleve los archivos.
@@ -26,7 +26,12 @@ pub trait VaultAttachments {
 }
 
 impl VaultAttachments for VaultService {
-    fn add_attachment(&mut self, item_id: Uuid, file_name: &str, file_bytes: &[u8]) -> VaultResult<AttachmentReference> {
+    fn add_attachment(
+        &mut self,
+        item_id: Uuid,
+        file_name: &str,
+        file_bytes: &[u8],
+    ) -> VaultResult<AttachmentReference> {
         let unlocked_vault =
             Self::unlocked_vault_for_change(&mut self.session_state, self.vault_dependencies.clock.as_ref())?;
         manage_attachments::add_attachment(&self.vault_dependencies, unlocked_vault, item_id, file_name, file_bytes)

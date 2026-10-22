@@ -1,15 +1,12 @@
 //! Elementos y carpetas: consultas (siempre enmascaradas) y cambios.
 
-
 use uuid::Uuid;
 
 use crate::application::analyze_password_health::{self, PasswordHealthReport};
 use crate::application::manage_attachments::{self};
 use crate::application::save_vault_item::{self, SaveVaultItemRequest};
 use crate::application::search_vault_items::{self, VaultItemFilter, VaultItemSummary, VaultOverview};
-use crate::application::{
-    manage_folders, manage_item_lifecycle,
-};
+use crate::application::{manage_folders, manage_item_lifecycle};
 use crate::domain::folder::Folder;
 use crate::domain::secret_text::SecretText;
 use crate::domain::totp_configuration::{TotpCode, TotpConfiguration};
@@ -83,7 +80,8 @@ impl VaultItems for VaultService {
         let unlocked_vault = self.session_state.require_unlocked()?;
         let vault_item = unlocked_vault.vault_contents.find_item(item_id)?;
         let totp_secret = vault_item.item_content.totp_secret().ok_or(VaultError::FieldNotAvailable)?;
-        let unix_timestamp_seconds = u64::try_from(self.now().timestamp()).map_err(|_| VaultError::InvalidSystemClock)?;
+        let unix_timestamp_seconds =
+            u64::try_from(self.now().timestamp()).map_err(|_| VaultError::InvalidSystemClock)?;
         TotpConfiguration::parse(totp_secret)?.code_at(unix_timestamp_seconds)
     }
 
@@ -94,23 +92,17 @@ impl VaultItems for VaultService {
 
     fn save_item(&mut self, save_request: SaveVaultItemRequest) -> VaultResult<VaultItem> {
         let now = self.now();
-        self.mutate(|vault_contents| {
-            save_vault_item::execute(vault_contents, save_request, now)
-        })
+        self.mutate(|vault_contents| save_vault_item::execute(vault_contents, save_request, now))
     }
 
     fn move_item_to_trash(&mut self, item_id: Uuid) -> VaultResult<()> {
         let now = self.now();
-        self.mutate(|vault_contents| {
-            manage_item_lifecycle::move_to_trash(vault_contents, item_id, now)
-        })
+        self.mutate(|vault_contents| manage_item_lifecycle::move_to_trash(vault_contents, item_id, now))
     }
 
     fn restore_item_from_trash(&mut self, item_id: Uuid) -> VaultResult<()> {
         let now = self.now();
-        self.mutate(|vault_contents| {
-            manage_item_lifecycle::restore_from_trash(vault_contents, item_id, now)
-        })
+        self.mutate(|vault_contents| manage_item_lifecycle::restore_from_trash(vault_contents, item_id, now))
     }
 
     fn delete_item_permanently(&mut self, item_id: Uuid) -> VaultResult<()> {
@@ -122,28 +114,21 @@ impl VaultItems for VaultService {
     }
 
     fn empty_trash(&mut self) -> VaultResult<usize> {
-        let removed_items = self.mutate_discarding_backups(|vault_contents| {
-            Ok(manage_item_lifecycle::empty_trash(vault_contents))
-        })?;
+        let removed_items =
+            self.mutate_discarding_backups(|vault_contents| Ok(manage_item_lifecycle::empty_trash(vault_contents)))?;
         manage_attachments::delete_attachments_of_items(&self.vault_dependencies, &removed_items);
         Ok(removed_items.len())
     }
 
     fn create_folder(&mut self, folder_name: &str) -> VaultResult<Folder> {
-        self.mutate(|vault_contents| {
-            manage_folders::create_folder(vault_contents, folder_name)
-        })
+        self.mutate(|vault_contents| manage_folders::create_folder(vault_contents, folder_name))
     }
 
     fn rename_folder(&mut self, folder_id: Uuid, folder_name: &str) -> VaultResult<Folder> {
-        self.mutate(|vault_contents| {
-            manage_folders::rename_folder(vault_contents, folder_id, folder_name)
-        })
+        self.mutate(|vault_contents| manage_folders::rename_folder(vault_contents, folder_id, folder_name))
     }
 
     fn delete_folder(&mut self, folder_id: Uuid) -> VaultResult<()> {
-        self.mutate(|vault_contents| {
-            manage_folders::delete_folder(vault_contents, folder_id)
-        })
+        self.mutate(|vault_contents| manage_folders::delete_folder(vault_contents, folder_id))
     }
 }

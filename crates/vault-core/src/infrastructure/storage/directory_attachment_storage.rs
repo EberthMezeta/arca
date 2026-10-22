@@ -6,7 +6,9 @@ use uuid::Uuid;
 use crate::domain::ports::attachment_storage::AttachmentStorage;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::infrastructure::storage::bounded_file_reader::{BoundedReadError, read_file_with_size_limit};
-use crate::infrastructure::storage::owner_only_files::{create_owner_only_directory, remove_file_if_exists, write_owner_only_file};
+use crate::infrastructure::storage::owner_only_files::{
+    create_owner_only_directory, remove_file_if_exists, write_owner_only_file,
+};
 
 /// Un archivo `<uuid>.bin` por adjunto cifrado; el nombre no revela nada del contenido.
 /// Lo que el cifrado añade a cada adjunto (longitud y nonce, etiqueta), con margen.
@@ -22,7 +24,8 @@ impl DirectoryAttachmentStorage {
     pub fn new(attachments_directory: impl Into<PathBuf>, maximum_attachment_size_bytes: u64) -> Self {
         Self {
             attachments_directory: attachments_directory.into(),
-            maximum_encrypted_size_bytes: maximum_attachment_size_bytes.saturating_add(SEALED_ATTACHMENT_OVERHEAD_BYTES),
+            maximum_encrypted_size_bytes: maximum_attachment_size_bytes
+                .saturating_add(SEALED_ATTACHMENT_OVERHEAD_BYTES),
         }
     }
 

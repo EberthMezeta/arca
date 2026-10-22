@@ -12,7 +12,12 @@ use crate::ui_error::{UiError, UiResult};
 pub struct LocalUserFiles;
 
 impl UserFiles for LocalUserFiles {
-    fn read_limited(&self, file_path: &Path, maximum_byte_count: u64, too_large_error: UiError) -> UiResult<Zeroizing<Vec<u8>>> {
+    fn read_limited(
+        &self,
+        file_path: &Path,
+        maximum_byte_count: u64,
+        too_large_error: UiError,
+    ) -> UiResult<Zeroizing<Vec<u8>>> {
         read_file_with_size_limit(file_path, maximum_byte_count).map_err(|read_error| match read_error {
             BoundedReadError::TooLarge => too_large_error,
             BoundedReadError::Unreadable(io_error) => UiError::file_access(io_error),

@@ -1,12 +1,8 @@
 //! Sesión: crear, abrir y bloquear la bóveda, cambiar la maestra y sus preferencias.
 
-
-
 use crate::application::throttled_master_password_attempt::run_throttled;
 use crate::application::vault_session::VaultSessionState;
-use crate::application::{
-    change_master_password, create_vault, unlock_vault,
-};
+use crate::application::{change_master_password, create_vault, unlock_vault};
 use crate::domain::secret_text::SecretText;
 use crate::domain::vault_error::VaultResult;
 use crate::domain::vault_preferences::VaultPreferences;

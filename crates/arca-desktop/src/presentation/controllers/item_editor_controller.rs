@@ -7,11 +7,11 @@ use std::rc::Rc;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use uuid::Uuid;
 use vault_core::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest, SubmittedSecret};
+use vault_core::application::vault_service::VaultItems;
 use vault_core::domain::folder::Folder;
 use vault_core::domain::item_content::{ItemContent, ItemContentType};
 use vault_core::domain::secret_text::SecretText;
 use vault_core::domain::vault_item::{REDACTED_SECRET_PLACEHOLDER, RevealableField};
-use vault_core::application::vault_service::VaultItems;
 
 use crate::presentation::app_context::{AppContext, AppEvent, EditorMode};
 use crate::presentation::error_messages::describe_error;
@@ -51,7 +51,11 @@ fn parse_tag_names(raw_tag_text: &str) -> Vec<String> {
 }
 
 /// Rejilla de 2 columnas: los campos anchos ocupan una fila; los estrechos se emparejan.
-fn layout_descriptor_fields(field_descriptors: &[ContentFieldDescriptor], item_content: &ItemContent, context: &AppContext) -> Vec<DescriptorField> {
+fn layout_descriptor_fields(
+    field_descriptors: &[ContentFieldDescriptor],
+    item_content: &ItemContent,
+    context: &AppContext,
+) -> Vec<DescriptorField> {
     let mut grid_row = 0;
     let mut column = 0;
     field_descriptors
@@ -106,7 +110,8 @@ impl ItemEditorController {
         });
         let website_controller = Rc::clone(self);
         item_editor.on_add_website(move || {
-            website_controller.with_draft(|open_draft| open_draft.website_rows.push(WebsiteRow { url: SharedString::new() }));
+            website_controller
+                .with_draft(|open_draft| open_draft.website_rows.push(WebsiteRow { url: SharedString::new() }));
         });
         let removing_website_controller = Rc::clone(self);
         item_editor.on_remove_website(move |row_position| {
@@ -121,7 +126,11 @@ impl ItemEditorController {
         let field_controller = Rc::clone(self);
         item_editor.on_add_custom_field(move || {
             field_controller.with_draft(|open_draft| {
-                open_draft.custom_fields.push(CustomFieldRow { label: SharedString::new(), value: SharedString::new(), is_hidden: false });
+                open_draft.custom_fields.push(CustomFieldRow {
+                    label: SharedString::new(),
+                    value: SharedString::new(),
+                    is_hidden: false,
+                });
                 open_draft.custom_field_sources.push(None);
             });
         });
@@ -168,7 +177,11 @@ impl ItemEditorController {
     }
 
     fn open_for_editing(&self, item_id: Uuid) {
-        let loaded_item = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.get_item_details(item_id)?));
+        let loaded_item = self
+            .context
+            .shared_vault
+            .lock_service()
+            .and_then(|vault_service| Ok(vault_service.get_item_details(item_id)?));
         match loaded_item {
             Ok(vault_item) => self.open_draft_request(save_request_from_item(&vault_item), "editor.editItemTitle"),
             Err(_) => self.context.navigator.close_item_editor(),
@@ -177,8 +190,12 @@ impl ItemEditorController {
 
     fn open_draft_request(&self, draft_request: SaveVaultItemRequest, header_key: &str) {
         self.context.with_window(|app_window| {
-            let folders: Vec<Folder> =
-                self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.list_folders()?)).unwrap_or_default();
+            let folders: Vec<Folder> = self
+                .context
+                .shared_vault
+                .lock_service()
+                .and_then(|vault_service| Ok(vault_service.list_folders()?))
+                .unwrap_or_default();
             let kind_definition = definition_for(draft_request.item_content.content_type());
             let item_editor = app_window.global::<ItemEditor>();
 
@@ -198,7 +215,11 @@ impl ItemEditorController {
                 ItemContent::Login(login_content) => (
                     login_content.username.clone(),
                     login_content.password.expose_secret().to_string(),
-                    login_content.totp_secret.as_ref().map(|totp_secret| totp_secret.expose_secret().to_string()).unwrap_or_default(),
+                    login_content
+                        .totp_secret
+                        .as_ref()
+                        .map(|totp_secret| totp_secret.expose_secret().to_string())
+                        .unwrap_or_default(),
                     login_content.website_urls.clone(),
                 ),
                 _ => Default::default(),
@@ -241,14 +262,19 @@ impl ItemEditorController {
             folder_names.extend(folders.iter().map(|folder| SharedString::from(folder.folder_name.as_str())));
             let mut folder_ids = vec![None];
             folder_ids.extend(folders.iter().map(|folder| Some(folder.folder_id)));
-            let folder_position = folder_ids.iter().position(|folder_id| *folder_id == draft_request.folder_id).unwrap_or(0);
+            let folder_position =
+                folder_ids.iter().position(|folder_id| *folder_id == draft_request.folder_id).unwrap_or(0);
             item_editor.set_folder_names(ModelRc::new(VecModel::from(folder_names)));
             item_editor.set_folder_index(i32::try_from(folder_position).unwrap_or(0));
             item_editor.set_focus_title_requests(item_editor.get_focus_title_requests() + 1);
 
             *self.open_draft.borrow_mut() = Some(OpenDraft {
                 item_id: draft_request.item_id,
-                custom_field_sources: draft_request.custom_fields.iter().map(|field_draft| field_draft.source_field_index).collect(),
+                custom_field_sources: draft_request
+                    .custom_fields
+                    .iter()
+                    .map(|field_draft| field_draft.source_field_index)
+                    .collect(),
                 item_content: draft_request.item_content,
                 folder_ids,
                 website_rows,
@@ -287,7 +313,10 @@ impl ItemEditorController {
             let requested_field = match sealed_field {
                 SealedField::Password => Some(RevealableField::Password),
                 SealedField::TotpSecret => Some(RevealableField::TotpSecret),
-                SealedField::Descriptor => kind_definition.descriptor_fields.get(field_position).and_then(|descriptor| descriptor.revealable_field),
+                SealedField::Descriptor => kind_definition
+                    .descriptor_fields
+                    .get(field_position)
+                    .and_then(|descriptor| descriptor.revealable_field),
                 SealedField::Custom => open_draft
                     .custom_field_sources
                     .get(field_position)
@@ -298,8 +327,11 @@ impl ItemEditorController {
             let Some(requested_field) = requested_field else {
                 return;
             };
-            let Ok(revealed_value) =
-                self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.reveal_item_field(item_id, requested_field)?))
+            let Ok(revealed_value) = self
+                .context
+                .shared_vault
+                .lock_service()
+                .and_then(|vault_service| Ok(vault_service.reveal_item_field(item_id, requested_field)?))
             else {
                 return;
             };
@@ -332,7 +364,8 @@ impl ItemEditorController {
             login_content.password = SecretText::new(item_editor.get_password().as_str());
             let totp_secret = item_editor.get_totp_secret();
             login_content.totp_secret = (!totp_secret.trim().is_empty()).then(|| SecretText::new(totp_secret.trim()));
-            login_content.website_urls = open_draft.website_rows.iter().map(|website_row| website_row.url.trim().to_string()).collect();
+            login_content.website_urls =
+                open_draft.website_rows.iter().map(|website_row| website_row.url.trim().to_string()).collect();
         }
         definition_for(item_content.content_type())
             .descriptor_fields
@@ -387,14 +420,19 @@ impl ItemEditorController {
             };
             item_editor.set_is_saving(true);
             item_editor.set_save_error(SharedString::new());
-            let save_result: UiResult<_> =
-                self.context.shared_vault.lock_service().and_then(|mut vault_service| Ok(vault_service.save_item(save_request)?));
+            let save_result: UiResult<_> = self
+                .context
+                .shared_vault
+                .lock_service()
+                .and_then(|mut vault_service| Ok(vault_service.save_item(save_request)?));
             item_editor.set_is_saving(false);
             match save_result {
                 Ok(saved_item) => {
                     self.context.navigator.select_item(Some(saved_item.item_id));
                     self.context.events.publish(AppEvent::VaultDataChanged);
-                    self.context.toasts.success(self.context.text_with("editor.saved", &[("itemTitle", &saved_item.title)]));
+                    self.context
+                        .toasts
+                        .success(self.context.text_with("editor.saved", &[("itemTitle", &saved_item.title)]));
                 }
                 Err(ui_error) => {
                     item_editor.set_save_error(describe_error(&self.context.translator.borrow(), &ui_error).into());

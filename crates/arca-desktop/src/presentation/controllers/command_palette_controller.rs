@@ -6,10 +6,10 @@ use std::rc::Rc;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use vault_core::application::search_vault_items::VaultItemFilter;
 
+use crate::presentation::app_commands::AppCommand;
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::item_kinds::{ITEM_KIND_DEFINITIONS, definition_for};
 use crate::presentation::shortcuts;
-use crate::presentation::app_commands::AppCommand;
 use crate::{AppWindow, CommandPalette, NavIcon, PaletteEntry, VaultSection};
 use vault_core::application::vault_service::VaultItems;
 
@@ -63,7 +63,12 @@ impl CommandPaletteController {
 
     fn static_commands(&self) -> Vec<PaletteCommand> {
         let command = |label: String, icon: NavIcon, command: AppCommand| PaletteCommand {
-            entry: PaletteEntry { label: label.into(), hint: SharedString::new(), icon, shortcut: shortcuts::label_for(command).into() },
+            entry: PaletteEntry {
+                label: label.into(),
+                hint: SharedString::new(),
+                icon,
+                shortcut: shortcuts::label_for(command).into(),
+            },
             command,
         };
         let mut static_commands: Vec<PaletteCommand> = ITEM_KIND_DEFINITIONS
@@ -98,21 +103,23 @@ impl CommandPaletteController {
             return Vec::new();
         }
         let item_filter = VaultItemFilter { search_text: Some(query_text.to_string()), ..VaultItemFilter::default() };
-        let matching_items =
-            self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.search_items(&item_filter)?)).unwrap_or_default();
+        let matching_items = self
+            .context
+            .shared_vault
+            .lock_service()
+            .and_then(|vault_service| Ok(vault_service.search_items(&item_filter)?))
+            .unwrap_or_default();
         matching_items
             .into_iter()
             .take(MAXIMUM_ITEM_RESULTS)
-            .map(|item_summary| {
-                PaletteCommand {
-                    entry: PaletteEntry {
-                        label: item_summary.title.into(),
-                        hint: item_summary.subtitle.into(),
-                        icon: definition_for(item_summary.content_type).nav_icon,
-                        shortcut: SharedString::new(),
-                    },
-                    command: AppCommand::OpenItem(item_summary.item_id),
-                }
+            .map(|item_summary| PaletteCommand {
+                entry: PaletteEntry {
+                    label: item_summary.title.into(),
+                    hint: item_summary.subtitle.into(),
+                    icon: definition_for(item_summary.content_type).nav_icon,
+                    shortcut: SharedString::new(),
+                },
+                command: AppCommand::OpenItem(item_summary.item_id),
             })
             .collect()
     }
@@ -121,7 +128,9 @@ impl CommandPaletteController {
         let normalized_query = query_text.trim().to_lowercase();
         let mut visible_commands = self.item_commands(query_text);
         visible_commands.extend(
-            self.static_commands().into_iter().filter(|command| command.entry.label.to_lowercase().contains(&normalized_query)),
+            self.static_commands()
+                .into_iter()
+                .filter(|command| command.entry.label.to_lowercase().contains(&normalized_query)),
         );
         let palette_entries: Vec<PaletteEntry> = visible_commands.iter().map(|command| command.entry.clone()).collect();
         *self.visible_commands.borrow_mut() = visible_commands;
@@ -133,9 +142,9 @@ impl CommandPaletteController {
     }
 
     fn execute(&self, entry_position: i32) {
-        let command = usize::try_from(entry_position)
-            .ok()
-            .and_then(|entry_position| self.visible_commands.borrow().get(entry_position).map(|palette_command| palette_command.command));
+        let command = usize::try_from(entry_position).ok().and_then(|entry_position| {
+            self.visible_commands.borrow().get(entry_position).map(|palette_command| palette_command.command)
+        });
         let Some(command) = command else {
             return;
         };

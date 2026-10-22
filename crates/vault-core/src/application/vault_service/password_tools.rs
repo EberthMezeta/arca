@@ -1,7 +1,5 @@
 //! Generar contraseñas y estimar su fortaleza (no necesitan la bóveda abierta).
 
-
-
 use crate::domain::password_generation::password_generation_options::PasswordGenerationOptions;
 use crate::domain::password_strength::PasswordStrength;
 use crate::domain::secret_text::SecretText;

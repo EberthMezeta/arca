@@ -25,9 +25,8 @@ struct MinimumLengthRule {
 impl MasterPasswordRule for MinimumLengthRule {
     fn find_violation(&self, candidate_password: &SecretText) -> Option<MasterPasswordViolation> {
         let is_long_enough = candidate_password.character_count() >= self.minimum_character_count;
-        (!is_long_enough).then_some(MasterPasswordViolation::TooShort {
-            minimum_character_count: self.minimum_character_count,
-        })
+        (!is_long_enough)
+            .then_some(MasterPasswordViolation::TooShort { minimum_character_count: self.minimum_character_count })
     }
 }
 
@@ -39,9 +38,8 @@ impl MasterPasswordRule for MinimumStrengthRule {
     fn find_violation(&self, candidate_password: &SecretText) -> Option<MasterPasswordViolation> {
         let strength = PasswordStrength::estimate(candidate_password);
         let is_strong_enough = strength.score >= self.minimum_strength_score;
-        (!is_strong_enough).then_some(MasterPasswordViolation::TooWeak {
-            minimum_strength_score: self.minimum_strength_score,
-        })
+        (!is_strong_enough)
+            .then_some(MasterPasswordViolation::TooWeak { minimum_strength_score: self.minimum_strength_score })
     }
 }
 
@@ -67,10 +65,7 @@ impl Default for MasterPasswordPolicy {
 
 impl MasterPasswordPolicy {
     pub fn find_violations(&self, candidate_password: &SecretText) -> Vec<MasterPasswordViolation> {
-        self.rules
-            .iter()
-            .filter_map(|rule| rule.find_violation(candidate_password))
-            .collect()
+        self.rules.iter().filter_map(|rule| rule.find_violation(candidate_password)).collect()
     }
 }
 
@@ -90,7 +85,11 @@ mod tests {
         for predictable_password in ["Barcelona1992!", "Hola123456789!", "arcaarca2024!", "contraseñasegura"] {
             let violations = MasterPasswordPolicy::default().find_violations(&SecretText::new(predictable_password));
 
-            assert_eq!(violations, vec![MasterPasswordViolation::TooWeak { minimum_strength_score: 4 }], "{predictable_password}");
+            assert_eq!(
+                violations,
+                vec![MasterPasswordViolation::TooWeak { minimum_strength_score: 4 }],
+                "{predictable_password}"
+            );
         }
     }
 

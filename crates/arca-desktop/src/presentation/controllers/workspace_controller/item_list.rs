@@ -1,6 +1,5 @@
 //! Lista de elementos: filtro activo, selección y copiado rápido desde una fila.
 
-
 use slint::{ComponentHandle, ModelRc, VecModel};
 use uuid::Uuid;
 use vault_core::application::search_vault_items::{FolderScope, VaultItemFilter, VaultItemSummary, VaultOverview};
@@ -32,7 +31,8 @@ impl WorkspaceController {
             let workspace = app_window.global::<Workspace>();
             workspace.set_section(workspace_state.section);
             workspace.set_list_title(self.describe_active_filter(&workspace_state.item_filter, &overview).into());
-            let is_vault_completely_empty = overview.total_item_count == 0 && !workspace_state.item_filter.should_show_trash;
+            let is_vault_completely_empty =
+                overview.total_item_count == 0 && !workspace_state.item_filter.should_show_trash;
             let list_state = match (is_vault_completely_empty, visible_summaries.is_empty()) {
                 (true, _) => ListState::VaultEmpty,
                 (false, false) => ListState::ItemList,

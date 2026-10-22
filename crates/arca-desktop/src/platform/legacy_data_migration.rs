@@ -5,7 +5,9 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use crate::platform::data_files::{ATTACHMENTS_DIRECTORY_NAME, UNLOCK_THROTTLE_FILE_NAME, VAULT_BACKUP_FILE_NAME, VAULT_FILE_NAME};
+use crate::platform::data_files::{
+    ATTACHMENTS_DIRECTORY_NAME, UNLOCK_THROTTLE_FILE_NAME, VAULT_BACKUP_FILE_NAME, VAULT_FILE_NAME,
+};
 use crate::platform::single_instance_lock::{self, InstanceLockOutcome};
 
 const LEGACY_APPLICATION_IDENTIFIER: &str = "dev.rustvault.desktop";
@@ -36,7 +38,8 @@ pub fn migrate_legacy_data(application_data_directory: &Path) -> io::Result<Migr
         return Ok(MigrationOutcome::NothingToMigrate);
     }
 
-    let legacy_instance_lock = single_instance_lock::acquire(&legacy_data_directory, LEGACY_SINGLE_INSTANCE_LOCK_FILE_NAME)?;
+    let legacy_instance_lock =
+        single_instance_lock::acquire(&legacy_data_directory, LEGACY_SINGLE_INSTANCE_LOCK_FILE_NAME)?;
     let InstanceLockOutcome::Acquired(_legacy_lock_held_during_migration) = legacy_instance_lock else {
         return Ok(MigrationOutcome::LegacyAppStillRunning);
     };
@@ -60,7 +63,8 @@ mod tests {
 
     /// Simula `~/.local/share` con la carpeta antigua y la nueva.
     fn data_root_for(test_name: &str) -> (PathBuf, PathBuf, PathBuf) {
-        let data_root_directory = std::env::temp_dir().join(format!("arca-migration-{test_name}-{}", std::process::id()));
+        let data_root_directory =
+            std::env::temp_dir().join(format!("arca-migration-{test_name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&data_root_directory);
         let legacy_data_directory = data_root_directory.join(LEGACY_APPLICATION_IDENTIFIER);
         let application_data_directory = data_root_directory.join("dev.arca.desktop");
@@ -106,7 +110,8 @@ mod tests {
         let (data_root_directory, legacy_data_directory, application_data_directory) = data_root_for("abierta");
         fs::write(legacy_data_directory.join("personal.vault"), b"boveda").expect("escribir");
         let _legacy_app_lock =
-            single_instance_lock::acquire(&legacy_data_directory, LEGACY_SINGLE_INSTANCE_LOCK_FILE_NAME).expect("bloqueo");
+            single_instance_lock::acquire(&legacy_data_directory, LEGACY_SINGLE_INSTANCE_LOCK_FILE_NAME)
+                .expect("bloqueo");
 
         let migration_outcome = migrate_legacy_data(&application_data_directory).expect("migrar");
 

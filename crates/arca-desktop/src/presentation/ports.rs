@@ -23,7 +23,12 @@ pub trait FileDialogs {
 /// segundo plano, por eso es `Send + Sync`.
 pub trait UserFiles: Send + Sync {
     /// Lee como mucho `maximum_byte_count` bytes; si el archivo es mayor devuelve `too_large_error`.
-    fn read_limited(&self, file_path: &Path, maximum_byte_count: u64, too_large_error: UiError) -> UiResult<Zeroizing<Vec<u8>>>;
+    fn read_limited(
+        &self,
+        file_path: &Path,
+        maximum_byte_count: u64,
+        too_large_error: UiError,
+    ) -> UiResult<Zeroizing<Vec<u8>>>;
 
     /// Escribe con permisos solo para el usuario (puede ir en claro: exportaciones, adjuntos).
     fn write_private(&self, file_path: &Path, file_bytes: &[u8]) -> UiResult<()>;

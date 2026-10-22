@@ -79,7 +79,8 @@ pub fn execute(
     mut save_request: SaveVaultItemRequest,
     now: DateTime<Utc>,
 ) -> VaultResult<VaultItem> {
-    let stored_item = save_request.item_id.map(|existing_item_id| vault_contents.find_item(existing_item_id)).transpose()?;
+    let stored_item =
+        save_request.item_id.map(|existing_item_id| vault_contents.find_item(existing_item_id)).transpose()?;
     let custom_fields = unseal_submitted_secrets(&mut save_request, stored_item)?;
     let save_request = validate_and_normalize(vault_contents, save_request)?;
     match save_request.item_id {
@@ -89,7 +90,10 @@ pub fn execute(
 }
 
 /// Antes de validar (p. ej. el TOTP), los secretos que la UI no tocó recuperan su valor real.
-fn unseal_submitted_secrets(save_request: &mut SaveVaultItemRequest, stored_item: Option<&VaultItem>) -> VaultResult<Vec<CustomField>> {
+fn unseal_submitted_secrets(
+    save_request: &mut SaveVaultItemRequest,
+    stored_item: Option<&VaultItem>,
+) -> VaultResult<Vec<CustomField>> {
     let unchanged_secrets = std::mem::take(&mut save_request.unchanged_secrets);
     for (masked_field, submitted_secret) in save_request.item_content.masked_secrets_mut() {
         if unchanged_secrets.contains(&masked_field) {

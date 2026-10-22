@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-
 use crate::application::import_export_vault::{self, ExportedFile, ImportLabels, ImportSummary};
 use crate::application::transfer_format_registry::TransferFormatRegistry;
 use crate::domain::ports::vault_exporter::ExportFormat;
@@ -54,7 +53,9 @@ impl VaultTransfer for VaultService {
         imported_vault_data: ImportedVaultData,
         import_labels: &ImportLabels,
     ) -> VaultResult<ImportSummary> {
-        self.mutate(|vault_contents| Ok(import_export_vault::merge_imported_data(vault_contents, imported_vault_data, import_labels)))
+        self.mutate(|vault_contents| {
+            Ok(import_export_vault::merge_imported_data(vault_contents, imported_vault_data, import_labels))
+        })
     }
 
     fn import_file(
@@ -81,6 +82,11 @@ impl VaultTransfer for VaultService {
     ) -> VaultResult<ExportedFile> {
         self.reauthenticate(master_password)?;
         let unlocked_vault = self.session_state.require_unlocked()?;
-        import_export_vault::export_vault(&self.vault_dependencies, &unlocked_vault.vault_contents, export_format, file_password)
+        import_export_vault::export_vault(
+            &self.vault_dependencies,
+            &unlocked_vault.vault_contents,
+            export_format,
+            file_password,
+        )
     }
 }

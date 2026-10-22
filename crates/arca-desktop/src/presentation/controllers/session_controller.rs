@@ -8,9 +8,9 @@ use vault_core::domain::secret_text::SecretText;
 use vault_core::domain::vault_revision::VaultRollback;
 
 use crate::presentation::app_context::{AppContext, AppEvent};
+use crate::presentation::background_task::{run_with_vault_in_background, spawn_ui_task};
 use crate::presentation::controllers::dialog_controller::ConfirmRequest;
 use crate::presentation::controllers::toast_controller::ToastRequest;
-use crate::presentation::background_task::{run_with_vault_in_background, spawn_ui_task};
 use crate::presentation::error_messages::describe_error;
 use crate::presentation::vault_event_bridge;
 use crate::vault_events::{VaultEvent, VaultLockReason};
@@ -60,7 +60,9 @@ impl SessionController {
             }
         });
         let system_event_controller = Rc::clone(&controller);
-        vault_event_bridge::install_ui_thread_handler(move |vault_event| system_event_controller.handle_vault_event(vault_event));
+        vault_event_bridge::install_ui_thread_handler(move |vault_event| {
+            system_event_controller.handle_vault_event(vault_event);
+        });
 
         controller.watch_window_minimize();
         controller.show_initial_screen();
@@ -104,10 +106,11 @@ impl SessionController {
 
             let controller = Rc::clone(self);
             spawn_ui_task(async move {
-                let unlock_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                    Ok(vault_service.unlock_vault(&master_password)?)
-                })
-                .await;
+                let unlock_result =
+                    run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                        Ok(vault_service.unlock_vault(&master_password)?)
+                    })
+                    .await;
                 controller.with_session(|session| session.set_is_unlocking(false));
                 match unlock_result {
                     Ok(unlock_report) => {
@@ -148,10 +151,11 @@ impl SessionController {
 
             let controller = Rc::clone(self);
             spawn_ui_task(async move {
-                let creation_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                    Ok(vault_service.create_vault(&master_password)?)
-                })
-                .await;
+                let creation_result =
+                    run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                        Ok(vault_service.create_vault(&master_password)?)
+                    })
+                    .await;
                 controller.with_session(|session| session.set_is_creating_vault(false));
                 match creation_result {
                     Ok(()) => {
@@ -190,7 +194,10 @@ impl SessionController {
         let last_seen_revision = detected_rollback.last_seen_revision_number.to_string();
         self.context.dialogs.confirm(ConfirmRequest::new(
             self.context.text("rollback.title"),
-            self.context.text_with("rollback.text", &[("openedRevision", &opened_revision), ("lastSeenRevision", &last_seen_revision)]),
+            self.context.text_with(
+                "rollback.text",
+                &[("openedRevision", &opened_revision), ("lastSeenRevision", &last_seen_revision)],
+            ),
             self.context.text("rollback.acknowledge"),
         ));
     }
@@ -228,16 +235,18 @@ impl SessionController {
             VaultEvent::VaultLocked(lock_reason) => self.show_locked_screen(unlock_subtitle_key(lock_reason)),
             VaultEvent::ClipboardCleared => {
                 let message = self.context.text("clipboard.cleared");
-                self.context.toasts.show(
-                    ToastRequest::new(message, ToastTone::Info).lasting(CLIPBOARD_CLEARED_TOAST_DURATION),
-                );
+                self.context
+                    .toasts
+                    .show(ToastRequest::new(message, ToastTone::Info).lasting(CLIPBOARD_CLEARED_TOAST_DURATION));
             }
         }
     }
 
     /// Cuenta atrás visible tras demasiados intentos fallidos.
     fn start_retry_countdown(self: &Rc<Self>, retry_after_seconds: u64) {
-        self.with_session(|session| session.set_retry_countdown_seconds(i32::try_from(retry_after_seconds).unwrap_or(i32::MAX)));
+        self.with_session(|session| {
+            session.set_retry_countdown_seconds(i32::try_from(retry_after_seconds).unwrap_or(i32::MAX));
+        });
         if retry_after_seconds == 0 {
             self.retry_countdown_timer.stop();
             return;

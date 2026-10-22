@@ -88,9 +88,7 @@ impl VaultContents {
     }
 
     pub fn find_folder_by_name(&self, folder_name: &str) -> Option<&Folder> {
-        self.folders
-            .iter()
-            .find(|folder| folder.folder_name.eq_ignore_ascii_case(folder_name))
+        self.folders.iter().find(|folder| folder.folder_name.eq_ignore_ascii_case(folder_name))
     }
 
     pub fn active_items(&self) -> impl Iterator<Item = &VaultItem> {

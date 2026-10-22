@@ -4,7 +4,9 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use uuid::Uuid;
-use vault_core::application::analyze_password_health::{PasswordHealthFinding, PasswordHealthIssue, PasswordHealthReport};
+use vault_core::application::analyze_password_health::{
+    PasswordHealthFinding, PasswordHealthIssue, PasswordHealthReport,
+};
 
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::{AppWindow, HealthFinding, HealthGroup, HealthIssueKind, PasswordHealth, VaultSection};
@@ -68,7 +70,9 @@ impl HealthController {
         });
         let event_controller = Rc::clone(&controller);
         context.events.subscribe(move |app_event| match app_event {
-            AppEvent::SectionChanged | AppEvent::VaultDataChanged | AppEvent::LanguageChanged => event_controller.refresh(),
+            AppEvent::SectionChanged | AppEvent::VaultDataChanged | AppEvent::LanguageChanged => {
+                event_controller.refresh();
+            }
             AppEvent::SessionLocked => event_controller.clear(),
             _ => {}
         });
@@ -81,7 +85,11 @@ impl HealthController {
             return;
         }
         self.context.with_window(|app_window| {
-            let Ok(health_report) = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.password_health_report()?))
+            let Ok(health_report) = self
+                .context
+                .shared_vault
+                .lock_service()
+                .and_then(|vault_service| Ok(vault_service.password_health_report()?))
             else {
                 return;
             };

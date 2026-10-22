@@ -93,7 +93,8 @@ pub fn merge_imported_data(
         if folder_name.is_empty() {
             continue;
         }
-        let existing_folder_id = vault_contents.find_folder_by_name(&folder_name).map(|existing_folder| existing_folder.folder_id);
+        let existing_folder_id =
+            vault_contents.find_folder_by_name(&folder_name).map(|existing_folder| existing_folder.folder_id);
         let target_folder_id = existing_folder_id.unwrap_or_else(|| {
             created_folder_count += 1;
             let new_folder = Folder { folder_id: Uuid::new_v4(), folder_name };
@@ -177,7 +178,10 @@ mod tests {
         let mut vault_contents = VaultContents::default();
         let imported_vault_data = ImportedVaultData {
             folders: vec![Folder { folder_id: Uuid::new_v4(), folder_name: "   ".into() }],
-            vault_items: vec![imported_login("   ", "¡no es base32!"), imported_login(&"x".repeat(500), "JBSWY3DPEHPK3PXP")],
+            vault_items: vec![
+                imported_login("   ", "¡no es base32!"),
+                imported_login(&"x".repeat(500), "JBSWY3DPEHPK3PXP"),
+            ],
         };
 
         let import_labels =

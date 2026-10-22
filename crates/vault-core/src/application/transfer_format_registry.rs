@@ -25,16 +25,10 @@ impl TransferFormatRegistry {
     }
 
     pub fn importer_for(&self, import_format: ImportFormat) -> VaultResult<&dyn VaultImporter> {
-        self.importers_by_format
-            .get(&import_format)
-            .map(AsRef::as_ref)
-            .ok_or(VaultError::UnsupportedTransferFormat)
+        self.importers_by_format.get(&import_format).map(AsRef::as_ref).ok_or(VaultError::UnsupportedTransferFormat)
     }
 
     pub fn exporter_for(&self, export_format: ExportFormat) -> VaultResult<&dyn VaultExporter> {
-        self.exporters_by_format
-            .get(&export_format)
-            .map(AsRef::as_ref)
-            .ok_or(VaultError::UnsupportedTransferFormat)
+        self.exporters_by_format.get(&export_format).map(AsRef::as_ref).ok_or(VaultError::UnsupportedTransferFormat)
     }
 }

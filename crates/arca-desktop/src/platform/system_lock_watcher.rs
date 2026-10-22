@@ -44,11 +44,11 @@ mod linux_session_signals {
     use std::thread;
     use std::time::Duration;
 
+    use crate::shared_vault::VaultLocker;
+    use crate::vault_events::VaultLockReason;
     use dbus::Path;
     use dbus::blocking::Connection;
     use dbus::message::MatchRule;
-    use crate::shared_vault::VaultLocker;
-    use crate::vault_events::VaultLockReason;
 
     const SIGNAL_POLL_INTERVAL: Duration = Duration::from_mins(1);
     const LOGIN_MANAGER_SERVICE: &str = "org.freedesktop.login1";
@@ -89,7 +89,8 @@ mod linux_session_signals {
     /// Sesión de logind a la que pertenece este proceso. Así solo cuenta el bloqueo de
     /// NUESTRA sesión: otro usuario del equipo no puede bloquearnos la bóveda con el suyo.
     fn own_login_session(system_bus: &Connection) -> Option<Path<'static>> {
-        let login_manager = system_bus.with_proxy(LOGIN_MANAGER_SERVICE, LOGIN_MANAGER_PATH, LOGIN_MANAGER_CALL_TIMEOUT);
+        let login_manager =
+            system_bus.with_proxy(LOGIN_MANAGER_SERVICE, LOGIN_MANAGER_PATH, LOGIN_MANAGER_CALL_TIMEOUT);
         let (session_path,): (Path<'static>,) =
             login_manager.method_call(LOGIN_MANAGER_INTERFACE, "GetSessionByPID", (std::process::id(),)).ok()?;
         Some(session_path)
@@ -108,13 +109,10 @@ mod linux_session_signals {
             None => session_lock_rule,
         };
         let screen_lock_locker = vault_locker.clone();
-        let _ = system_bus.add_match(
-            session_lock_rule,
-            move |(): (), _, _| {
-                screen_lock_locker.lock_and_notify(VaultLockReason::ScreenLocked);
-                true
-            },
-        );
+        let _ = system_bus.add_match(session_lock_rule, move |(): (), _, _| {
+            screen_lock_locker.lock_and_notify(VaultLockReason::ScreenLocked);
+            true
+        });
         let sleep_locker = vault_locker.clone();
         let _ = system_bus.add_match(
             MatchRule::new_signal(LOGIN_MANAGER_INTERFACE, "PrepareForSleep"),

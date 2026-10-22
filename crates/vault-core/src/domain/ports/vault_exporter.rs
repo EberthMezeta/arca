@@ -17,9 +17,12 @@ pub enum ExportFormat {
 pub trait VaultExporter: Send + Sync {
     fn export_format(&self) -> ExportFormat;
 
-
     fn suggested_file_extension(&self) -> &'static str;
 
     /// Puede ir en texto plano: se devuelve en un buffer que se borra al soltarse.
-    fn serialize_vault(&self, vault_contents: &VaultContents, file_password: Option<&SecretText>) -> VaultResult<Zeroizing<Vec<u8>>>;
+    fn serialize_vault(
+        &self,
+        vault_contents: &VaultContents,
+        file_password: Option<&SecretText>,
+    ) -> VaultResult<Zeroizing<Vec<u8>>>;
 }

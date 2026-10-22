@@ -36,7 +36,12 @@ fn is_plain_filter(item_filter: &VaultItemFilter) -> bool {
 impl WorkspaceController {
     pub(super) fn refresh_sidebar(&self) {
         self.context.with_window(|app_window| {
-            let overview = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.vault_overview()?)).ok();
+            let overview = self
+                .context
+                .shared_vault
+                .lock_service()
+                .and_then(|vault_service| Ok(vault_service.vault_overview()?))
+                .ok();
             let workspace_state = self.context.navigator.snapshot();
             let entry_groups = self.build_navigation_groups(overview.as_ref(), &workspace_state);
 
@@ -52,9 +57,17 @@ impl WorkspaceController {
                             entry_key: entry_key.into(),
                             label: navigation_entry.label.into(),
                             icon: navigation_entry.icon,
-                            item_count: navigation_entry.item_count.map(|item_count| item_count.to_string()).unwrap_or_default().into(),
+                            item_count: navigation_entry
+                                .item_count
+                                .map(|item_count| item_count.to_string())
+                                .unwrap_or_default()
+                                .into(),
                             is_active: navigation_entry.is_active,
-                            folder_id: navigation_entry.folder_id.map(|folder_id| folder_id.to_string()).unwrap_or_default().into(),
+                            folder_id: navigation_entry
+                                .folder_id
+                                .map(|folder_id| folder_id.to_string())
+                                .unwrap_or_default()
+                                .into(),
                         }
                     })
                     .collect();
@@ -86,7 +99,11 @@ impl WorkspaceController {
         let item_filter = &workspace_state.item_filter;
         let is_items_section = workspace_state.section == VaultSection::Items;
         let is_active = |matches_filter: bool| is_items_section && matches_filter;
-        let filter_entry = |label: String, icon: NavIcon, item_count: Option<usize>, matches_filter: bool, target_filter: VaultItemFilter| {
+        let filter_entry = |label: String,
+                            icon: NavIcon,
+                            item_count: Option<usize>,
+                            matches_filter: bool,
+                            target_filter: VaultItemFilter| {
             NavigationEntry {
                 label,
                 icon,
@@ -117,8 +134,9 @@ impl WorkspaceController {
         let type_entries = ITEM_KIND_DEFINITIONS
             .iter()
             .map(|definition| {
-                let item_count = overview
-                    .map(|overview| overview.content_type_item_counts.get(&definition.content_type).copied().unwrap_or(0));
+                let item_count = overview.map(|overview| {
+                    overview.content_type_item_counts.get(&definition.content_type).copied().unwrap_or(0)
+                });
                 filter_entry(
                     self.context.text(definition.plural_label_key),
                     definition.nav_icon,
@@ -222,13 +240,21 @@ impl WorkspaceController {
         let Ok(folder_id) = Uuid::parse_str(folder_id_text) else {
             return;
         };
-        crate::presentation::controllers::folder_dialogs::ask_folder_rename(&self.context, folder_id, self.folder_name(folder_id));
+        crate::presentation::controllers::folder_dialogs::ask_folder_rename(
+            &self.context,
+            folder_id,
+            self.folder_name(folder_id),
+        );
     }
 
     pub(super) fn delete_folder(&self, folder_id_text: &str) {
         let Ok(folder_id) = Uuid::parse_str(folder_id_text) else {
             return;
         };
-        crate::presentation::controllers::folder_dialogs::confirm_folder_deletion(&self.context, folder_id, &self.folder_name(folder_id));
+        crate::presentation::controllers::folder_dialogs::confirm_folder_deletion(
+            &self.context,
+            folder_id,
+            &self.folder_name(folder_id),
+        );
     }
 }

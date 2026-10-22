@@ -14,7 +14,8 @@ thread_local! {
 
 /// Debe llamarse desde el hilo de la interfaz.
 pub fn install_ui_thread_handler(vault_event_handler: impl Fn(VaultEvent) + 'static) {
-    UI_THREAD_EVENT_HANDLER.with(|installed_handler| *installed_handler.borrow_mut() = Some(Box::new(vault_event_handler)));
+    UI_THREAD_EVENT_HANDLER
+        .with(|installed_handler| *installed_handler.borrow_mut() = Some(Box::new(vault_event_handler)));
 }
 
 /// Sin bucle de eventos (aún arrancando o ya cerrando) el evento se descarta: no hay nada que actualizar.

@@ -57,7 +57,10 @@ impl ItemDetailsController {
 
         let event_controller = Rc::clone(&controller);
         context.events.subscribe(move |app_event| match app_event {
-            AppEvent::SelectionChanged | AppEvent::EditorChanged | AppEvent::VaultDataChanged | AppEvent::LanguageChanged => {
+            AppEvent::SelectionChanged
+            | AppEvent::EditorChanged
+            | AppEvent::VaultDataChanged
+            | AppEvent::LanguageChanged => {
                 event_controller.refresh();
             }
             AppEvent::SessionLocked => event_controller.clear(),
@@ -89,9 +92,13 @@ impl ItemDetailsController {
         let attaching_controller = Rc::clone(self);
         item_details.on_add_attachment(move || attaching_controller.add_attachment());
         let saving_controller = Rc::clone(self);
-        item_details.on_save_attachment(move |attachment_position| saving_controller.ask_to_save_attachment(attachment_position));
+        item_details.on_save_attachment(move |attachment_position| {
+            saving_controller.ask_to_save_attachment(attachment_position);
+        });
         let removing_controller = Rc::clone(self);
-        item_details.on_delete_attachment(move |attachment_position| removing_controller.delete_attachment(attachment_position));
+        item_details.on_delete_attachment(move |attachment_position| {
+            removing_controller.delete_attachment(attachment_position);
+        });
     }
 
     fn displayed_item_id(&self) -> Option<Uuid> {
@@ -102,10 +109,16 @@ impl ItemDetailsController {
 
     fn refresh(self: &Rc<Self>) {
         let workspace_state = self.context.navigator.snapshot();
-        let (EditorMode::Closed, Some(selected_item_id)) = (workspace_state.editor_mode, workspace_state.selected_item_id) else {
+        let (EditorMode::Closed, Some(selected_item_id)) =
+            (workspace_state.editor_mode, workspace_state.selected_item_id)
+        else {
             return self.clear();
         };
-        let loaded_item = self.context.shared_vault.lock_service().and_then(|vault_service| Ok(vault_service.get_item_details(selected_item_id)?));
+        let loaded_item = self
+            .context
+            .shared_vault
+            .lock_service()
+            .and_then(|vault_service| Ok(vault_service.get_item_details(selected_item_id)?));
         let Ok(vault_item) = loaded_item else {
             return self.clear();
         };
@@ -144,7 +157,9 @@ impl ItemDetailsController {
                             row_index: i32::try_from(row_index).unwrap_or(i32::MAX),
                             kind: row_spec.kind,
                             label: row_spec.label.clone().into(),
-                            value: revealed_value.map_or(row_spec.displayed_value.as_str(), SecretText::expose_secret).into(),
+                            value: revealed_value
+                                .map_or(row_spec.displayed_value.as_str(), SecretText::expose_secret)
+                                .into(),
                             is_revealed: revealed_value.is_some(),
                         }
                     })
@@ -174,14 +189,27 @@ impl ItemDetailsController {
             let tag_names: Vec<SharedString> = vault_item.tag_names.iter().map(SharedString::from).collect();
             item_details.set_tag_names(ModelRc::new(VecModel::from(tag_names)));
             item_details.set_updated_text(
-                self.context.text_with("details.updatedAt", &[("dateTime", &format_date_time(language_code, vault_item.updated_at))]).into(),
+                self.context
+                    .text_with(
+                        "details.updatedAt",
+                        &[("dateTime", &format_date_time(language_code, vault_item.updated_at))],
+                    )
+                    .into(),
             );
             item_details.set_created_text(
-                self.context.text_with("details.createdAt", &[("dateTime", &format_date_time(language_code, vault_item.created_at))]).into(),
+                self.context
+                    .text_with(
+                        "details.createdAt",
+                        &[("dateTime", &format_date_time(language_code, vault_item.created_at))],
+                    )
+                    .into(),
             );
             let history_count = i64::try_from(vault_item.password_history.len()).unwrap_or(i64::MAX);
-            let history_text =
-                if history_count > 0 { self.context.count_text("details.passwordHistoryCount", history_count, &[]) } else { String::new() };
+            let history_text = if history_count > 0 {
+                self.context.count_text("details.passwordHistoryCount", history_count, &[])
+            } else {
+                String::new()
+            };
             item_details.set_history_text(history_text.into());
         });
     }

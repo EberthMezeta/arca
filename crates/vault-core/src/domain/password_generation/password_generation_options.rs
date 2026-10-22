@@ -30,7 +30,9 @@ impl CharacterSet {
     pub fn allowed_characters(self, should_exclude_ambiguous: bool) -> Vec<char> {
         self.all_characters()
             .chars()
-            .filter(|candidate_character| !should_exclude_ambiguous || !AMBIGUOUS_CHARACTERS.contains(*candidate_character))
+            .filter(|candidate_character| {
+                !should_exclude_ambiguous || !AMBIGUOUS_CHARACTERS.contains(*candidate_character)
+            })
             .collect()
     }
 }
@@ -46,12 +48,7 @@ pub enum PasswordGenerationOptions {
         should_exclude_ambiguous_characters: bool,
     },
     #[serde(rename_all = "camelCase")]
-    Passphrase {
-        word_count: usize,
-        word_separator: String,
-        should_capitalize_words: bool,
-        should_append_number: bool,
-    },
+    Passphrase { word_count: usize, word_separator: String, should_capitalize_words: bool, should_append_number: bool },
 }
 
 /// Valores por defecto del generador (también los usa la interfaz).
@@ -85,7 +82,12 @@ impl PasswordGenerationOptions {
                 })
             }
             Self::Passphrase { word_count, word_separator, should_capitalize_words, should_append_number } => {
-                Box::new(PassphraseStrategy { word_count, word_separator, should_capitalize_words, should_append_number })
+                Box::new(PassphraseStrategy {
+                    word_count,
+                    word_separator,
+                    should_capitalize_words,
+                    should_append_number,
+                })
             }
         }
     }

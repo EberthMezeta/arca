@@ -123,9 +123,13 @@ impl BitwardenItem {
     /// `None` para tipos que no soportamos (p. ej. claves SSH); se omiten al importar.
     fn to_item_content(&self) -> Option<ItemContent> {
         match self.item_type {
-            BITWARDEN_LOGIN_TYPE => Some(ItemContent::Login(self.login.as_ref().map(login_content_from).unwrap_or_default())),
+            BITWARDEN_LOGIN_TYPE => {
+                Some(ItemContent::Login(self.login.as_ref().map(login_content_from).unwrap_or_default()))
+            }
             BITWARDEN_SECURE_NOTE_TYPE => Some(ItemContent::SecureNote(SecureNoteContent {})),
-            BITWARDEN_CARD_TYPE => Some(ItemContent::PaymentCard(self.card.as_ref().map(card_content_from).unwrap_or_default())),
+            BITWARDEN_CARD_TYPE => {
+                Some(ItemContent::PaymentCard(self.card.as_ref().map(card_content_from).unwrap_or_default()))
+            }
             BITWARDEN_IDENTITY_TYPE => {
                 Some(ItemContent::Identity(self.identity.as_ref().map(identity_content_from).unwrap_or_default()))
             }

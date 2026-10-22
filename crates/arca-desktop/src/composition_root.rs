@@ -13,11 +13,11 @@ use vault_core::infrastructure::storage::owner_only_files::create_owner_only_dir
 use vault_core::infrastructure::vault_dependencies_builder::{VaultDependenciesBuilder, VaultStorage};
 
 use crate::platform::application_paths::application_data_directory;
-use crate::platform::legacy_data_migration::{MigrationOutcome, migrate_legacy_data};
 use crate::platform::data_files::{
     ATTACHMENTS_DIRECTORY_NAME, SINGLE_INSTANCE_LOCK_FILE_NAME, UI_PREFERENCES_FILE_NAME, UNLOCK_THROTTLE_FILE_NAME,
     VAULT_FILE_NAME, VAULT_REVISION_FILE_NAME,
 };
+use crate::platform::legacy_data_migration::{MigrationOutcome, migrate_legacy_data};
 use crate::platform::single_instance_lock::{self, InstanceLockOutcome};
 use crate::platform::system_secret_clipboard::SystemSecretClipboard;
 use crate::platform::ui_preferences_store::UiPreferencesStore;

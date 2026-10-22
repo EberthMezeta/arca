@@ -11,7 +11,8 @@ pub fn build_default_transfer_format_registry() -> TransferFormatRegistry {
     build_transfer_format_registry(&ExportCryptography::default())
 }
 
-/// Igual, con la criptografía de la copia cifrada inyectada (p. ej. la política de la app o un Argon2id barato en tests).
+/// Igual, con la criptografía de la copia cifrada inyectada (p. ej. la política de la app o
+/// un Argon2id barato en tests).
 pub fn build_transfer_format_registry(export_cryptography: &ExportCryptography) -> TransferFormatRegistry {
     TransferFormatRegistry::default()
         .with_importer(Box::new(bitwarden_json_transfer::BitwardenJsonImporter))

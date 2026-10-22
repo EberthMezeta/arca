@@ -115,7 +115,10 @@ impl ToastCenter {
     }
 
     fn dismiss(&self, toast_id: i32) {
-        self.toast_state.visible_toasts.borrow_mut().retain(|visible_toast| visible_toast.toast_data.toast_id != toast_id);
+        self.toast_state
+            .visible_toasts
+            .borrow_mut()
+            .retain(|visible_toast| visible_toast.toast_data.toast_id != toast_id);
         self.publish_to_window();
     }
 
@@ -132,8 +135,13 @@ impl ToastCenter {
         let Some(app_window) = self.window.upgrade() else {
             return;
         };
-        let toast_rows: Vec<ToastData> =
-            self.toast_state.visible_toasts.borrow().iter().map(|visible_toast| visible_toast.toast_data.clone()).collect();
+        let toast_rows: Vec<ToastData> = self
+            .toast_state
+            .visible_toasts
+            .borrow()
+            .iter()
+            .map(|visible_toast| visible_toast.toast_data.clone())
+            .collect();
         app_window.global::<Toasts>().set_visible_toasts(ModelRc::new(VecModel::from(toast_rows)));
     }
 }

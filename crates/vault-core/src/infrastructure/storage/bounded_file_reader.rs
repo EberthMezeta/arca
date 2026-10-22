@@ -16,7 +16,10 @@ pub enum BoundedReadError {
 
 /// Lee como mucho `maximum_byte_count` bytes. El buffer se reserva con el tamaño del archivo
 /// para no realocar (cada realocación dejaría una copia del contenido sin borrar).
-pub fn read_file_with_size_limit(file_path: &Path, maximum_byte_count: u64) -> Result<Zeroizing<Vec<u8>>, BoundedReadError> {
+pub fn read_file_with_size_limit(
+    file_path: &Path,
+    maximum_byte_count: u64,
+) -> Result<Zeroizing<Vec<u8>>, BoundedReadError> {
     let opened_file = File::open(file_path).map_err(BoundedReadError::Unreadable)?;
     let declared_byte_count = opened_file.metadata().map_err(BoundedReadError::Unreadable)?.len();
     if declared_byte_count > maximum_byte_count {
@@ -26,10 +29,7 @@ pub fn read_file_with_size_limit(file_path: &Path, maximum_byte_count: u64) -> R
     let reserved_byte_count = usize::try_from(declared_byte_count).map_err(|_| BoundedReadError::TooLarge)?;
     let mut file_bytes = Zeroizing::new(Vec::with_capacity(reserved_byte_count));
     // `+ 1`: si el archivo creció tras consultar su tamaño, se detecta en vez de truncarlo.
-    opened_file
-        .take(maximum_byte_count + 1)
-        .read_to_end(&mut file_bytes)
-        .map_err(BoundedReadError::Unreadable)?;
+    opened_file.take(maximum_byte_count + 1).read_to_end(&mut file_bytes).map_err(BoundedReadError::Unreadable)?;
     if file_bytes.len() as u64 > maximum_byte_count {
         return Err(BoundedReadError::TooLarge);
     }

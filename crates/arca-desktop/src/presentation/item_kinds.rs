@@ -102,7 +102,9 @@ pub const ITEM_KIND_DEFINITIONS: [ItemKindDefinition; 4] = [
         nav_icon: NavIcon::Login,
         singular_label_key: "itemTypes.login",
         plural_label_key: "itemTypes.logins",
-        create_empty_content: || ItemContent::Login(LoginContent { website_urls: vec![String::new()], ..LoginContent::default() }),
+        create_empty_content: || {
+            ItemContent::Login(LoginContent { website_urls: vec![String::new()], ..LoginContent::default() })
+        },
         descriptor_fields: &[],
     },
     ItemKindDefinition {
@@ -143,10 +145,7 @@ pub fn definition_for(content_type: ItemContentType) -> &'static ItemKindDefinit
 }
 
 pub fn definition_for_ui_kind(ui_kind: ItemKind) -> &'static ItemKindDefinition {
-    ITEM_KIND_DEFINITIONS
-        .iter()
-        .find(|definition| definition.ui_kind == ui_kind)
-        .unwrap_or(&ITEM_KIND_DEFINITIONS[0])
+    ITEM_KIND_DEFINITIONS.iter().find(|definition| definition.ui_kind == ui_kind).unwrap_or(&ITEM_KIND_DEFINITIONS[0])
 }
 
 #[cfg(test)]
@@ -156,13 +155,24 @@ mod tests {
     /// Lo que antes garantizaba el `match` de `definition_for`: cada tipo tiene su entrada.
     #[test]
     fn every_content_type_has_a_definition() {
-        let all_content_types = [ItemContentType::Login, ItemContentType::SecureNote, ItemContentType::PaymentCard, ItemContentType::Identity];
+        let all_content_types = [
+            ItemContentType::Login,
+            ItemContentType::SecureNote,
+            ItemContentType::PaymentCard,
+            ItemContentType::Identity,
+        ];
         for content_type in all_content_types {
             // Sin comodín: si se añade un tipo, este `match` deja de compilar hasta incluirlo arriba.
             match content_type {
-                ItemContentType::Login | ItemContentType::SecureNote | ItemContentType::PaymentCard | ItemContentType::Identity => {}
+                ItemContentType::Login
+                | ItemContentType::SecureNote
+                | ItemContentType::PaymentCard
+                | ItemContentType::Identity => {}
             }
-            assert!(ITEM_KIND_DEFINITIONS.iter().any(|definition| definition.content_type == content_type), "{content_type:?}");
+            assert!(
+                ITEM_KIND_DEFINITIONS.iter().any(|definition| definition.content_type == content_type),
+                "{content_type:?}"
+            );
         }
     }
 

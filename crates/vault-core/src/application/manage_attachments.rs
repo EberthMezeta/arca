@@ -70,9 +70,13 @@ pub fn read_attachment(
     item_id: Uuid,
     attachment_id: Uuid,
 ) -> VaultResult<DecryptedAttachment> {
-    let attachment_reference = find_attachment_reference(unlocked_vault.vault_contents.find_item(item_id)?, attachment_id)?;
-    let file_bytes =
-        load_and_open_attachment(vault_dependencies, &unlocked_vault.vault_subkeys.attachments_root_key, attachment_id)?;
+    let attachment_reference =
+        find_attachment_reference(unlocked_vault.vault_contents.find_item(item_id)?, attachment_id)?;
+    let file_bytes = load_and_open_attachment(
+        vault_dependencies,
+        &unlocked_vault.vault_subkeys.attachments_root_key,
+        attachment_id,
+    )?;
     Ok(DecryptedAttachment { file_name: attachment_reference.file_name.clone(), file_bytes })
 }
 
@@ -106,7 +110,8 @@ pub fn reencrypt_attachments_with_new_key(
 ) -> VaultResult<AttachmentKeyRotation> {
     let mut attachment_key_rotation =
         AttachmentKeyRotation { previous_attachment_ids: Vec::new(), reencrypted_attachment_ids: Vec::new() };
-    let all_attachment_references = vault_contents.vault_items.iter_mut().flat_map(|vault_item| vault_item.attachments.iter_mut());
+    let all_attachment_references =
+        vault_contents.vault_items.iter_mut().flat_map(|vault_item| vault_item.attachments.iter_mut());
 
     for attachment_reference in all_attachment_references {
         let reencryption_result = reencrypt_single_attachment(
@@ -135,7 +140,8 @@ fn reencrypt_single_attachment(
     new_attachments_root_key: &EncryptionKey,
     previous_attachment_id: Uuid,
 ) -> VaultResult<Uuid> {
-    let file_bytes = load_and_open_attachment(vault_dependencies, previous_attachments_root_key, previous_attachment_id)?;
+    let file_bytes =
+        load_and_open_attachment(vault_dependencies, previous_attachments_root_key, previous_attachment_id)?;
     let reencrypted_attachment_id = Uuid::new_v4();
     seal_and_store_attachment(vault_dependencies, new_attachments_root_key, reencrypted_attachment_id, &file_bytes)?;
     Ok(reencrypted_attachment_id)

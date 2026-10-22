@@ -20,8 +20,9 @@ cargo build -p arca --release
 Tests:
 
 ```bash
-cargo test --workspace            # núcleo (cripto, formato, casos de uso, import/export) y presentación
+cargo test --workspace            # núcleo, controladores (ventana Slint sin pantalla) y presentación
 cargo clippy --workspace --all-targets
+cargo fmt --all                   # formato del proyecto (rustfmt.toml: 120 columnas)
 ```
 
 Fuzzing del lector de `.vault` y de los importadores (necesita nightly y `cargo install --locked cargo-fuzz`):
@@ -136,7 +137,8 @@ crates/vault-core/        Núcleo sin interfaz (testeable de forma aislada)
   infrastructure/         Adaptadores: Argon2id, XChaCha20, ficheros, import/export
 crates/arca-desktop/      Aplicación de escritorio
   ui/                     Interfaz Slint; bridge.slint es el contrato (globals) con Rust
-  src/presentation/       Un controlador por zona de la interfaz, conectados por un bus de eventos
+  src/presentation/       Un controlador por zona de la interfaz, conectados por un bus de eventos;
+                          ports.rs: diálogos y archivos del usuario (adaptadores en src/platform/)
   src/platform/           Portapapeles, bloqueo de pantalla, diálogos de archivo, instancia única, endurecimiento
   src/composition_root.rs Raíz de composición
   i18n/                   Catálogos es / en

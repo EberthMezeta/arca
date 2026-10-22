@@ -132,12 +132,16 @@ mod tests {
 
     #[test]
     fn saved_preferences_are_loaded_back() {
-        let preferences_file_path = std::env::temp_dir().join(format!("arca-ui-prefs-roundtrip-{}.json", std::process::id()));
+        let preferences_file_path =
+            std::env::temp_dir().join(format!("arca-ui-prefs-roundtrip-{}.json", std::process::id()));
         let preferences_store = UiPreferencesStore::new(preferences_file_path.clone());
         let chosen_preferences = UiPreferences {
             language_code: Some("es".into()),
             theme_preference: ThemePreference::Dark,
-            generator_settings: GeneratorSettings { active_strategy: GenerationStrategy::Passphrase, ..GeneratorSettings::default() },
+            generator_settings: GeneratorSettings {
+                active_strategy: GenerationStrategy::Passphrase,
+                ..GeneratorSettings::default()
+            },
         };
 
         preferences_store.save(&chosen_preferences);

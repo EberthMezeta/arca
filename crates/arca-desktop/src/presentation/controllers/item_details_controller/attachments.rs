@@ -9,9 +9,9 @@ use vault_core::domain::secret_text::SecretText;
 use vault_core::domain::vault_error::VaultError;
 
 use super::ItemDetailsController;
-use crate::presentation::app_commands::ItemCommand;
 use crate::ItemDetails;
 use crate::composition_root::MAXIMUM_ATTACHMENT_SIZE_BYTES;
+use crate::presentation::app_commands::ItemCommand;
 use crate::presentation::app_context::AppEvent;
 use crate::presentation::background_task::{run_in_background, run_with_vault_in_background, spawn_ui_task};
 use crate::presentation::controllers::clipboard_feedback::report_error;
@@ -42,10 +42,12 @@ impl ItemDetailsController {
             let Some(chosen_path) = controller.context.file_dialogs.choose_file_to_open(&dialog_title).await else {
                 return controller.set_adding_attachment(false);
             };
-            let file_name = chosen_path.file_name().map(|file_name| file_name.to_string_lossy().into_owned()).unwrap_or_default();
+            let file_name =
+                chosen_path.file_name().map(|file_name| file_name.to_string_lossy().into_owned()).unwrap_or_default();
             let attaching_file_name = file_name.clone();
             // Leer el archivo no necesita la bóveda: se hace sin tomarla, para no retrasar un bloqueo.
-            let too_large_error = UiError::from(VaultError::AttachmentTooLarge { maximum_size_bytes: MAXIMUM_ATTACHMENT_SIZE_BYTES });
+            let too_large_error =
+                UiError::from(VaultError::AttachmentTooLarge { maximum_size_bytes: MAXIMUM_ATTACHMENT_SIZE_BYTES });
             let user_files = Arc::clone(&controller.context.user_files);
             let attach_result = match run_in_background(move || {
                 user_files.read_limited(&chosen_path, MAXIMUM_ATTACHMENT_SIZE_BYTES, too_large_error)
@@ -65,7 +67,10 @@ impl ItemDetailsController {
             match attach_result {
                 Ok(()) => {
                     controller.context.events.publish(AppEvent::VaultDataChanged);
-                    controller.context.toasts.success(controller.context.text_with("attachments.added", &[("fileName", &file_name)]));
+                    controller
+                        .context
+                        .toasts
+                        .success(controller.context.text_with("attachments.added", &[("fileName", &file_name)]));
                 }
                 Err(ui_error) => report_error(&controller.context, &ui_error),
             }
@@ -102,10 +107,11 @@ impl ItemDetailsController {
         self.context.dialogs.set_prompt_busy(true);
         let controller = Rc::clone(self);
         spawn_ui_task(async move {
-            let decryption_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                Ok(vault_service.read_attachment(&master_password, item_id, attachment_id)?)
-            })
-            .await;
+            let decryption_result =
+                run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                    Ok(vault_service.read_attachment(&master_password, item_id, attachment_id)?)
+                })
+                .await;
             let decrypted_attachment = match decryption_result {
                 Ok(decrypted_attachment) => decrypted_attachment,
                 Err(ui_error) => {
@@ -116,8 +122,11 @@ impl ItemDetailsController {
             controller.context.dialogs.close_prompt();
 
             let dialog_title = controller.context.text("attachments.saveCopy");
-            let Some(destination_path) =
-                controller.context.file_dialogs.choose_file_to_save(&dialog_title, &decrypted_attachment.file_name).await
+            let Some(destination_path) = controller
+                .context
+                .file_dialogs
+                .choose_file_to_save(&dialog_title, &decrypted_attachment.file_name)
+                .await
             else {
                 return;
             };

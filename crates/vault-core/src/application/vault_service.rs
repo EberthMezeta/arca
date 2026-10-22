@@ -3,12 +3,12 @@
 //! `PasswordTools`): cada controlador importa solo los que usa.
 //! Cada método delega en un caso de uso; aquí solo se gestiona el estado de sesión.
 
-mod session;
-mod items;
-mod clipboard;
 mod attachments;
-mod transfer;
+mod clipboard;
+mod items;
 mod password_tools;
+mod session;
+mod transfer;
 
 pub use attachments::VaultAttachments;
 pub use clipboard::VaultClipboard;
@@ -17,20 +17,19 @@ pub use password_tools::PasswordTools;
 pub use session::VaultSession;
 pub use transfer::VaultTransfer;
 
-
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::application::throttled_master_password_attempt::run_throttled;
-use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::application::vault_dependencies::VaultDependencies;
 use crate::application::vault_key_wrapping::unwrap_vault_key;
 use crate::application::vault_session::{ActivityTimestamp, UnlockedVault, VaultSessionState};
+use crate::domain::master_password_policy::MasterPasswordViolation;
 use crate::domain::ports::clock::Clock;
 use crate::domain::secret_text::SecretText;
+use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::VaultResult;
-use crate::domain::master_password_policy::MasterPasswordViolation;
 use crate::domain::vault_revision::VaultRollback;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

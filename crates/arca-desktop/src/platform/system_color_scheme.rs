@@ -63,10 +63,13 @@ mod xdg_portal {
     fn read_color_scheme(session_bus: &Connection) -> Option<u32> {
         let portal = session_bus.with_proxy(PORTAL_SERVICE, PORTAL_PATH, PORTAL_CALL_TIMEOUT);
         let arguments = (APPEARANCE_NAMESPACE, COLOR_SCHEME_KEY);
-        if let Ok((Variant(portal_value),)) = portal.method_call::<(Variant<u32>,), _, _, _>(SETTINGS_INTERFACE, "ReadOne", arguments) {
+        if let Ok((Variant(portal_value),)) =
+            portal.method_call::<(Variant<u32>,), _, _, _>(SETTINGS_INTERFACE, "ReadOne", arguments)
+        {
             return Some(portal_value);
         }
-        let (Variant(Variant(portal_value)),): (Variant<Variant<u32>>,) = portal.method_call(SETTINGS_INTERFACE, "Read", arguments).ok()?;
+        let (Variant(Variant(portal_value)),): (Variant<Variant<u32>>,) =
+            portal.method_call(SETTINGS_INTERFACE, "Read", arguments).ok()?;
         Some(portal_value)
     }
 

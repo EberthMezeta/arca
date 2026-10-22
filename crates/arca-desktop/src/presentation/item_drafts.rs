@@ -6,7 +6,8 @@ use vault_core::domain::vault_item::VaultItem;
 
 pub fn save_request_from_item(vault_item: &VaultItem) -> SaveVaultItemRequest {
     let mut item_content = vault_item.item_content.clone();
-    let unchanged_secrets = item_content.masked_secrets_mut().into_iter().map(|(masked_field, _)| masked_field).collect();
+    let unchanged_secrets =
+        item_content.masked_secrets_mut().into_iter().map(|(masked_field, _)| masked_field).collect();
     SaveVaultItemRequest {
         item_id: Some(vault_item.item_id),
         title: vault_item.title.clone(),

@@ -30,7 +30,9 @@ pub fn copy_with_feedback(
                 &[("copiedLabel", copied_label), ("clearAfterSeconds", &clear_after_seconds.to_string())],
             );
             context.toasts.show(
-                ToastRequest::new(message, ToastTone::Success).lasting(COPIED_TOAST_DURATION).with_countdown(clear_after_seconds),
+                ToastRequest::new(message, ToastTone::Success)
+                    .lasting(COPIED_TOAST_DURATION)
+                    .with_countdown(clear_after_seconds),
             );
         }
         Err(ui_error) => report_error(context, &ui_error),

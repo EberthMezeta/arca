@@ -40,7 +40,9 @@ pub fn serialize_secret_json_pretty<Value: Serialize>(serializable_value: &Value
 
 /// Escribe con `write_contents` en un buffer del tamaño exacto que se borra al soltarse.
 /// Se llama dos veces (contar y escribir), así que tiene que producir lo mismo las dos.
-pub fn write_secret_bytes(write_contents: impl Fn(&mut dyn Write) -> VaultResult<()>) -> VaultResult<Zeroizing<Vec<u8>>> {
+pub fn write_secret_bytes(
+    write_contents: impl Fn(&mut dyn Write) -> VaultResult<()>,
+) -> VaultResult<Zeroizing<Vec<u8>>> {
     let mut serialized_byte_counter = SerializedByteCounter::default();
     write_contents(&mut serialized_byte_counter)?;
 
@@ -60,6 +62,9 @@ mod tests {
         let serialized_bytes = serialize_secret_json(&serializable_value).expect("serializar");
 
         assert_eq!(serialized_bytes.capacity(), serialized_bytes.len());
-        assert_eq!(serialized_bytes.as_slice(), serde_json::to_vec(&serializable_value).expect("referencia").as_slice());
+        assert_eq!(
+            serialized_bytes.as_slice(),
+            serde_json::to_vec(&serializable_value).expect("referencia").as_slice()
+        );
     }
 }

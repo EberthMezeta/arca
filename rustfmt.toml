@@ -1,0 +1,5 @@
+# Formato del proyecto: `cargo fmt --all` (y en crates/vault-core/fuzz, que es aparte).
+edition = "2024"
+max_width = 120
+# Literales, llamadas y cadenas de métodos cortos en una sola línea, como se escriben a mano.
+use_small_heuristics = "Max"

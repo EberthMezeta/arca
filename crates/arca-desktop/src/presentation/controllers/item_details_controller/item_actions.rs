@@ -16,7 +16,12 @@ const UNDOABLE_TOAST_DURATION: Duration = Duration::from_secs(6);
 impl ItemDetailsController {
     /// Ejecuta el comando, avisa de los cambios y muestra el resultado. Con `offers_undo`, el
     /// aviso lleva «Deshacer», que ejecuta la acción inversa del propio comando.
-    pub(super) fn run_item_command(&self, item_command: ItemCommand, success_message: Option<String>, offers_undo: bool) {
+    pub(super) fn run_item_command(
+        &self,
+        item_command: ItemCommand,
+        success_message: Option<String>,
+        offers_undo: bool,
+    ) {
         if let Err(ui_error) = item_command.execute(&self.context) {
             return report_error(&self.context, &ui_error);
         }
@@ -29,12 +34,13 @@ impl ItemDetailsController {
         };
         let undoing_context = Rc::clone(&self.context);
         self.context.toasts.show(
-            ToastRequest::new(success_message, ToastTone::Success)
-                .lasting(UNDOABLE_TOAST_DURATION)
-                .with_action(self.context.text("actions.undo"), move || match undo_command.execute(&undoing_context) {
+            ToastRequest::new(success_message, ToastTone::Success).lasting(UNDOABLE_TOAST_DURATION).with_action(
+                self.context.text("actions.undo"),
+                move || match undo_command.execute(&undoing_context) {
                     Ok(()) => undoing_context.events.publish(AppEvent::VaultDataChanged),
                     Err(ui_error) => report_error(&undoing_context, &ui_error),
-                }),
+                },
+            ),
         );
     }
 
@@ -45,8 +51,12 @@ impl ItemDetailsController {
     }
 
     pub(super) fn move_to_trash(&self) {
-        let Some((item_id, item_title)) =
-            self.details_state.borrow().displayed_item.as_ref().map(|vault_item| (vault_item.item_id, vault_item.title.clone()))
+        let Some((item_id, item_title)) = self
+            .details_state
+            .borrow()
+            .displayed_item
+            .as_ref()
+            .map(|vault_item| (vault_item.item_id, vault_item.title.clone()))
         else {
             return;
         };
@@ -56,13 +66,21 @@ impl ItemDetailsController {
 
     pub(super) fn restore(&self) {
         if let Some(item_id) = self.displayed_item_id() {
-            self.run_item_command(ItemCommand::RestoreFromTrash(item_id), Some(self.context.text("details.restored")), false);
+            self.run_item_command(
+                ItemCommand::RestoreFromTrash(item_id),
+                Some(self.context.text("details.restored")),
+                false,
+            );
         }
     }
 
     pub(super) fn confirm_permanent_deletion(self: &Rc<Self>) {
-        let Some((item_id, item_title)) =
-            self.details_state.borrow().displayed_item.as_ref().map(|vault_item| (vault_item.item_id, vault_item.title.clone()))
+        let Some((item_id, item_title)) = self
+            .details_state
+            .borrow()
+            .displayed_item
+            .as_ref()
+            .map(|vault_item| (vault_item.item_id, vault_item.title.clone()))
         else {
             return;
         };

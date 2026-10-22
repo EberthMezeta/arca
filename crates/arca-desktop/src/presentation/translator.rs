@@ -13,8 +13,16 @@ pub struct SupportedLanguage {
 
 /// Registro de idiomas: añadir uno es añadir su JSON y una entrada aquí.
 pub const SUPPORTED_LANGUAGES: [SupportedLanguage; 2] = [
-    SupportedLanguage { language_code: "es", native_name: "Español", catalog_source: include_str!("../../i18n/es.json") },
-    SupportedLanguage { language_code: "en", native_name: "English", catalog_source: include_str!("../../i18n/en.json") },
+    SupportedLanguage {
+        language_code: "es",
+        native_name: "Español",
+        catalog_source: include_str!("../../i18n/es.json"),
+    },
+    SupportedLanguage {
+        language_code: "en",
+        native_name: "English",
+        catalog_source: include_str!("../../i18n/en.json"),
+    },
 ];
 
 const FALLBACK_LANGUAGE_CODE: &str = "en";
@@ -30,7 +38,9 @@ impl Translator {
     pub fn new(requested_language_code: Option<&str>) -> Self {
         let catalogs_by_language = SUPPORTED_LANGUAGES
             .iter()
-            .map(|supported_language| (supported_language.language_code, flatten_catalog(supported_language.catalog_source)))
+            .map(|supported_language| {
+                (supported_language.language_code, flatten_catalog(supported_language.catalog_source))
+            })
             .collect();
         let mut translator = Self { active_language_code: FALLBACK_LANGUAGE_CODE, catalogs_by_language };
         translator.change_language(requested_language_code.unwrap_or(&system_language_code()));
@@ -103,7 +113,8 @@ fn flatten_catalog(catalog_source: &str) -> TranslationCatalog {
 fn flatten_into(flattened_catalog: &mut TranslationCatalog, key_prefix: &str, catalog_node: &Value) {
     match catalog_node {
         Value::Object(child_nodes) => child_nodes.iter().for_each(|(child_key, child_node)| {
-            let child_path = if key_prefix.is_empty() { child_key.clone() } else { format!("{key_prefix}.{child_key}") };
+            let child_path =
+                if key_prefix.is_empty() { child_key.clone() } else { format!("{key_prefix}.{child_key}") };
             flatten_into(flattened_catalog, &child_path, child_node);
         }),
         Value::String(translated_text) => {

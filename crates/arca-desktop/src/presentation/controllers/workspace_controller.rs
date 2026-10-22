@@ -11,9 +11,9 @@ use slint::{ComponentHandle, ModelRc, SharedString};
 use vault_core::application::search_vault_items::{VaultItemFilter, VaultItemSummary, VaultOverview};
 use vault_core::domain::vault_item::RevealableField;
 
+use crate::presentation::app_commands::AppCommand;
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::item_kinds::definition_for_ui_kind;
-use crate::presentation::app_commands::AppCommand;
 use crate::presentation::shortcuts::{self, command_for_control_key};
 use crate::{AppWindow, ItemPanel, ListState, Sidebar, VaultSection, Workspace};
 
@@ -62,7 +62,8 @@ impl WorkspaceController {
     fn bind_workspace(self: &Rc<Self>, app_window: &AppWindow) {
         let workspace = app_window.global::<Workspace>();
         let search_controller = Rc::clone(self);
-        workspace.on_search_edited(move |search_text| search_controller.context.navigator.change_search_text(&search_text));
+        workspace
+            .on_search_edited(move |search_text| search_controller.context.navigator.change_search_text(&search_text));
         let selecting_controller = Rc::clone(self);
         workspace.on_select_row(move |row_position| selecting_controller.select_row(row_position));
         let closing_controller = Rc::clone(self);
@@ -95,7 +96,9 @@ impl WorkspaceController {
 
     fn handle_event(&self, app_event: AppEvent) {
         match app_event {
-            AppEvent::SessionUnlocked | AppEvent::VaultDataChanged | AppEvent::LanguageChanged => self.refresh_everything(),
+            AppEvent::SessionUnlocked | AppEvent::VaultDataChanged | AppEvent::LanguageChanged => {
+                self.refresh_everything();
+            }
             AppEvent::SectionChanged | AppEvent::FilterChanged => {
                 self.refresh_list();
                 self.refresh_sidebar();

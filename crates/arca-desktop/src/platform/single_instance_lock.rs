@@ -5,7 +5,6 @@ use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
 
-
 pub enum InstanceLockOutcome {
     /// El bloqueo dura lo que viva este `File`: el sistema lo libera al cerrarse la app (aunque se cuelgue).
     Acquired(File),
@@ -37,10 +36,16 @@ mod tests {
 
         let first_instance = acquire(&temporary_directory, SINGLE_INSTANCE_LOCK_FILE_NAME).expect("primer bloqueo");
         assert!(matches!(first_instance, InstanceLockOutcome::Acquired(_)));
-        assert!(matches!(acquire(&temporary_directory, SINGLE_INSTANCE_LOCK_FILE_NAME).expect("segundo intento"), InstanceLockOutcome::HeldByAnotherInstance));
+        assert!(matches!(
+            acquire(&temporary_directory, SINGLE_INSTANCE_LOCK_FILE_NAME).expect("segundo intento"),
+            InstanceLockOutcome::HeldByAnotherInstance
+        ));
 
         drop(first_instance);
-        assert!(matches!(acquire(&temporary_directory, SINGLE_INSTANCE_LOCK_FILE_NAME).expect("tras liberar"), InstanceLockOutcome::Acquired(_)));
+        assert!(matches!(
+            acquire(&temporary_directory, SINGLE_INSTANCE_LOCK_FILE_NAME).expect("tras liberar"),
+            InstanceLockOutcome::Acquired(_)
+        ));
         let _ = std::fs::remove_dir_all(&temporary_directory);
     }
 }

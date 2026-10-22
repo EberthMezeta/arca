@@ -12,9 +12,9 @@ use vault_core::application::search_vault_items::{FolderScope, VaultItemFilter};
 use vault_core::domain::item_content::ItemContentType;
 
 use crate::platform::ui_preferences_store::{UiPreferences, UiPreferencesStore};
-use crate::presentation::ports::{FileDialogs, UserFiles};
 use crate::presentation::controllers::dialog_controller::DialogService;
 use crate::presentation::controllers::toast_controller::ToastCenter;
+use crate::presentation::ports::{FileDialogs, UserFiles};
 use crate::presentation::translator::Translator;
 use crate::shared_vault::SharedVault;
 use crate::{AppWindow, VaultSection};
@@ -134,7 +134,10 @@ impl WorkspaceNavigator {
 
     pub fn change_search_text(&self, search_text: &str) {
         let search_text = Some(search_text.to_string()).filter(|search_text| !search_text.is_empty());
-        self.update(|workspace_state| workspace_state.item_filter.search_text = search_text, &[AppEvent::FilterChanged]);
+        self.update(
+            |workspace_state| workspace_state.item_filter.search_text = search_text,
+            &[AppEvent::FilterChanged],
+        );
     }
 
     pub fn select_item(&self, selected_item_id: Option<Uuid>) {

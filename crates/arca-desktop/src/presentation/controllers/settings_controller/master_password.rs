@@ -5,9 +5,9 @@ use std::rc::Rc;
 use slint::{ComponentHandle, SharedString};
 use vault_core::domain::secret_text::SecretText;
 
+use crate::Settings;
 use crate::presentation::background_task::{run_with_vault_in_background, spawn_ui_task};
 use crate::presentation::error_messages::describe_error;
-use crate::Settings;
 
 use super::SettingsController;
 use vault_core::application::vault_service::VaultSession;
@@ -31,11 +31,15 @@ impl SettingsController {
 
             let controller = Rc::clone(self);
             spawn_ui_task(async move {
-                let change_result = run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
-                    Ok(vault_service.change_master_password(&current_master_password, &new_master_password)?)
-                })
-                .await;
-                let error_message = change_result.as_ref().err().map(|ui_error| describe_error(&controller.context.translator.borrow(), ui_error));
+                let change_result =
+                    run_with_vault_in_background(&controller.context.shared_vault, move |vault_service| {
+                        Ok(vault_service.change_master_password(&current_master_password, &new_master_password)?)
+                    })
+                    .await;
+                let error_message = change_result
+                    .as_ref()
+                    .err()
+                    .map(|ui_error| describe_error(&controller.context.translator.borrow(), ui_error));
                 controller.with_settings(|settings| {
                     settings.set_is_changing_master_password(false);
                     if let Some(error_message) = &error_message {

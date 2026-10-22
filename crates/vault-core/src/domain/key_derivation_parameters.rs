@@ -12,26 +12,16 @@ pub struct KeyDerivationParameters {
 
 impl KeyDerivationParameters {
     /// 256 MiB, 3 pasadas, 4 hilos: ~0,5-1 s en un portátil moderno.
-    pub const RECOMMENDED: Self = Self {
-        memory_cost_kibibytes: 256 * 1024,
-        iteration_count: 3,
-        parallelism_degree: 4,
-    };
+    pub const RECOMMENDED: Self = Self { memory_cost_kibibytes: 256 * 1024, iteration_count: 3, parallelism_degree: 4 };
 
     /// Límite inferior aceptado al leer una bóveda (evita degradar la seguridad).
-    pub const MINIMUM_ACCEPTED: Self = Self {
-        memory_cost_kibibytes: 64 * 1024,
-        iteration_count: 2,
-        parallelism_degree: 1,
-    };
+    pub const MINIMUM_ACCEPTED: Self =
+        Self { memory_cost_kibibytes: 64 * 1024, iteration_count: 2, parallelism_degree: 1 };
 
     /// Límite superior: un archivo manipulado (bóveda o copia `.arca`) no puede forzar a reservar
     /// más de 1 GiB, que un equipo con poca RAM no aguantaría (4× el valor recomendado).
-    pub const MAXIMUM_ACCEPTED: Self = Self {
-        memory_cost_kibibytes: 1024 * 1024,
-        iteration_count: 64,
-        parallelism_degree: 16,
-    };
+    pub const MAXIMUM_ACCEPTED: Self =
+        Self { memory_cost_kibibytes: 1024 * 1024, iteration_count: 64, parallelism_degree: 16 };
 
     /// Para copias `.arca` de otro equipo: las exportaciones se crean con `RECOMMENDED` (3 pasadas),
     /// así que 16 deja margen para subirlo sin aceptar archivos que bloqueen la app un minuto.

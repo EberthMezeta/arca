@@ -35,7 +35,11 @@ pub struct VaultDependenciesBuilder {
 }
 
 impl VaultDependenciesBuilder {
-    pub fn new(storage: VaultStorage, secret_clipboard: Box<dyn SecretClipboard>, maximum_attachment_size_bytes: u64) -> Self {
+    pub fn new(
+        storage: VaultStorage,
+        secret_clipboard: Box<dyn SecretClipboard>,
+        maximum_attachment_size_bytes: u64,
+    ) -> Self {
         Self {
             storage,
             secret_clipboard,
@@ -73,7 +77,8 @@ impl VaultDependenciesBuilder {
             minimum_accepted_parameters: self.key_derivation_policy.minimum_accepted_parameters,
             file_password_policy: Arc::clone(&self.master_password_policy),
         };
-        let VaultStorage { vault_repository, attachment_storage, unlock_throttle_store, vault_revision_store } = self.storage;
+        let VaultStorage { vault_repository, attachment_storage, unlock_throttle_store, vault_revision_store } =
+            self.storage;
         VaultDependencies {
             vault_repository,
             attachment_storage,

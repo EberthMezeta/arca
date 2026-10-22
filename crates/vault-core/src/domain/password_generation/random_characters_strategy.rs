@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
-use crate::domain::secret_text::SecretText;
-use crate::domain::vault_error::{VaultError, VaultResult};
-use crate::domain::secure_random::{random_index_below, shuffle_securely};
 use crate::domain::password_generation::PasswordGenerationStrategy;
 use crate::domain::password_generation::password_generation_options::CharacterSet;
+use crate::domain::secret_text::SecretText;
+use crate::domain::secure_random::{random_index_below, shuffle_securely};
+use crate::domain::vault_error::{VaultError, VaultResult};
 
 pub const MINIMUM_PASSWORD_LENGTH: usize = 8;
 pub const MAXIMUM_PASSWORD_LENGTH: usize = 128;
