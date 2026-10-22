@@ -140,13 +140,16 @@ export component Button inherits Rectangle {
     in property <bool> is-busy;
     in property <length> button-height: 36px;
     in property <length> label-size: Theme.font-md;
+    /// Si no cabe, se estrecha recortando el texto con «…» (por defecto conserva su ancho).
+    in property <bool> can-shrink: false;
     callback clicked();
 
     property <bool> is-interactive: root.enabled && !root.is-busy;
     property <color> foreground: ButtonAppearance.foreground(variant);
 
     height: button-height;
-    min-width: content.preferred-width + 28px;
+    preferred-width: content.preferred-width + 28px;
+    min-width: can-shrink ? 96px : content.preferred-width + 28px;
     horizontal-stretch: 0;
     border-radius: Theme.radius-md;
     opacity: is-interactive ? 1 : 0.5;
@@ -180,6 +183,7 @@ export component Button inherits Rectangle {
             font-size: root.label-size;
             font-weight: 600;
             vertical-alignment: center;
+            overflow: elide;
         }
     }
 
@@ -608,7 +612,11 @@ export component EmptyState inherits VerticalLayout {
     in property <string> explanation;
     alignment: center;
     spacing: 12px;
-    padding: 32px;
+    padding-top: 32px;
+    padding-bottom: 32px;
+    // Márgenes laterales cortos: el estado vacío también vive en la columna estrecha de la lista.
+    padding-left: 16px;
+    padding-right: 16px;
     HorizontalLayout {
         alignment: center;
         Rectangle {

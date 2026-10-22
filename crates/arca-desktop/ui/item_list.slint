@@ -203,6 +203,7 @@ export component VaultItemList inherits Rectangle {
                 headline: I18n.t("emptyStates.vaultEmptyTitle");
                 explanation: I18n.t("emptyStates.vaultEmptyText");
                 Button {
+                    can-shrink: true;
                     label: I18n.t("emptyStates.addFirstLogin");
                     variant: ButtonVariant.primary;
                     has-icon: true;
@@ -210,6 +211,7 @@ export component VaultItemList inherits Rectangle {
                     clicked => { Workspace.create-item(ItemKind.login); }
                 }
                 Button {
+                    can-shrink: true;
                     label: I18n.t("emptyStates.importFromBitwarden");
                     has-icon: true;
                     icon: Icons.upload;
