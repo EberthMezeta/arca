@@ -18,6 +18,7 @@ use crate::presentation::controllers::clipboard_feedback::report_error;
 use crate::presentation::controllers::dialog_controller::PromptRequest;
 use crate::presentation::error_messages::describe_error;
 use crate::ui_error::UiError;
+use vault_core::application::vault_service::VaultAttachments;
 
 impl ItemDetailsController {
     fn set_adding_attachment(&self, is_adding_attachment: bool) {

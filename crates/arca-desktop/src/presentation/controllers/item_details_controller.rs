@@ -22,6 +22,7 @@ use crate::presentation::date_formatting::{format_date_time, format_file_size};
 use crate::presentation::item_kinds::definition_for;
 use crate::{AppWindow, AttachmentRow, DetailRow, ItemDetails};
 use detail_rows::{DetailRowSpec, build_custom_rows};
+use vault_core::application::vault_service::VaultItems;
 
 /// Un secreto revelado vuelve a ocultarse solo, para que no quede a la vista indefinidamente.
 const REVEALED_SECRET_VISIBLE_DURATION: Duration = Duration::from_secs(30);

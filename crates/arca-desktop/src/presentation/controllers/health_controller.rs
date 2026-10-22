@@ -8,6 +8,7 @@ use vault_core::application::analyze_password_health::{PasswordHealthFinding, Pa
 
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::{AppWindow, HealthFinding, HealthGroup, HealthIssueKind, PasswordHealth, VaultSection};
+use vault_core::application::vault_service::VaultItems;
 
 /// Cómo se presenta cada tipo de problema (tabla en vez de condicionales).
 struct IssuePresentation {

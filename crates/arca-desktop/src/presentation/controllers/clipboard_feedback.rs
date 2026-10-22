@@ -10,6 +10,7 @@ use crate::presentation::app_context::AppContext;
 use crate::presentation::controllers::toast_controller::ToastRequest;
 use crate::presentation::error_messages::describe_error;
 use crate::ui_error::{UiError, UiResult};
+use vault_core::application::vault_service::VaultSession;
 
 const COPIED_TOAST_DURATION: Duration = Duration::from_millis(2500);
 

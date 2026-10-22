@@ -7,6 +7,7 @@ use vault_core::application::vault_service::VaultService;
 
 use crate::ui_error::{UiError, UiResult};
 use crate::vault_events::{VaultEvent, VaultEventSink, VaultLockReason};
+use vault_core::application::vault_service::VaultSession;
 
 #[derive(Clone)]
 pub struct SharedVault {

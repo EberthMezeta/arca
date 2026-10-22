@@ -8,6 +8,7 @@ use crate::ui_error::UiResult;
 use crate::{Settings, VaultSection};
 
 use super::{SettingsController, to_string_model};
+use vault_core::application::vault_service::VaultSession;
 
 const AUTO_LOCK_SECONDS_CHOICES: [u64; 6] = [60, 300, 900, 1800, 3600, 14400];
 const CLIPBOARD_CLEAR_SECONDS_CHOICES: [u64; 4] = [10, 30, 60, 120];

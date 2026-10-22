@@ -6,6 +6,7 @@ use std::time::Duration;
 use slint::{ComponentHandle, TimerMode};
 
 use vault_core::domain::totp_configuration::SUPPORTED_DIGIT_COUNTS;
+use vault_core::application::vault_service::VaultItems;
 
 use super::ItemDetailsController;
 use super::detail_rows::RowValueSource;

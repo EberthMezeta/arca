@@ -11,6 +11,7 @@ use crate::presentation::item_kinds::ITEM_KIND_DEFINITIONS;
 use crate::{NavEntry, NavIcon, Sidebar, VaultSection};
 
 use super::{NavigationTarget, WorkspaceController};
+use vault_core::application::vault_service::VaultItems;
 
 /// Biblioteca, tipos, carpetas, etiquetas, papelera y herramientas (un modelo de Slint por grupo).
 const NAVIGATION_GROUP_COUNT: usize = 6;

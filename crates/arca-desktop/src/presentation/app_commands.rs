@@ -7,6 +7,8 @@ use slint::{ComponentHandle, Timer};
 use uuid::Uuid;
 use vault_core::application::search_vault_items::VaultItemFilter;
 use vault_core::domain::item_content::ItemContentType;
+use vault_core::application::vault_service::VaultAttachments;
+use vault_core::application::vault_service::VaultItems;
 
 use crate::presentation::app_context::{AppContext, AppEvent, EditorMode};
 use crate::presentation::item_drafts::save_request_from_item;

@@ -12,6 +12,7 @@ use vault_core::domain::secret_text::SecretText;
 
 use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::{AppWindow, I18n, PasswordStrengths, UserActivity};
+use vault_core::application::vault_service::VaultSession;
 
 const MINIMUM_TIME_BETWEEN_ACTIVITY_REPORTS: Duration = Duration::from_secs(15);
 

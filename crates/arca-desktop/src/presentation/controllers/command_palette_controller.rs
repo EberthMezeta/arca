@@ -11,6 +11,7 @@ use crate::presentation::item_kinds::{ITEM_KIND_DEFINITIONS, definition_for};
 use crate::presentation::shortcuts;
 use crate::presentation::app_commands::AppCommand;
 use crate::{AppWindow, CommandPalette, NavIcon, PaletteEntry, VaultSection};
+use vault_core::application::vault_service::VaultItems;
 
 const MAXIMUM_ITEM_RESULTS: usize = 6;
 

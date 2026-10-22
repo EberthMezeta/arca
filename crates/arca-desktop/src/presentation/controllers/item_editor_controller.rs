@@ -11,6 +11,7 @@ use vault_core::domain::folder::Folder;
 use vault_core::domain::item_content::{ItemContent, ItemContentType};
 use vault_core::domain::secret_text::SecretText;
 use vault_core::domain::vault_item::{REDACTED_SECRET_PLACEHOLDER, RevealableField};
+use vault_core::application::vault_service::VaultItems;
 
 use crate::presentation::app_context::{AppContext, AppEvent, EditorMode};
 use crate::presentation::error_messages::describe_error;

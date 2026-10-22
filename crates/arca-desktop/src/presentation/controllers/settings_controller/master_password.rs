@@ -10,6 +10,7 @@ use crate::presentation::error_messages::describe_error;
 use crate::Settings;
 
 use super::SettingsController;
+use vault_core::application::vault_service::VaultSession;
 
 impl SettingsController {
     pub(super) fn change_master_password(self: &Rc<Self>) {

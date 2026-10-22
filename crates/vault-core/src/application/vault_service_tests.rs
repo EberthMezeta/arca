@@ -3,6 +3,7 @@
 use chrono::Duration;
 
 use crate::application::import_export_vault::ImportLabels;
+use crate::application::vault_service::{VaultAttachments, VaultClipboard, VaultItems, VaultSession, VaultTransfer};
 use crate::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest, SubmittedSecret};
 use crate::application::search_vault_items::VaultItemFilter;
 use crate::application::test_support::{

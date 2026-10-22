@@ -15,6 +15,7 @@ use crate::presentation::app_context::{AppContext, AppEvent};
 use crate::presentation::controllers::clipboard_feedback::{copy_with_feedback, report_error};
 use crate::ui_error::UiError;
 use crate::{AppWindow, Generator, ItemEditor};
+use vault_core::application::vault_service::VaultClipboard;
 
 /// Orden de los conjuntos tal como los numera la interfaz (`toggle-character-set`).
 const CHARACTER_SET_ORDER: [CharacterSet; 4] = [CharacterSet::Uppercase, CharacterSet::Lowercase, CharacterSet::Digits, CharacterSet::Symbols];

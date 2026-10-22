@@ -15,6 +15,7 @@ use crate::presentation::error_messages::describe_error;
 use crate::presentation::vault_event_bridge;
 use crate::vault_events::{VaultEvent, VaultLockReason};
 use crate::{AppScreen, AppWindow, Session, ToastTone, VaultSection};
+use vault_core::application::vault_service::VaultSession;
 
 const MINIMIZE_CHECK_INTERVAL: Duration = Duration::from_millis(500);
 const CLIPBOARD_CLEARED_TOAST_DURATION: Duration = Duration::from_secs(2);

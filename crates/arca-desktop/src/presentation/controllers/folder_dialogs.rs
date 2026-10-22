@@ -11,6 +11,7 @@ use crate::presentation::controllers::clipboard_feedback::report_error;
 use crate::presentation::controllers::dialog_controller::{ConfirmRequest, PromptRequest};
 use crate::presentation::error_messages::describe_error;
 use crate::ui_error::UiResult;
+use vault_core::application::vault_service::VaultItems;
 
 type FolderOperation = Box<dyn Fn(&AppContext, &str) -> UiResult<()>>;
 

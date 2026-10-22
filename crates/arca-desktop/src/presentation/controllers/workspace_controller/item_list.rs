@@ -13,6 +13,8 @@ use crate::presentation::item_kinds::definition_for;
 use crate::{ItemPanel, ItemRow, ListState, Workspace};
 
 use super::WorkspaceController;
+use vault_core::application::vault_service::VaultClipboard;
+use vault_core::application::vault_service::VaultItems;
 
 impl WorkspaceController {
     pub(super) fn refresh_list(&self) {

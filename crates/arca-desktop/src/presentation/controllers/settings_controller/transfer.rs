@@ -19,6 +19,7 @@ use crate::ui_error::UiError;
 use crate::Settings;
 
 use super::SettingsController;
+use vault_core::application::vault_service::VaultTransfer;
 
 /// Estado de una exportación (patrón State). Solo `AwaitingDestination` guarda bytes, y bloquear
 /// la bóveda vuelve siempre a `Idle`: no hay forma de olvidar una exportación en claro en memoria.

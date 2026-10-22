@@ -11,6 +11,8 @@ use super::{ItemDetailsController, REVEALED_SECRET_VISIBLE_DURATION};
 use crate::DetailRowKind;
 use crate::presentation::controllers::clipboard_feedback::copy_with_feedback;
 use crate::presentation::item_kinds::definition_for;
+use vault_core::application::vault_service::VaultClipboard;
+use vault_core::application::vault_service::VaultItems;
 
 /// De dónde sale el valor de una fila al copiarla y si puede revelarse.
 #[derive(Clone)]
