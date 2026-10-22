@@ -351,5 +351,10 @@
       "wordSeparatorTooLong": "The separator is too long (5 characters max)."
     },
     "importFileTooLarge": "The file is too large to import (64 MB max)."
+  },
+  "rollback": {
+    "title": "The vault has gone back in time",
+    "text": "This file is an older version (save #{{openedRevision}}) than the last one Arca opened on this computer (#{{lastSeenRevision}}). If you didn't restore a backup yourself, someone may have replaced it: check that no recent changes are missing and change your master password.",
+    "acknowledge": "Got it"
   }
 }

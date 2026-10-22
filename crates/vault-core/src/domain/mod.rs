@@ -17,3 +17,4 @@ pub mod vault_error;
 pub mod vault_file;
 pub mod vault_item;
 pub mod vault_preferences;
+pub mod vault_revision;

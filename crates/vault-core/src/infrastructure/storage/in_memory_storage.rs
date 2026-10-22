@@ -10,9 +10,11 @@ use crate::domain::ports::attachment_storage::AttachmentStorage;
 use crate::domain::ports::secret_clipboard::SecretClipboard;
 use crate::domain::ports::unlock_throttle_store::UnlockThrottleStore;
 use crate::domain::ports::vault_repository::VaultRepository;
+use crate::domain::ports::vault_revision_store::VaultRevisionStore;
 use crate::domain::secret_text::SecretText;
 use crate::domain::unlock_attempt_throttle::UnlockAttemptThrottle;
 use crate::domain::vault_error::{VaultError, VaultResult};
+use crate::domain::vault_revision::VaultRevision;
 
 #[derive(Default)]
 pub struct InMemoryVaultRepository {
@@ -55,6 +57,22 @@ impl UnlockThrottleStore for InMemoryUnlockThrottleStore {
 
     fn save_throttle(&self, unlock_attempt_throttle: &UnlockAttemptThrottle) -> VaultResult<()> {
         *self.stored_throttle.lock().expect("mutex") = Some(unlock_attempt_throttle.clone());
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct InMemoryVaultRevisionStore {
+    pub last_seen_revision: Mutex<Option<VaultRevision>>,
+}
+
+impl VaultRevisionStore for InMemoryVaultRevisionStore {
+    fn load_last_seen_revision(&self) -> Option<VaultRevision> {
+        *self.last_seen_revision.lock().expect("mutex")
+    }
+
+    fn record_revision(&self, vault_revision: &VaultRevision) -> VaultResult<()> {
+        *self.last_seen_revision.lock().expect("mutex") = Some(*vault_revision);
         Ok(())
     }
 }
@@ -151,5 +169,15 @@ impl<T: UnlockThrottleStore> UnlockThrottleStore for std::sync::Arc<T> {
 
     fn save_throttle(&self, unlock_attempt_throttle: &UnlockAttemptThrottle) -> VaultResult<()> {
         self.as_ref().save_throttle(unlock_attempt_throttle)
+    }
+}
+
+impl<T: VaultRevisionStore> VaultRevisionStore for std::sync::Arc<T> {
+    fn load_last_seen_revision(&self) -> Option<VaultRevision> {
+        self.as_ref().load_last_seen_revision()
+    }
+
+    fn record_revision(&self, vault_revision: &VaultRevision) -> VaultResult<()> {
+        self.as_ref().record_revision(vault_revision)
     }
 }

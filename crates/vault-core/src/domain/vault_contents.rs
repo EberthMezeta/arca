@@ -6,6 +6,7 @@ use crate::domain::folder::Folder;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_item::VaultItem;
 use crate::domain::vault_preferences::VaultPreferences;
+use crate::domain::vault_revision::VaultRevision;
 
 /// Todo lo que se guarda cifrado dentro del archivo `.vault`.
 /// (`default` va por campo y no en el struct: con `Drop` no se puede usar `..Default::default()`.)
@@ -18,6 +19,12 @@ pub struct VaultContents {
     pub folders: Vec<Folder>,
     #[serde(default)]
     pub preferences: VaultPreferences,
+    /// `None` en bóvedas guardadas antes de existir la detección de rollback; se asigna al guardar.
+    #[serde(default)]
+    pub vault_id: Option<Uuid>,
+    /// Sube en cada guardado (ver `vault_revision`).
+    #[serde(default)]
+    pub revision_number: u64,
 }
 
 /// Los secretos (`SecretText`) ya se borran solos; aquí se borra el resto del texto descifrado
@@ -31,6 +38,17 @@ impl Drop for VaultContents {
 }
 
 impl VaultContents {
+    pub fn revision(&self) -> Option<VaultRevision> {
+        self.vault_id.map(|vault_id| VaultRevision { vault_id, revision_number: self.revision_number })
+    }
+
+    /// Antes de cada guardado: la nueva versión queda por delante de todas las anteriores.
+    pub fn advance_revision(&mut self) -> VaultRevision {
+        let vault_id = *self.vault_id.get_or_insert_with(Uuid::new_v4);
+        self.revision_number = self.revision_number.saturating_add(1);
+        VaultRevision { vault_id, revision_number: self.revision_number }
+    }
+
     pub fn find_item(&self, item_id: Uuid) -> VaultResult<&VaultItem> {
         self.vault_items
             .iter()

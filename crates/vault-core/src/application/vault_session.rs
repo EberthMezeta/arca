@@ -83,13 +83,13 @@ impl UnlockedVault {
     ) -> VaultResult<MutationOutput> {
         let mut updated_contents = self.vault_contents.clone();
         let mutation_output = apply_mutation(&mut updated_contents)?;
-        let vault_file_bytes = seal_vault_file(
+        seal_and_write_vault_file(
             vault_dependencies,
             &self.encoded_header_bytes,
             &self.vault_subkeys.vault_contents_key,
-            &updated_contents,
+            &mut updated_contents,
+            write_vault_file,
         )?;
-        write_vault_file(&vault_file_bytes)?;
         self.vault_contents = updated_contents;
         Ok(mutation_output)
     }
@@ -100,14 +100,31 @@ pub fn persist_vault_contents(
     vault_dependencies: &VaultDependencies,
     encoded_header_bytes: &[u8],
     vault_contents_key: &EncryptionKey,
-    vault_contents: &VaultContents,
+    vault_contents: &mut VaultContents,
 ) -> VaultResult<()> {
+    seal_and_write_vault_file(vault_dependencies, encoded_header_bytes, vault_contents_key, vault_contents, |vault_file_bytes| {
+        vault_dependencies.vault_repository.write_vault_bytes(vault_file_bytes)
+    })
+}
+
+/// Sube la revisión, cifra, escribe con `write_vault_file` y apunta la revisión como la última vista.
+/// Si apuntarla falla no pasa nada grave: el siguiente desbloqueo ve una revisión mayor, no menor.
+pub fn seal_and_write_vault_file(
+    vault_dependencies: &VaultDependencies,
+    encoded_header_bytes: &[u8],
+    vault_contents_key: &EncryptionKey,
+    vault_contents: &mut VaultContents,
+    write_vault_file: impl FnOnce(&[u8]) -> VaultResult<()>,
+) -> VaultResult<()> {
+    let vault_revision = vault_contents.advance_revision();
     let vault_file_bytes = seal_vault_file(vault_dependencies, encoded_header_bytes, vault_contents_key, vault_contents)?;
-    vault_dependencies.vault_repository.write_vault_bytes(&vault_file_bytes)
+    write_vault_file(&vault_file_bytes)?;
+    let _ = vault_dependencies.vault_revision_store.record_revision(&vault_revision);
+    Ok(())
 }
 
 /// Serializa y cifra la bóveda completa (AAD = cabecera) sin escribirla.
-pub fn seal_vault_file(
+fn seal_vault_file(
     vault_dependencies: &VaultDependencies,
     encoded_header_bytes: &[u8],
     vault_contents_key: &EncryptionKey,

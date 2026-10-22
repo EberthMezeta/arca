@@ -27,13 +27,13 @@ pub fn execute(vault_dependencies: &VaultDependencies, master_password: &SecretT
     )?;
     let encoded_header_bytes = vault_header.encode()?;
     let vault_subkeys = derive_vault_subkeys(&vault_key)?;
-    let vault_contents = VaultContents::default();
+    let mut vault_contents = VaultContents::default();
 
     persist_vault_contents(
         vault_dependencies,
         &encoded_header_bytes,
         &vault_subkeys.vault_contents_key,
-        &vault_contents,
+        &mut vault_contents,
     )?;
 
     Ok(UnlockedVault {

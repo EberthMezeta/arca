@@ -121,6 +121,8 @@ pub fn export_vault(
         vault_items: vault_contents.active_items().cloned().collect(),
         folders: vault_contents.folders.clone(),
         preferences: vault_contents.preferences.clone(),
+        vault_id: None,
+        revision_number: 0,
     };
     Ok(ExportedFile {
         file_bytes: vault_exporter.serialize_vault(&exportable_contents, usable_file_password)?,

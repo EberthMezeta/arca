@@ -10,3 +10,4 @@ pub mod unlock_throttle_store;
 pub mod vault_exporter;
 pub mod vault_importer;
 pub mod vault_repository;
+pub mod vault_revision_store;

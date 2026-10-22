@@ -5,8 +5,10 @@ use std::time::Duration;
 
 use slint::{ComponentHandle, SharedString, Timer, TimerMode};
 use vault_core::domain::secret_text::SecretText;
+use vault_core::domain::vault_revision::VaultRollback;
 
 use crate::presentation::app_context::{AppContext, AppEvent};
+use crate::presentation::controllers::dialog_controller::ConfirmRequest;
 use crate::presentation::controllers::toast_controller::ToastRequest;
 use crate::presentation::background_task::{run_with_vault_in_background, spawn_ui_task};
 use crate::presentation::error_messages::describe_error;
@@ -108,7 +110,12 @@ impl SessionController {
             .await;
             controller.with_session(|session| session.set_is_unlocking(false));
             match unlock_result {
-                Ok(()) => controller.enter_vault(),
+                Ok(detected_rollback) => {
+                    controller.enter_vault();
+                    if let Some(detected_rollback) = detected_rollback {
+                        controller.warn_about_rollback(detected_rollback);
+                    }
+                }
                 Err(ui_error) => {
                     let error_message = describe_error(&controller.context.translator.borrow(), &ui_error);
                     controller.with_session(|session| {
@@ -171,6 +178,23 @@ impl SessionController {
         });
         self.context.navigator.reset();
         self.context.events.publish(AppEvent::SessionUnlocked);
+    }
+
+    /// El archivo es más antiguo que el último que abrió esta app: puede ser una copia restaurada
+    /// a propósito o una sustitución. Se avisa una sola vez (la versión abierta pasa a ser la referencia).
+    fn warn_about_rollback(&self, detected_rollback: VaultRollback) {
+        let opened_revision = detected_rollback.opened_revision_number.to_string();
+        let last_seen_revision = detected_rollback.last_seen_revision_number.to_string();
+        self.context.dialogs.confirm(ConfirmRequest {
+            title: self.context.text("rollback.title"),
+            text: self.context.text_with(
+                "rollback.text",
+                &[("openedRevision", &opened_revision), ("lastSeenRevision", &last_seen_revision)],
+            ),
+            confirm_label: self.context.text("rollback.acknowledge"),
+            is_destructive: false,
+            on_confirm: Box::new(|| {}),
+        });
     }
 
     fn lock_now(&self) {

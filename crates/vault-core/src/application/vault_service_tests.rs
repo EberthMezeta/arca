@@ -109,6 +109,36 @@ fn tampered_vault_file_is_rejected() {
 }
 
 #[test]
+fn replacing_the_vault_with_an_older_version_is_detected_once() {
+    let mut test_harness = harness_with_created_vault();
+    let older_vault_bytes = test_harness.vault_repository.read_vault_bytes().expect("leer");
+    test_harness.vault_service.save_item(login_request("GitHub", "a-Long-unique-pass-1")).expect("guardar");
+    test_harness.vault_service.lock_vault();
+    test_harness.vault_repository.write_vault_bytes(&older_vault_bytes).expect("sustituir");
+
+    let detected_rollback = test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear");
+
+    let detected_rollback = detected_rollback.expect("debe avisar del retroceso");
+    assert!(detected_rollback.opened_revision_number < detected_rollback.last_seen_revision_number);
+    test_harness.vault_service.lock_vault();
+    assert_eq!(test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear"), None);
+}
+
+#[test]
+fn normal_saves_and_reopening_raise_no_rollback_warning() {
+    let mut test_harness = harness_with_created_vault();
+    test_harness.vault_service.save_item(login_request("GitHub", "a-Long-unique-pass-1")).expect("guardar");
+    test_harness.vault_service.lock_vault();
+
+    assert_eq!(test_harness.vault_service.unlock_vault(&master_password()).expect("desbloquear"), None);
+
+    test_harness.vault_service.change_master_password(&master_password(), &SecretText::new("harbor-quartz-cafe-falcon-81")).expect("cambiar");
+    test_harness.vault_service.lock_vault();
+    let reopened = test_harness.vault_service.unlock_vault(&SecretText::new("harbor-quartz-cafe-falcon-81")).expect("desbloquear");
+    assert_eq!(reopened, None);
+}
+
+#[test]
 fn weak_master_password_is_rejected_on_creation() {
     let mut test_harness = build_test_vault_service();
 

@@ -8,13 +8,29 @@ use crate::domain::secret_text::SecretText;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_file::vault_file_format::decode_vault_file;
+use crate::domain::vault_revision::{VaultRollback, detect_rollback};
+
+pub struct UnlockOutcome {
+    pub unlocked_vault: UnlockedVault,
+    /// `Some` si el archivo es más antiguo que el último que abrió o guardó esta app.
+    pub detected_rollback: Option<VaultRollback>,
+}
 
 pub fn execute(
     vault_dependencies: &VaultDependencies,
     unlock_attempt_throttle: &mut UnlockAttemptThrottle,
     master_password: &SecretText,
-) -> VaultResult<UnlockedVault> {
-    run_throttled(vault_dependencies, unlock_attempt_throttle, || decrypt_vault(vault_dependencies, master_password))
+) -> VaultResult<UnlockOutcome> {
+    let unlocked_vault =
+        run_throttled(vault_dependencies, unlock_attempt_throttle, || decrypt_vault(vault_dependencies, master_password))?;
+    let opened_revision = unlocked_vault.vault_contents.revision();
+    let detected_rollback =
+        detect_rollback(vault_dependencies.vault_revision_store.load_last_seen_revision(), opened_revision);
+    // Se avisa una vez: a partir de aquí la versión abierta es la de referencia.
+    if let Some(opened_revision) = opened_revision {
+        let _ = vault_dependencies.vault_revision_store.record_revision(&opened_revision);
+    }
+    Ok(UnlockOutcome { unlocked_vault, detected_rollback })
 }
 
 fn decrypt_vault(vault_dependencies: &VaultDependencies, master_password: &SecretText) -> VaultResult<UnlockedVault> {

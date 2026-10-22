@@ -133,6 +133,8 @@ mod tests {
             vault_items: imported_vault_data.vault_items,
             folders: imported_vault_data.folders,
             preferences: VaultPreferences::default(),
+            vault_id: None,
+            revision_number: 0,
         };
 
         let exported_bytes = BitwardenJsonExporter.serialize_vault(&vault_contents, None).expect("exportar");

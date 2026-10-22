@@ -31,6 +31,7 @@ use crate::domain::totp_configuration::{TotpCode, TotpConfiguration};
 use crate::domain::vault_error::{VaultError, VaultResult};
 use crate::domain::vault_item::{AttachmentReference, RevealableField, VaultItem};
 use crate::domain::vault_preferences::VaultPreferences;
+use crate::domain::vault_revision::VaultRollback;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -88,11 +89,12 @@ impl VaultService {
         Ok(())
     }
 
-    pub fn unlock_vault(&mut self, master_password: &SecretText) -> VaultResult<()> {
-        let unlocked_vault =
+    /// Devuelve `Some` si el archivo abierto es más antiguo que el último visto (ver `vault_revision`).
+    pub fn unlock_vault(&mut self, master_password: &SecretText) -> VaultResult<Option<VaultRollback>> {
+        let unlock_outcome =
             unlock_vault::execute(&self.vault_dependencies, &mut self.unlock_attempt_throttle, master_password)?;
-        self.session_state = VaultSessionState::Unlocked(Box::new(unlocked_vault));
-        Ok(())
+        self.session_state = VaultSessionState::Unlocked(Box::new(unlock_outcome.unlocked_vault));
+        Ok(unlock_outcome.detected_rollback)
     }
 
     pub fn lock_vault(&mut self) {

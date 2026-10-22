@@ -363,6 +363,8 @@ mod tests {
             vault_items: imported_vault_data.vault_items,
             folders: Vec::new(),
             preferences: VaultPreferences::default(),
+            vault_id: None,
+            revision_number: 0,
         };
 
         let exported_bytes = BitwardenCsvExporter.serialize_vault(&vault_contents, None).expect("exportar");
@@ -410,6 +412,8 @@ mod tests {
             vault_items: imported_vault_data.vault_items,
             folders: imported_vault_data.folders,
             preferences: VaultPreferences::default(),
+            vault_id: None,
+            revision_number: 0,
         };
         let exported_bytes = BitwardenCsvExporter.serialize_vault(&vault_contents, None).expect("exportar");
         let reimported_vault_data = BitwardenCsvImporter.parse_file(&exported_bytes, None).expect("reimportar");

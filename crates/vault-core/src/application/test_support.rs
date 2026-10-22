@@ -11,6 +11,7 @@ use crate::infrastructure::crypto::xchacha20_poly1305_cipher::XChaCha20Poly1305C
 use crate::infrastructure::import_export::build_default_transfer_format_registry;
 use crate::infrastructure::storage::in_memory_storage::{
     FakeSecretClipboard, InMemoryAttachmentStorage, InMemoryUnlockThrottleStore, InMemoryVaultRepository,
+    InMemoryVaultRevisionStore,
 };
 
 pub const STRONG_MASTER_PASSWORD: &str = "glacier-mantis-orbit-velvet-27";
@@ -48,6 +49,7 @@ pub struct TestVaultHarness {
     pub vault_repository: Arc<InMemoryVaultRepository>,
     pub attachment_storage: Arc<InMemoryAttachmentStorage>,
     pub unlock_throttle_store: Arc<InMemoryUnlockThrottleStore>,
+    pub vault_revision_store: Arc<InMemoryVaultRevisionStore>,
 }
 
 /// Adaptadores compartidos para poder "reiniciar la app" con el mismo disco simulado.
@@ -56,6 +58,7 @@ pub struct SharedTestStorage {
     pub vault_repository: Arc<InMemoryVaultRepository>,
     pub attachment_storage: Arc<InMemoryAttachmentStorage>,
     pub unlock_throttle_store: Arc<InMemoryUnlockThrottleStore>,
+    pub vault_revision_store: Arc<InMemoryVaultRevisionStore>,
 }
 
 pub fn build_test_vault_service() -> TestVaultHarness {
@@ -64,7 +67,7 @@ pub fn build_test_vault_service() -> TestVaultHarness {
 
 pub fn build_test_vault_service_on(shared_storage: SharedTestStorage, fake_clock: FakeClock) -> TestVaultHarness {
     let fake_clipboard = Arc::new(FakeSecretClipboard::default());
-    let SharedTestStorage { vault_repository, attachment_storage, unlock_throttle_store } = shared_storage;
+    let SharedTestStorage { vault_repository, attachment_storage, unlock_throttle_store, vault_revision_store } = shared_storage;
 
     let vault_dependencies = VaultDependencies {
         vault_repository: Box::new(Arc::clone(&vault_repository)),
@@ -73,6 +76,7 @@ pub fn build_test_vault_service_on(shared_storage: SharedTestStorage, fake_clock
         authenticated_cipher: Box::new(XChaCha20Poly1305Cipher),
         secret_clipboard: Box::new(Arc::clone(&fake_clipboard)),
         unlock_throttle_store: Box::new(Arc::clone(&unlock_throttle_store)),
+        vault_revision_store: Box::new(Arc::clone(&vault_revision_store)),
         clock: Box::new(fake_clock.clone()),
         transfer_format_registry: build_default_transfer_format_registry(),
         key_derivation_policy: KeyDerivationPolicy {
@@ -89,5 +93,6 @@ pub fn build_test_vault_service_on(shared_storage: SharedTestStorage, fake_clock
         vault_repository,
         attachment_storage,
         unlock_throttle_store,
+        vault_revision_store,
     }
 }

@@ -351,5 +351,10 @@
       "wordSeparatorTooLong": "El separador es demasiado largo (máx. 5 caracteres)."
     },
     "importFileTooLarge": "El archivo es demasiado grande para importarlo (máximo 64 MB)."
+  },
+  "rollback": {
+    "title": "La bóveda ha retrocedido",
+    "text": "Este archivo es una versión anterior (guardado n.º {{openedRevision}}) a la última que abrió Arca en este equipo (n.º {{lastSeenRevision}}). Si no restauraste tú una copia, alguien pudo sustituirlo: revisa que no falten cambios recientes y cambia la contraseña maestra.",
+    "acknowledge": "Entendido"
   }
 }

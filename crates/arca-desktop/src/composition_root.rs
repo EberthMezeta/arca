@@ -13,6 +13,7 @@ use vault_core::infrastructure::import_export::build_default_transfer_format_reg
 use vault_core::infrastructure::storage::atomic_file_vault_repository::AtomicFileVaultRepository;
 use vault_core::infrastructure::storage::directory_attachment_storage::DirectoryAttachmentStorage;
 use vault_core::infrastructure::storage::json_file_unlock_throttle_store::JsonFileUnlockThrottleStore;
+use vault_core::infrastructure::storage::json_file_vault_revision_store::JsonFileVaultRevisionStore;
 use vault_core::infrastructure::storage::owner_only_files::create_owner_only_directory;
 
 use crate::platform::application_paths::application_data_directory;
@@ -26,6 +27,7 @@ use crate::vault_events::VaultEventSink;
 const VAULT_FILE_NAME: &str = "personal.vault";
 const ATTACHMENTS_DIRECTORY_NAME: &str = "personal.vault.d";
 const UNLOCK_THROTTLE_FILE_NAME: &str = "unlock-throttle.json";
+const VAULT_REVISION_FILE_NAME: &str = "vault-revision.json";
 const UI_PREFERENCES_FILE_NAME: &str = "ui-preferences.json";
 pub const MAXIMUM_ATTACHMENT_SIZE_BYTES: u64 = 50 * 1024 * 1024;
 /// Ningún export real de un gestor de contraseñas se acerca a esto.
@@ -69,6 +71,9 @@ pub fn compose_application(vault_event_sink: VaultEventSink) -> io::Result<Start
         secret_clipboard: Box::new(SystemSecretClipboard::new(vault_event_sink)),
         unlock_throttle_store: Box::new(JsonFileUnlockThrottleStore::new(
             application_data_directory.join(UNLOCK_THROTTLE_FILE_NAME),
+        )),
+        vault_revision_store: Box::new(JsonFileVaultRevisionStore::new(
+            application_data_directory.join(VAULT_REVISION_FILE_NAME),
         )),
         clock: Box::new(SystemClock),
         transfer_format_registry: build_default_transfer_format_registry(),
