@@ -222,10 +222,10 @@ component WarningStep inherits VerticalLayout {
 
 component CreatePasswordStep inherits VerticalLayout {
     // Misma política que `MasterPasswordPolicy` en Rust (que vuelve a comprobarla al crear).
-    property <int> minimum-length: 12;
+    property <int> minimum-length: PasswordStrengths.master-minimum-length;
     property <int> strength-score: PasswordStrengths.score-of(Session.setup-password);
     property <bool> is-too-short: Session.setup-password.character-count < minimum-length;
-    property <bool> is-too-weak: strength-score < 3;
+    property <bool> is-too-weak: strength-score < PasswordStrengths.master-minimum-score;
     property <bool> passwords-match: Session.setup-password == Session.setup-confirmation;
     property <bool> can-create: !is-too-short && !is-too-weak && passwords-match && Session.setup-confirmation != "";
 

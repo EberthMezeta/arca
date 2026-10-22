@@ -45,6 +45,11 @@ impl MasterPasswordRule for MinimumStrengthRule {
     }
 }
 
+pub const MINIMUM_MASTER_PASSWORD_CHARACTER_COUNT: usize = 12;
+/// 4 = más de 10^10 intentos según zxcvbn. Con 3 (10^8) bastan horas con varias GPU
+/// contra una copia del archivo, aun con Argon2id a 256 MiB.
+pub const MINIMUM_MASTER_PASSWORD_STRENGTH_SCORE: u8 = 4;
+
 pub struct MasterPasswordPolicy {
     rules: Vec<Box<dyn MasterPasswordRule>>,
 }
@@ -53,8 +58,8 @@ impl Default for MasterPasswordPolicy {
     fn default() -> Self {
         Self {
             rules: vec![
-                Box::new(MinimumLengthRule { minimum_character_count: 12 }),
-                Box::new(MinimumStrengthRule { minimum_strength_score: 3 }),
+                Box::new(MinimumLengthRule { minimum_character_count: MINIMUM_MASTER_PASSWORD_CHARACTER_COUNT }),
+                Box::new(MinimumStrengthRule { minimum_strength_score: MINIMUM_MASTER_PASSWORD_STRENGTH_SCORE }),
             ],
         }
     }
@@ -78,6 +83,15 @@ mod tests {
         let violations = MasterPasswordPolicy::default().find_violations(&SecretText::new("password"));
 
         assert_eq!(violations.len(), 2);
+    }
+
+    #[test]
+    fn long_but_predictable_passwords_are_rejected() {
+        for predictable_password in ["Barcelona1992!", "Hola123456789!", "arcaarca2024!", "contraseñasegura"] {
+            let violations = MasterPasswordPolicy::default().find_violations(&SecretText::new(predictable_password));
+
+            assert_eq!(violations, vec![MasterPasswordViolation::TooWeak { minimum_strength_score: 4 }], "{predictable_password}");
+        }
     }
 
     #[test]

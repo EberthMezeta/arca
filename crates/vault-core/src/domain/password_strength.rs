@@ -2,6 +2,13 @@ use serde::Serialize;
 
 use crate::domain::secret_text::SecretText;
 
+/// Palabras que zxcvbn no conoce (su diccionario es inglés) y que cualquiera probaría primero
+/// contra una bóveda de esta app.
+const CONTEXT_WORDS: &[&str] = &[
+    "arca", "rustvault", "vault", "boveda", "bóveda", "contraseña", "contrasena", "clave", "maestra", "segura", "secreta",
+    "password",
+];
+
 /// Estimación de fortaleza (0 = muy débil, 4 = muy fuerte) basada en zxcvbn.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,7 +21,7 @@ pub struct PasswordStrength {
 
 impl PasswordStrength {
     pub fn estimate(candidate_password: &SecretText) -> Self {
-        let estimation = zxcvbn::zxcvbn(candidate_password.expose_secret(), &[]);
+        let estimation = zxcvbn::zxcvbn(candidate_password.expose_secret(), CONTEXT_WORDS);
         let feedback = estimation.feedback();
 
         Self {

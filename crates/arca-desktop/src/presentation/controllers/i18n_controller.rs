@@ -6,6 +6,7 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use slint::{ComponentHandle, SharedString};
+use vault_core::domain::master_password_policy::{MINIMUM_MASTER_PASSWORD_CHARACTER_COUNT, MINIMUM_MASTER_PASSWORD_STRENGTH_SCORE};
 use vault_core::domain::password_strength::PasswordStrength;
 use vault_core::domain::secret_text::SecretText;
 
@@ -54,7 +55,10 @@ fn install_translations(context: &Rc<AppContext>, app_window: &AppWindow) {
 }
 
 fn install_password_strengths(app_window: &AppWindow) {
-    app_window.global::<PasswordStrengths>().on_score_of(|candidate_password: SharedString| {
+    let password_strengths = app_window.global::<PasswordStrengths>();
+    password_strengths.set_master_minimum_length(i32::try_from(MINIMUM_MASTER_PASSWORD_CHARACTER_COUNT).unwrap_or(i32::MAX));
+    password_strengths.set_master_minimum_score(i32::from(MINIMUM_MASTER_PASSWORD_STRENGTH_SCORE));
+    password_strengths.on_score_of(|candidate_password: SharedString| {
         if candidate_password.is_empty() {
             return -1;
         }
