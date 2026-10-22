@@ -11,11 +11,11 @@ Gestor de contraseñas **100 % local**: sin nube ni cuentas. Todo en **Rust**, c
 
 ## Instalar
 
-En Debian, Ubuntu y derivadas, con el paquete `.deb` (ver [cómo generarlo](#paquete-deb)):
+En Debian, Ubuntu y derivadas, con el paquete `.deb` (necesita `cargo install --locked cargo-deb`):
 
 ```bash
-sudo apt install ./target/debian/arca_0.1.0-1_amd64.deb   # binario, icono y entrada del menú
-sudo apt remove arca                                       # desinstalar (la bóveda no se toca)
+scripts/install-deb.sh   # genera el .deb y lo instala (o reinstala): binario, icono y entrada del menú
+sudo apt remove arca     # desinstalar (la bóveda no se toca)
 ```
 
 ## Uso
