@@ -2,7 +2,7 @@
 
 use chrono::Duration;
 
-use crate::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest};
+use crate::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest, SubmittedSecret};
 use crate::application::search_vault_items::VaultItemFilter;
 use crate::application::test_support::{
     FakeClock, STRONG_MASTER_PASSWORD, SharedTestStorage, TestVaultHarness, build_test_vault_dependencies,
@@ -47,6 +47,7 @@ fn login_request(title: &str, password: &str) -> SaveVaultItemRequest {
             website_urls: vec!["https://correo.es".into()],
             totp_secret: None,
         }),
+        unchanged_secrets: vec![],
     }
 }
 
@@ -569,8 +570,10 @@ fn locking_clears_the_copied_secret_from_clipboard() {
 
 // ── Editor con secretos enmascarados ─────────────────────────────────────────
 
-/// Simula lo que hace la UI: carga el elemento enmascarado y lo devuelve como borrador.
+/// Simula lo que hace la UI: carga el elemento enmascarado y lo devuelve sin tocar ningún secreto.
 fn editing_request_from(redacted_item: &VaultItem) -> SaveVaultItemRequest {
+    let mut item_content = redacted_item.item_content.clone();
+    let unchanged_secrets = item_content.masked_secrets_mut().into_iter().map(|(masked_field, _)| masked_field).collect();
     SaveVaultItemRequest {
         item_id: Some(redacted_item.item_id),
         title: redacted_item.title.clone(),
@@ -584,19 +587,24 @@ fn editing_request_from(redacted_item: &VaultItem) -> SaveVaultItemRequest {
             .enumerate()
             .map(|(field_position, custom_field)| CustomFieldDraft {
                 field_label: custom_field.field_label.clone(),
-                field_value: custom_field.field_value.clone(),
+                field_value: if custom_field.is_hidden {
+                    SubmittedSecret::Unchanged
+                } else {
+                    SubmittedSecret::Replaced(custom_field.field_value.clone())
+                },
                 is_hidden: custom_field.is_hidden,
                 source_field_index: Some(field_position),
             })
             .collect(),
-        item_content: redacted_item.item_content.clone(),
+        item_content,
+        unchanged_secrets,
     }
 }
 
 fn hidden_field_draft(field_label: &str, field_value: &str) -> CustomFieldDraft {
     CustomFieldDraft {
         field_label: field_label.into(),
-        field_value: SecretText::new(field_value),
+        field_value: SubmittedSecret::Replaced(SecretText::new(field_value)),
         is_hidden: true,
         source_field_index: None,
     }
@@ -637,6 +645,7 @@ fn edited_secret_replaces_the_stored_one() {
     if let ItemContent::Login(login_content) = &mut editing_request.item_content {
         login_content.password = SecretText::new("pw-nueva");
     }
+    editing_request.unchanged_secrets.retain(|masked_field| *masked_field != RevealableField::Password);
 
     test_harness.vault_service.save_item(editing_request).expect("guardar");
 
@@ -671,6 +680,21 @@ fn placeholder_typed_in_a_new_item_is_stored_literally() {
         .vault_service
         .save_item(login_request("Raro", REDACTED_SECRET_PLACEHOLDER))
         .expect("guardar");
+
+    let revealed_password =
+        test_harness.vault_service.reveal_item_field(saved_item.item_id, RevealableField::Password).expect("revelar");
+    assert_eq!(revealed_password.expose_secret(), REDACTED_SECRET_PLACEHOLDER);
+}
+
+#[test]
+fn typing_the_placeholder_over_an_existing_secret_stores_it_literally() {
+    let mut test_harness = harness_with_created_vault();
+    let saved_item = test_harness.vault_service.save_item(login_request("Correo", "pw-original")).expect("guardar");
+    let redacted_item = test_harness.vault_service.get_item_details(saved_item.item_id).expect("leer");
+    let mut editing_request = editing_request_from(&redacted_item);
+    editing_request.unchanged_secrets.clear();
+
+    test_harness.vault_service.save_item(editing_request).expect("guardar");
 
     let revealed_password =
         test_harness.vault_service.reveal_item_field(saved_item.item_id, RevealableField::Password).expect("revelar");

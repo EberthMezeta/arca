@@ -1,10 +1,12 @@
-//! Conversión de un elemento (enmascarado) en la petición de guardado que lo deja igual.
-//! Los marcadores enmascarados sin tocar recuperan su valor real al guardar (ver `save_vault_item`).
+//! Conversión de un elemento (enmascarado) en la petición de guardado que lo deja igual:
+//! todos sus secretos van como «sin tocar» y recuperan su valor real al guardar.
 
-use vault_core::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest};
+use vault_core::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest, SubmittedSecret};
 use vault_core::domain::vault_item::VaultItem;
 
 pub fn save_request_from_item(vault_item: &VaultItem) -> SaveVaultItemRequest {
+    let mut item_content = vault_item.item_content.clone();
+    let unchanged_secrets = item_content.masked_secrets_mut().into_iter().map(|(masked_field, _)| masked_field).collect();
     SaveVaultItemRequest {
         item_id: Some(vault_item.item_id),
         title: vault_item.title.clone(),
@@ -18,11 +20,17 @@ pub fn save_request_from_item(vault_item: &VaultItem) -> SaveVaultItemRequest {
             .enumerate()
             .map(|(field_index, custom_field)| CustomFieldDraft {
                 field_label: custom_field.field_label.clone(),
-                field_value: custom_field.field_value.clone(),
+                // Los ocultos llegan enmascarados; los visibles, con su valor.
+                field_value: if custom_field.is_hidden {
+                    SubmittedSecret::Unchanged
+                } else {
+                    SubmittedSecret::Replaced(custom_field.field_value.clone())
+                },
                 is_hidden: custom_field.is_hidden,
                 source_field_index: Some(field_index),
             })
             .collect(),
-        item_content: vault_item.item_content.clone(),
+        item_content,
+        unchanged_secrets,
     }
 }

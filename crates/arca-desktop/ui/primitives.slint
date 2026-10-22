@@ -327,8 +327,9 @@ export component LinkButton inherits Rectangle {
 // ── Campos ───────────────────────────────────────────────────────────────────
 
 /// Mismo valor que `REDACTED_SECRET_PLACEHOLDER` en Rust.
+/// El marcador lo publica Rust (`REDACTED_SECRET_PLACEHOLDER`) para que no haya dos copias.
 export global SealedSecret {
-    out property <string> placeholder: "••••••••";
+    in property <string> placeholder;
 }
 
 /// Campo de una línea. Con `is-password`, el ojo muestra/oculta el valor; si el valor es el

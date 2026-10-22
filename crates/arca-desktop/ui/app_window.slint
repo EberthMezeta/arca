@@ -9,8 +9,9 @@ import { CommandPaletteOverlay } from "command_palette.slint";
 import { ToastViewport, DialogLayer } from "overlays.slint";
 import { Viewport } from "viewport.slint";
 import { Palette } from "std-widgets.slint";
+import { SealedSecret } from "primitives.slint";
 
-export { Theme, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette }
+export { Theme, SealedSecret, I18n, UserActivity, PasswordStrengths, Toasts, Dialogs, Session, Sidebar, Workspace, ItemDetails, ItemEditor, Generator, PasswordHealth, Settings, CommandPalette }
 
 export component AppWindow inherits Window {
     property <bool> uses-dark-theme: Theme.dark;

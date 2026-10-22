@@ -77,48 +77,13 @@ pub enum RevealableField {
     CustomField { field_index: usize },
 }
 
-/// Sustituye a cada secreto no vacío en la vista de detalle.
+/// Sustituye a cada secreto no vacío en la vista de detalle. Solo es lo que se muestra: al guardar,
+/// la interfaz dice explícitamente qué secretos no tocó (`SubmittedSecret`, `unchanged_secrets`).
 pub const REDACTED_SECRET_PLACEHOLDER: &str = "••••••••";
 
 fn redact_secret(secret_value: &mut SecretText) {
     if !secret_value.is_empty() {
         *secret_value = SecretText::new(REDACTED_SECRET_PLACEHOLDER);
-    }
-}
-
-/// Inverso de `redact_secret`: si la UI devuelve el marcador sin tocarlo, se conserva el
-/// valor guardado. Si no había valor guardado, el marcador lo escribió el usuario y se respeta.
-pub fn restore_sealed_secret(submitted_secret: &mut SecretText, stored_secret: &SecretText) {
-    let is_untouched_placeholder = submitted_secret.expose_secret() == REDACTED_SECRET_PLACEHOLDER;
-    if is_untouched_placeholder && !stored_secret.is_empty() {
-        *submitted_secret = stored_secret.clone();
-    }
-}
-
-/// Restaura en `submitted_content` los secretos que el editor recibió enmascarados
-/// (mismos campos que enmascara `VaultItem::redacted_copy`).
-pub fn restore_sealed_content_secrets(submitted_content: &mut ItemContent, stored_content: &ItemContent) {
-    match (submitted_content, stored_content) {
-        (ItemContent::Login(submitted_login), ItemContent::Login(stored_login)) => {
-            restore_sealed_secret(&mut submitted_login.password, &stored_login.password);
-            if let (Some(submitted_totp), Some(stored_totp)) =
-                (submitted_login.totp_secret.as_mut(), stored_login.totp_secret.as_ref())
-            {
-                restore_sealed_secret(submitted_totp, stored_totp);
-            }
-        }
-        (ItemContent::PaymentCard(submitted_card), ItemContent::PaymentCard(stored_card)) => {
-            restore_sealed_secret(&mut submitted_card.card_number, &stored_card.card_number);
-            restore_sealed_secret(&mut submitted_card.security_code, &stored_card.security_code);
-        }
-        (ItemContent::Identity(submitted_identity), ItemContent::Identity(stored_identity)) => {
-            restore_sealed_secret(
-                &mut submitted_identity.identity_document_number,
-                &stored_identity.identity_document_number,
-            );
-        }
-        // Otro tipo de contenido o nota segura: no hay secretos enmascarados que recuperar.
-        _ => {}
     }
 }
 
@@ -128,17 +93,8 @@ impl VaultItem {
     #[must_use]
     pub fn redacted_copy(&self) -> Self {
         let mut redacted_item = self.clone();
-        match &mut redacted_item.item_content {
-            ItemContent::Login(login_content) => {
-                redact_secret(&mut login_content.password);
-                login_content.totp_secret.iter_mut().for_each(redact_secret);
-            }
-            ItemContent::PaymentCard(card_content) => {
-                redact_secret(&mut card_content.card_number);
-                redact_secret(&mut card_content.security_code);
-            }
-            ItemContent::Identity(identity_content) => redact_secret(&mut identity_content.identity_document_number),
-            ItemContent::SecureNote(_) => {}
+        for (_, masked_secret) in redacted_item.item_content.masked_secrets_mut() {
+            redact_secret(masked_secret);
         }
         redacted_item
             .custom_fields

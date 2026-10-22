@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
 use crate::domain::secret_text::SecretText;
+use crate::domain::vault_item::RevealableField;
 
 /// Contenido específico de cada tipo de elemento.
 ///
@@ -106,6 +107,29 @@ impl ItemContent {
             ]
             .into_iter()
             .for_each(Zeroize::zeroize),
+        }
+    }
+
+    /// Los secretos que se enmascaran al enviar el elemento a la interfaz, con su campo.
+    /// Fuente única: la usan tanto el enmascarado (`VaultItem::redacted_copy`) como la
+    /// restauración de lo que la interfaz no tocó (`save_vault_item`).
+    pub fn masked_secrets_mut(&mut self) -> Vec<(RevealableField, &mut SecretText)> {
+        match self {
+            Self::Login(login_content) => {
+                let mut masked_secrets = vec![(RevealableField::Password, &mut login_content.password)];
+                if let Some(totp_secret) = login_content.totp_secret.as_mut() {
+                    masked_secrets.push((RevealableField::TotpSecret, totp_secret));
+                }
+                masked_secrets
+            }
+            Self::SecureNote(_) => Vec::new(),
+            Self::PaymentCard(card_content) => vec![
+                (RevealableField::CardNumber, &mut card_content.card_number),
+                (RevealableField::CardSecurityCode, &mut card_content.security_code),
+            ],
+            Self::Identity(identity_content) => {
+                vec![(RevealableField::IdentityDocumentNumber, &mut identity_content.identity_document_number)]
+            }
         }
     }
 

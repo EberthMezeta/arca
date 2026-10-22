@@ -6,18 +6,23 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use uuid::Uuid;
-use vault_core::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest};
+use vault_core::application::save_vault_item::{CustomFieldDraft, SaveVaultItemRequest, SubmittedSecret};
 use vault_core::domain::folder::Folder;
 use vault_core::domain::item_content::{ItemContent, ItemContentType};
 use vault_core::domain::secret_text::SecretText;
-use vault_core::domain::vault_item::RevealableField;
+use vault_core::domain::vault_item::{REDACTED_SECRET_PLACEHOLDER, RevealableField};
 
 use crate::presentation::app_context::{AppContext, AppEvent, EditorMode};
 use crate::presentation::error_messages::describe_error;
 use crate::presentation::item_drafts::save_request_from_item;
 use crate::presentation::item_kinds::{ContentFieldDescriptor, definition_for};
 use crate::ui_error::UiResult;
-use crate::{AppWindow, CustomFieldRow, DescriptorField, ItemEditor, SealedField, WebsiteRow};
+use crate::{AppWindow, CustomFieldRow, DescriptorField, ItemEditor, SealedField, SealedSecret, WebsiteRow};
+
+/// El campo sigue mostrando el marcador con el que llegó enmascarado: el usuario no lo tocó.
+fn is_untouched_mask(field_text: &str) -> bool {
+    field_text == REDACTED_SECRET_PLACEHOLDER
+}
 
 /// Lo que el formulario no puede guardar por sí mismo.
 struct OpenDraft {
@@ -86,6 +91,7 @@ impl ItemEditorController {
     }
 
     fn bind_callbacks(self: &Rc<Self>, app_window: &AppWindow) {
+        app_window.global::<SealedSecret>().set_placeholder(REDACTED_SECRET_PLACEHOLDER.into());
         let item_editor = app_window.global::<ItemEditor>();
         let saving_controller = Rc::clone(self);
         item_editor.on_save(move || saving_controller.save());
@@ -155,6 +161,7 @@ impl ItemEditorController {
             notes: SecretText::default(),
             custom_fields: Vec::new(),
             item_content: (definition_for(content_type).create_empty_content)(),
+            unchanged_secrets: Vec::new(),
         };
         self.open_draft_request(empty_request, "editor.newItemTitle");
     }
@@ -221,7 +228,10 @@ impl ItemEditorController {
                 .iter()
                 .map(|field_draft| CustomFieldRow {
                     label: field_draft.field_label.clone().into(),
-                    value: field_draft.field_value.expose_secret().into(),
+                    value: match &field_draft.field_value {
+                        SubmittedSecret::Unchanged => REDACTED_SECRET_PLACEHOLDER.into(),
+                        SubmittedSecret::Replaced(field_value) => field_value.expose_secret().into(),
+                    },
                     is_hidden: field_draft.is_hidden,
                 })
                 .collect::<Vec<_>>(),
@@ -333,6 +343,13 @@ impl ItemEditorController {
             .for_each(|(field_descriptor, descriptor_field)| {
                 (field_descriptor.write_value)(&mut item_content, descriptor_field.value.to_string());
             });
+        let is_existing_item = open_draft.item_id.is_some();
+        let unchanged_secrets = item_content
+            .masked_secrets_mut()
+            .into_iter()
+            .filter(|(_, submitted_secret)| is_existing_item && is_untouched_mask(submitted_secret.expose_secret()))
+            .map(|(masked_field, _)| masked_field)
+            .collect();
         let folder_position = usize::try_from(item_editor.get_folder_index()).unwrap_or(0);
         Some(SaveVaultItemRequest {
             item_id: open_draft.item_id,
@@ -347,12 +364,17 @@ impl ItemEditorController {
                 .zip(open_draft.custom_field_sources.iter())
                 .map(|(custom_field, source_field_index)| CustomFieldDraft {
                     field_label: custom_field.label.to_string(),
-                    field_value: SecretText::new(custom_field.value.as_str()),
+                    field_value: if source_field_index.is_some() && is_untouched_mask(&custom_field.value) {
+                        SubmittedSecret::Unchanged
+                    } else {
+                        SubmittedSecret::Replaced(SecretText::new(custom_field.value.as_str()))
+                    },
                     is_hidden: custom_field.is_hidden,
                     source_field_index: *source_field_index,
                 })
                 .collect(),
             item_content,
+            unchanged_secrets,
         })
     }
 

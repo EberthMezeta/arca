@@ -9,9 +9,20 @@ use crate::domain::secret_text::SecretText;
 use crate::domain::totp_configuration::TotpConfiguration;
 use crate::domain::vault_contents::VaultContents;
 use crate::domain::vault_error::{VaultError, VaultResult};
-use crate::domain::vault_item::{CustomField, VaultItem, restore_sealed_content_secrets, restore_sealed_secret};
+use crate::domain::vault_item::{CustomField, RevealableField, VaultItem};
 
 pub(crate) const MAXIMUM_TITLE_CHARACTER_COUNT: usize = 200;
+
+/// Lo que la interfaz devuelve de un secreto que recibió enmascarado. Es explícito a propósito:
+/// antes se reconocía «sin tocar» por el texto del marcador, y un usuario que lo escribiera tal
+/// cual perdía lo que había escrito.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", content = "value", rename_all = "camelCase")]
+pub enum SubmittedSecret {
+    /// Se conserva el valor guardado.
+    Unchanged,
+    Replaced(SecretText),
+}
 
 /// Campo personalizado tal como lo edita la UI. `source_field_index` es su posición en el
 /// elemento guardado (`None` si es nuevo): permite recuperar un valor oculto enmascarado
@@ -20,25 +31,29 @@ pub(crate) const MAXIMUM_TITLE_CHARACTER_COUNT: usize = 200;
 #[serde(rename_all = "camelCase")]
 pub struct CustomFieldDraft {
     pub field_label: String,
-    pub field_value: SecretText,
+    pub field_value: SubmittedSecret,
     pub is_hidden: bool,
     #[serde(default)]
     pub source_field_index: Option<usize>,
 }
 
 impl CustomFieldDraft {
-    fn into_custom_field(self, stored_field: Option<&CustomField>) -> CustomField {
-        let mut field_value = self.field_value;
-        if let Some(stored_field) = stored_field {
-            restore_sealed_secret(&mut field_value, &stored_field.field_value);
-        }
-        CustomField { field_label: self.field_label, field_value, is_hidden: self.is_hidden }
+    fn into_custom_field(self, stored_item: Option<&VaultItem>) -> VaultResult<CustomField> {
+        let field_value = match self.field_value {
+            SubmittedSecret::Replaced(field_value) => field_value,
+            SubmittedSecret::Unchanged => self
+                .source_field_index
+                .and_then(|source_field_index| stored_item?.custom_fields.get(source_field_index))
+                .map(|stored_field| stored_field.field_value.clone())
+                .ok_or(VaultError::FieldNotAvailable)?,
+        };
+        Ok(CustomField { field_label: self.field_label, field_value, is_hidden: self.is_hidden })
     }
 }
 
 /// Datos editables que envía la UI. Fechas, historial y adjuntos los gestiona el backend.
-/// Los secretos que la UI recibió enmascarados y no tocó llegan como el marcador
-/// `REDACTED_SECRET_PLACEHOLDER` y se sustituyen por el valor guardado.
+/// Los secretos del contenido que la UI recibió enmascarados y no tocó se listan en
+/// `unchanged_secrets` y recuperan el valor guardado (lo que traigan en `item_content` se ignora).
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveVaultItemRequest {
@@ -55,6 +70,8 @@ pub struct SaveVaultItemRequest {
     #[serde(default)]
     pub custom_fields: Vec<CustomFieldDraft>,
     pub item_content: ItemContent,
+    #[serde(default)]
+    pub unchanged_secrets: Vec<RevealableField>,
 }
 
 pub fn execute(
@@ -63,7 +80,7 @@ pub fn execute(
     now: DateTime<Utc>,
 ) -> VaultResult<VaultItem> {
     let stored_item = save_request.item_id.map(|existing_item_id| vault_contents.find_item(existing_item_id)).transpose()?;
-    let custom_fields = unseal_submitted_secrets(&mut save_request, stored_item);
+    let custom_fields = unseal_submitted_secrets(&mut save_request, stored_item)?;
     let save_request = validate_and_normalize(vault_contents, save_request)?;
     match save_request.item_id {
         None => Ok(create_item(vault_contents, save_request, custom_fields, now)),
@@ -71,21 +88,17 @@ pub fn execute(
     }
 }
 
-/// Antes de validar (p. ej. el TOTP), los marcadores enmascarados recuperan su valor real.
-fn unseal_submitted_secrets(save_request: &mut SaveVaultItemRequest, stored_item: Option<&VaultItem>) -> Vec<CustomField> {
-    let custom_field_drafts = std::mem::take(&mut save_request.custom_fields);
-    let Some(stored_item) = stored_item else {
-        return custom_field_drafts.into_iter().map(|field_draft| field_draft.into_custom_field(None)).collect();
-    };
-
-    restore_sealed_content_secrets(&mut save_request.item_content, &stored_item.item_content);
-    custom_field_drafts
+/// Antes de validar (p. ej. el TOTP), los secretos que la UI no tocó recuperan su valor real.
+fn unseal_submitted_secrets(save_request: &mut SaveVaultItemRequest, stored_item: Option<&VaultItem>) -> VaultResult<Vec<CustomField>> {
+    let unchanged_secrets = std::mem::take(&mut save_request.unchanged_secrets);
+    for (masked_field, submitted_secret) in save_request.item_content.masked_secrets_mut() {
+        if unchanged_secrets.contains(&masked_field) {
+            *submitted_secret = stored_item.ok_or(VaultError::FieldNotAvailable)?.reveal_field(masked_field)?;
+        }
+    }
+    std::mem::take(&mut save_request.custom_fields)
         .into_iter()
-        .map(|field_draft| {
-            let stored_field =
-                field_draft.source_field_index.and_then(|source_field_index| stored_item.custom_fields.get(source_field_index));
-            field_draft.into_custom_field(stored_field)
-        })
+        .map(|field_draft| field_draft.into_custom_field(stored_item))
         .collect()
 }
 
