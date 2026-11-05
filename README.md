@@ -108,7 +108,7 @@ sudo apt remove arca     # desinstalar (la bóveda no se toca)
 Dependencias del sistema (una sola vez):
 
 ```bash
-sudo apt install build-essential pkg-config libfontconfig1-dev libxkbcommon-dev libdbus-1-dev
+sudo apt install build-essential pkg-config libfontconfig1-dev libxkbcommon-dev libdbus-1-dev clang mold
 ```
 
 | Tarea | Comando |
@@ -150,8 +150,9 @@ crates/vault-core/          Núcleo sin interfaz
   domain/                   Entidades, políticas y puertos (traits)
   application/              Casos de uso y la fachada VaultService, repartida en traits por tema
   infrastructure/           Adaptadores: Argon2id, XChaCha20, archivos, import/export
+crates/arca-ui/             Interfaz Slint (ui/; bridge.slint es el contrato con Rust), en un crate aparte
+                            para que editar el Rust no recompile los ~13 MB de código que genera Slint
 crates/arca-desktop/        Aplicación de escritorio
-  ui/                       Interfaz Slint; bridge.slint es el contrato con Rust
   src/presentation/         Un controlador por zona de la interfaz, unidos por un bus de eventos;
                             ports.rs: lo que necesitan del sistema (diálogos, archivos)
   src/platform/             Adaptadores: portapapeles, bloqueo de pantalla, diálogos, endurecimiento

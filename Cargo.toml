@@ -1,6 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["crates/vault-core", "crates/arca-desktop"]
+members = ["crates/vault-core", "crates/arca-ui", "crates/arca-desktop"]
+
+# Solo archivo y línea en los backtraces: enlaza más rápido y `target/` ocupa mucho menos.
+[profile.dev]
+debug = "line-tables-only"
 
 # Argon2 sin optimizar es lentísimo; así el desbloqueo en `cargo run` tarda lo mismo que en release.
 [profile.dev.package.argon2]

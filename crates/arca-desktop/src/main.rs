@@ -25,12 +25,8 @@ use crate::presentation::app_context::{AppContext, SystemPorts};
 use crate::presentation::{controllers, vault_event_bridge};
 use crate::shared_vault::VaultLocker;
 
-/// Código generado por Slint a partir de `ui/*.slint`: no sigue las reglas de estilo del proyecto.
-#[allow(clippy::unwrap_used, clippy::pedantic)]
-mod generated_ui {
-    slint::include_modules!();
-}
-use generated_ui::*;
+// Tipos generados por Slint (`AppWindow`, `Settings`…), en su propio crate para compilarlos aparte.
+use arca_ui::*;
 
 /// Aún no se conoce el idioma elegido (se carga después): el aviso va en los dos idiomas.
 /// También se muestra si la versión anterior (`RustVault`) sigue abierta: hay que cerrarla para migrar sus datos.

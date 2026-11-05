@@ -1,0 +1,16 @@
+[package]
+name = "arca-ui"
+version = "0.1.0"
+publish = false
+description = "Interfaz Slint de Arca (código generado a partir de ui/*.slint)"
+edition = "2024"
+build = "build.rs"
+
+# Crate aparte para que editar el Rust de `arca` no vuelva a compilar los ~13 MB de código
+# que Slint genera: solo se recompila cuando cambia algún `.slint`.
+
+[dependencies]
+slint = "1.18.1"
+
+[build-dependencies]
+slint-build = "1.18.1"
