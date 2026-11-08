@@ -1,0 +1,44 @@
+// Configuración de Zed solo para Arca. Se suma a ~/.config/zed/settings.json.
+{
+  "format_on_save": "off",
+
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        // El crate de fuzz tiene su propio [workspace]; sin esto rust-analyzer no lo analiza.
+        "linkedProjects": ["Cargo.toml", "crates/vault-core/fuzz/Cargo.toml"],
+        // Al guardar, clippy con los mismos lints que `cargo clippy --workspace --all-targets`.
+        "check": {
+          "command": "clippy",
+          "allTargets": true
+        },
+        "cargo": {
+          // Directorio aparte para no pelear por el lock de target/ con `cargo run` en la terminal.
+          "targetDir": true
+        },
+        "procMacro": { "enable": true },
+        "inlayHints": {
+          "closingBraceHints": { "minLines": 30 }
+        }
+      }
+    }
+  },
+
+  "languages": {
+    "Rust": {
+      // rustfmt toma rustfmt.toml (120 columnas, edition 2024).
+      "formatter": "language_server",
+      "preferred_line_length": 120,
+      "wrap_guides": [120]
+    }
+  },
+
+  // No indexar artefactos de compilación ni bóvedas de prueba.
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/target",
+    "**/*.vault",
+    "**/*.vault.bak",
+    "**/*.vault.tmp"
+  ]
+}
