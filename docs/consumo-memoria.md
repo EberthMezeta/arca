@@ -2,6 +2,9 @@
 
 Medición de Arca en reposo, después de rehacer la interfaz con Slint (commit `9bfcdcb`).
 
+
+
+
 ## Resultado
 
 | | Tauri + React (antes) | Slint (ahora) |
